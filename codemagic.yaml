@@ -53,7 +53,7 @@ workflows:
     publishing:
       email:
         recipients:
-          aranmanaikkollai@gmail.com      
+          - aranmanaikkollai@gmail.com      
         notify:
           success: true           # Email when build succeeds
           failure: true           # Email when build fails (with error log)
