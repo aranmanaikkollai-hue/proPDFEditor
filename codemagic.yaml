@@ -1,0 +1,59 @@
+# ============================================================
+#  codemagic.yaml — ProPDF Editor
+#  This version AUTO-DOWNLOADS gradle-wrapper.jar
+#  so you don't need to upload it manually to GitHub!
+#
+#  UPLOAD THIS FILE to the ROOT of your GitHub repo.
+#  Change the email address below to your own email.
+# ============================================================
+
+workflows:
+  android-debug-build:
+    name: ProPDF Editor - Build APK
+    max_build_duration: 60
+    instance_type: mac_mini_m1
+
+    environment:
+      java: 17
+
+    scripts:
+
+      # ── Step 1: Download gradle-wrapper.jar automatically ──────
+      # You don't need to upload this binary file to GitHub!
+      - name: Download Gradle wrapper jar
+        script: |
+          mkdir -p gradle/wrapper
+          curl -L \
+            "https://github.com/nicholasgriffintn/gradle-wrapper/raw/main/gradle/wrapper/gradle-wrapper.jar" \
+            -o gradle/wrapper/gradle-wrapper.jar
+          echo "gradle-wrapper.jar downloaded: $(ls -lh gradle/wrapper/gradle-wrapper.jar)"
+
+      # ── Step 2: Make gradlew executable ────────────────────────
+      - name: Set permissions
+        script: chmod +x gradlew
+
+      # ── Step 3: Clean old build files ──────────────────────────
+      - name: Clean
+        script: ./gradlew clean --no-daemon
+
+      # ── Step 4: Build the APK ───────────────────────────────────
+      - name: Build Debug APK
+        script: |
+          ./gradlew assembleDebug \
+            --stacktrace \
+            --no-daemon \
+            -Dorg.gradle.jvmargs="-Xmx3g -XX:MaxMetaspaceSize=512m"
+
+    # ── Where to find the built APK ─────────────────────────────
+    artifacts:
+      - app/build/outputs/apk/debug/**.apk
+      - app/build/outputs/logs/**
+
+    # ── Email the APK download link when done ───────────────────
+    publishing:
+      email:
+        recipients:
+          - your@email.com        # ← CHANGE THIS to your real email!
+        notify:
+          success: true           # Email when build succeeds
+          failure: true           # Email when build fails (with error log)
