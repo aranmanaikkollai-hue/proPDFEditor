@@ -61,7 +61,7 @@ workflows:
     publishing:
       email:
         recipients:
-          - your@gmail.com
+          - aranmanaikkollai@gmail.com
         notify:
           success: true
           failure: true
