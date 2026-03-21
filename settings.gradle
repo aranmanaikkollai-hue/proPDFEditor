@@ -1,0 +1,15 @@
+// ============================================================
+//  settings.gradle — ProPDF Editor
+//  FIXED: Removed dependencyResolutionManagement conflict
+// ============================================================
+
+pluginManagement {
+    repositories {
+        google()
+        mavenCentral()
+        gradlePluginPortal()
+    }
+}
+
+rootProject.name = "ProPDF Editor"
+include ':app'
