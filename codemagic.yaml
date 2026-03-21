@@ -1,0 +1,70 @@
+workflows:
+  android-debug-build:
+    name: ProPDF Editor - Build APK
+    max_build_duration: 60
+    instance_type: mac_mini_m1
+    environment:
+      java: 17
+    scripts:
+      - name: Setup project structure
+        script: |
+          mkdir -p app/src/main/java/com/propdf/editor/ui/viewer
+          mkdir -p app/src/main/java/com/propdf/editor/ui/scanner
+          mkdir -p app/src/main/java/com/propdf/editor/data/repository
+          mkdir -p app/src/main/java/com/propdf/editor/data/local
+          mkdir -p app/src/main/java/com/propdf/editor/data/model
+          mkdir -p app/src/main/java/com/propdf/editor/di
+          mkdir -p app/src/main/java/com/propdf/editor/utils
+          mkdir -p app/src/main/res/layout
+          mkdir -p app/src/main/res/values
+          mkdir -p app/src/main/res/menu
+          mkdir -p app/src/main/res/xml
+          mkdir -p app/src/main/res/navigation
+          mkdir -p gradle/wrapper
+          [ -f "app_build.gradle" ] && mv app_build.gradle app/build.gradle
+          [ -f "ProPDFApp.kt" ] && mv ProPDFApp.kt app/src/main/java/com/propdf/editor/
+          [ -f "ViewerActivity.kt" ] && mv ViewerActivity.kt app/src/main/java/com/propdf/editor/ui/viewer/
+          [ -f "AnnotationCanvasView.kt" ] && mv AnnotationCanvasView.kt app/src/main/java/com/propdf/editor/ui/viewer/
+          [ -f "DocumentScannerActivity.kt" ] && mv DocumentScannerActivity.kt app/src/main/java/com/propdf/editor/ui/scanner/
+          [ -f "PdfOperationsManager.kt" ] && mv PdfOperationsManager.kt app/src/main/java/com/propdf/editor/data/repository/
+          [ -f "OcrManager.kt" ] && mv OcrManager.kt app/src/main/java/com/propdf/editor/data/repository/
+          [ -f "ScannerProcessor.kt" ] && mv ScannerProcessor.kt app/src/main/java/com/propdf/editor/data/repository/
+          [ -f "ProPDFDatabase.kt" ] && mv ProPDFDatabase.kt app/src/main/java/com/propdf/editor/data/local/
+          [ -f "Models.kt" ] && mv Models.kt app/src/main/java/com/propdf/editor/data/model/
+          [ -f "AppModule.kt" ] && mv AppModule.kt app/src/main/java/com/propdf/editor/di/
+          [ -f "PermissionUtils.kt" ] && mv PermissionUtils.kt app/src/main/java/com/propdf/editor/utils/
+          [ -f "AndroidManifest.xml" ] && mv AndroidManifest.xml app/src/main/
+          [ -f "gradle-wrapper.properties" ] && cp gradle-wrapper.properties gradle/wrapper/
+          [ ! -f "app/proguard-rules.pro" ] && echo "# ProGuard" > app/proguard-rules.pro
+          JAR=$(find . -not -path './.git/*' -name "gradle-wrapper.jar" 2>/dev/null | head -1)
+          if [ -n "$JAR" ]; then
+            cp "$JAR" gradle/wrapper/gradle-wrapper.jar
+            echo "Jar placed at gradle/wrapper/"
+          fi
+          find . -not -path './.git/*' -type f | sort
+
+      - name: Create nav and stubs
+        script: python3 setup_project.py
+
+      - name: Set permissions
+        script: chmod +x gradlew
+
+      - name: Build Debug APK
+        script: |
+          export GRADLE_OPTS="-Xmx3g -XX:MaxMetaspaceSize=512m"
+          if [ -f "gradle/wrapper/gradle-wrapper.jar" ]; then
+            ./gradlew :app:assembleDebug --no-daemon --stacktrace
+          else
+            gradle :app:assembleDebug --no-daemon --stacktrace
+          fi
+
+    artifacts:
+      - app/build/outputs/apk/debug/**.apk
+
+    publishing:
+      email:
+        recipients:
+          - your@gmail.com
+        notify:
+          success: true
+          failure: true
