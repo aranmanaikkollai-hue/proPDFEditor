@@ -6,6 +6,19 @@ workflows:
     environment:
       java: 17
     scripts:
+      - name: Verify gradle wrapper jar
+        script: |
+          echo "Checking for gradle-wrapper.jar..."
+          if [ -f "gradle/wrapper/gradle-wrapper.jar" ]; then
+            echo "JAR found: $(ls -lh gradle/wrapper/gradle-wrapper.jar)"
+            file gradle/wrapper/gradle-wrapper.jar
+          else
+            echo "JAR NOT FOUND - checking all locations..."
+            find . -name "gradle-wrapper.jar" 2>/dev/null
+            echo "FAIL: You must commit gradle-wrapper.jar to gradle/wrapper/ in your repo"
+            exit 1
+          fi
+
       - name: Fix folder structure
         script: |
           mkdir -p app/src/main/java/com/propdf/editor/ui/viewer
@@ -20,7 +33,6 @@ workflows:
           mkdir -p app/src/main/res/menu
           mkdir -p app/src/main/res/xml
           mkdir -p app/src/main/res/navigation
-          mkdir -p gradle/wrapper
           [ -f "app_build.gradle" ] && mv app_build.gradle app/build.gradle
           [ -f "ProPDFApp.kt" ] && mv ProPDFApp.kt app/src/main/java/com/propdf/editor/
           [ -f "ViewerActivity.kt" ] && mv ViewerActivity.kt app/src/main/java/com/propdf/editor/ui/viewer/
@@ -34,20 +46,8 @@ workflows:
           [ -f "AppModule.kt" ] && mv AppModule.kt app/src/main/java/com/propdf/editor/di/
           [ -f "PermissionUtils.kt" ] && mv PermissionUtils.kt app/src/main/java/com/propdf/editor/utils/
           [ -f "AndroidManifest.xml" ] && mv AndroidManifest.xml app/src/main/
-          [ -f "gradle-wrapper.properties" ] && mv gradle-wrapper.properties gradle/wrapper/
           [ ! -f "app/proguard-rules.pro" ] && echo "# ProGuard" > app/proguard-rules.pro
-          echo "Done moving files"
-
-      - name: Get gradle-wrapper.jar from Gradle zip
-        script: |
-          cd /tmp
-          curl -L "https://services.gradle.org/distributions/gradle-8.2-bin.zip" -o gradle-bin.zip
-          echo "Zip size: $(ls -lh gradle-bin.zip | awk '{print $5}')"
-          unzip -p gradle-bin.zip "gradle-8.2/lib/gradle-wrapper.jar" > gradle-wrapper.jar
-          echo "Jar size: $(ls -lh gradle-wrapper.jar | awk '{print $5}')"
-          file gradle-wrapper.jar
-          cp gradle-wrapper.jar $OLDPWD/gradle/wrapper/gradle-wrapper.jar
-          echo "Copied to gradle/wrapper/"
+          echo "Done"
 
       - name: Create nav graph and stubs
         script: python3 setup_project.py
@@ -68,7 +68,7 @@ workflows:
     publishing:
       email:
         recipients:
-          - aranmanaikkollai@gmail.com
+          - your@gmail.com
         notify:
           success: true
           failure: true
