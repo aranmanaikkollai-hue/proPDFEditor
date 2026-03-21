@@ -53,7 +53,7 @@ workflows:
     publishing:
       email:
         recipients:
-          - your@email.com        # ← CHANGE THIS to your real email!
+          aranmanaikkollai@gmail.com      
         notify:
           success: true           # Email when build succeeds
           failure: true           # Email when build fails (with error log)
