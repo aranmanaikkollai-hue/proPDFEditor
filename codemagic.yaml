@@ -1,0 +1,42 @@
+# ============================================================
+#  codemagic.yaml — ProPDF Editor
+#  FIXED: Installs Gradle directly — no wrapper jar needed at all
+# ============================================================
+
+workflows:
+  android-debug-build:
+    name: ProPDF Editor - Build APK
+    max_build_duration: 60
+    instance_type: mac_mini_m1
+
+    environment:
+      java: 17
+
+    scripts:
+
+      - name: Install Gradle 8.2 directly
+        script: |
+          cd /usr/local
+          curl -L https://services.gradle.org/distributions/gradle-8.2-bin.zip -o gradle.zip
+          unzip -q gradle.zip
+          export PATH=$PATH:/usr/local/gradle-8.2/bin
+          gradle --version
+
+      - name: Build Debug APK
+        script: |
+          export PATH=$PATH:/usr/local/gradle-8.2/bin
+          gradle assembleDebug \
+            --stacktrace \
+            --no-daemon \
+            -Dorg.gradle.jvmargs="-Xmx3g -XX:MaxMetaspaceSize=512m"
+
+    artifacts:
+      - app/build/outputs/apk/debug/**.apk
+
+    publishing:
+      email:
+        recipients:
+          - your@gmail.com
+        notify:
+          success: true
+          failure: true
