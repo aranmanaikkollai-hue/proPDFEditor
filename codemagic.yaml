@@ -1,0 +1,44 @@
+# ============================================================
+#  codemagic.yaml — ProPDF Editor
+#  FIXED: gradle-wrapper.jar from official services.gradle.org
+# ============================================================
+
+workflows:
+  android-debug-build:
+    name: ProPDF Editor - Build APK
+    max_build_duration: 60
+    instance_type: mac_mini_m1
+
+    environment:
+      java: 17
+
+    scripts:
+
+      - name: Download gradle-wrapper.jar (official source)
+        script: |
+          mkdir -p gradle/wrapper
+          curl -L \
+            "https://services.gradle.org/distributions/gradle-8.2-wrapper.jar" \
+            -o gradle/wrapper/gradle-wrapper.jar
+          echo "JAR downloaded, size: $(ls -lh gradle/wrapper/gradle-wrapper.jar)"
+
+      - name: Set gradlew permissions
+        script: chmod +x gradlew
+
+      - name: Build Debug APK
+        script: |
+          ./gradlew assembleDebug \
+            --stacktrace \
+            --no-daemon \
+            -Dorg.gradle.jvmargs="-Xmx3g -XX:MaxMetaspaceSize=512m"
+
+    artifacts:
+      - app/build/outputs/apk/debug/**.apk
+
+    publishing:
+      email:
+        recipients:
+          - your@gmail.com
+        notify:
+          success: true
+          failure: true
