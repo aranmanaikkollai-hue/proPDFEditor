@@ -1,0 +1,79 @@
+workflows:
+  android-debug-build:
+    name: ProPDF Editor - Build APK
+    max_build_duration: 60
+    instance_type: mac_mini_m1
+    environment:
+      java: 17
+    scripts:
+      - name: Setup project structure
+        script: |
+          mkdir -p app/src/main/java/com/propdf/editor/ui/viewer
+          mkdir -p app/src/main/java/com/propdf/editor/ui/scanner
+          mkdir -p app/src/main/java/com/propdf/editor/ui/tools
+          mkdir -p app/src/main/java/com/propdf/editor/data/repository
+          mkdir -p app/src/main/java/com/propdf/editor/di
+          mkdir -p app/src/main/java/com/propdf/editor/utils
+          mkdir -p app/src/main/res/layout
+          mkdir -p app/src/main/res/values
+          mkdir -p app/src/main/res/menu
+          mkdir -p app/src/main/res/xml
+          mkdir -p app/src/main/res/navigation
+          mkdir -p gradle/wrapper
+          [ -f "app_build.gradle" ]          && mv app_build.gradle app/build.gradle
+          [ -f "ProPDFApp.kt" ]              && mv ProPDFApp.kt     app/src/main/java/com/propdf/editor/
+          [ -f "MainActivity.kt" ]           && mv MainActivity.kt  app/src/main/java/com/propdf/editor/ui/
+          [ -f "ViewerActivity.kt" ]         && mv ViewerActivity.kt         app/src/main/java/com/propdf/editor/ui/viewer/
+          [ -f "AnnotationCanvasView.kt" ]   && mv AnnotationCanvasView.kt   app/src/main/java/com/propdf/editor/ui/viewer/
+          [ -f "AnnotatedPageView.kt" ]      && mv AnnotatedPageView.kt      app/src/main/java/com/propdf/editor/ui/viewer/
+          [ -f "PdfPageAdapter.kt" ]         && mv PdfPageAdapter.kt         app/src/main/java/com/propdf/editor/ui/viewer/
+          [ -f "ToolsActivity.kt" ]          && mv ToolsActivity.kt          app/src/main/java/com/propdf/editor/ui/tools/
+          [ -f "DocumentScannerActivity.kt" ] && mv DocumentScannerActivity.kt app/src/main/java/com/propdf/editor/ui/scanner/
+          [ -f "PdfOperationsManager.kt" ]   && mv PdfOperationsManager.kt   app/src/main/java/com/propdf/editor/data/repository/
+          [ -f "OcrManager.kt" ]             && mv OcrManager.kt             app/src/main/java/com/propdf/editor/data/repository/
+          [ -f "ScannerProcessor.kt" ]       && mv ScannerProcessor.kt       app/src/main/java/com/propdf/editor/data/repository/
+          [ -f "AppModule.kt" ]              && mv AppModule.kt              app/src/main/java/com/propdf/editor/di/
+          [ -f "FileHelper.kt" ]             && mv FileHelper.kt             app/src/main/java/com/propdf/editor/utils/
+          [ -f "PermissionUtils.kt" ]        && mv PermissionUtils.kt        app/src/main/java/com/propdf/editor/utils/
+          [ -f "AndroidManifest.xml" ]       && mv AndroidManifest.xml       app/src/main/
+          [ -f "activity_main.xml" ]         && mv activity_main.xml         app/src/main/res/layout/
+          [ -f "bottom_nav_menu.xml" ]       && mv bottom_nav_menu.xml       app/src/main/res/menu/
+          [ -f "gradle-wrapper.properties" ] && cp gradle-wrapper.properties gradle/wrapper/
+          [ ! -f "app/proguard-rules.pro" ]  && echo "# ProGuard" > app/proguard-rules.pro
+          JAR=$(find . -not -path './.git/*' -name "gradle-wrapper.jar" 2>/dev/null | head -1)
+          [ -n "$JAR" ] && cp "$JAR" gradle/wrapper/gradle-wrapper.jar
+          find . -not -path './.git/*' -not -path '*/build/*' -type f | sort
+
+      - name: Generate resources
+        script: python3 setup_project.py
+
+      - name: Set permissions
+        script: chmod +x gradlew
+
+      - name: Build Debug APK
+        script: |
+          export GRADLE_OPTS="-Xmx3g -XX:MaxMetaspaceSize=512m"
+          if [ -f "gradle/wrapper/gradle-wrapper.jar" ]; then
+            ./gradlew :app:assembleDebug --no-daemon --stacktrace
+          else
+            gradle :app:assembleDebug --no-daemon --stacktrace
+          fi
+
+      - name: Locate APK
+        script: |
+          find . -name "*.apk" | sort
+          mkdir -p outputs
+          find . -name "*.apk" -exec cp {} outputs/ \;
+          ls -lh outputs/
+
+    artifacts:
+      - app/build/outputs/apk/**/*.apk
+      - outputs/*.apk
+
+    publishing:
+      email:
+        recipients:
+          - your@gmail.com
+        notify:
+          success: true
+          failure: true
