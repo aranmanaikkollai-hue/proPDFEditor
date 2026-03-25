@@ -1,0 +1,110 @@
+# PATH: codemagic.yaml (repository root)
+# ProPDF Editor v3.0 — Fail-proof build pipeline
+workflows:
+  android-debug-build:
+    name: ProPDF Editor v3 — Debug APK
+    max_build_duration: 60
+    instance_type: mac_mini_m1
+    environment:
+      java: 17
+    scripts:
+      - name: "Step 1: Create Android project structure"
+        script: |
+          set -e
+          # Source directories
+          mkdir -p app/src/main/java/com/propdf/editor/ui/viewer
+          mkdir -p app/src/main/java/com/propdf/editor/ui/scanner
+          mkdir -p app/src/main/java/com/propdf/editor/ui/tools
+          mkdir -p app/src/main/java/com/propdf/editor/data/repository
+          mkdir -p app/src/main/java/com/propdf/editor/data/local
+          mkdir -p app/src/main/java/com/propdf/editor/di
+          mkdir -p app/src/main/java/com/propdf/editor/utils
+          mkdir -p app/src/main/res/layout
+          mkdir -p app/src/main/res/values
+          mkdir -p app/src/main/res/menu
+          mkdir -p app/src/main/res/xml
+          mkdir -p app/src/main/res/navigation
+          mkdir -p gradle/wrapper
+
+          # Rename + move Gradle files
+          [ -f "app_build.gradle" ]       && mv app_build.gradle app/build.gradle
+          [ -f "proguard-rules.pro" ]     && mv proguard-rules.pro app/proguard-rules.pro
+          [ ! -f "app/proguard-rules.pro" ] && echo "# ProGuard" > app/proguard-rules.pro
+
+          # Move Kotlin source files
+          [ -f "ProPDFApp.kt" ]              && mv ProPDFApp.kt     app/src/main/java/com/propdf/editor/
+          [ -f "MainActivity.kt" ]           && mv MainActivity.kt  app/src/main/java/com/propdf/editor/ui/
+          [ -f "ViewerActivity.kt" ]         && mv ViewerActivity.kt         app/src/main/java/com/propdf/editor/ui/viewer/
+          [ -f "AnnotationCanvasView.kt" ]   && mv AnnotationCanvasView.kt   app/src/main/java/com/propdf/editor/ui/viewer/
+          [ -f "AnnotatedPageView.kt" ]      && mv AnnotatedPageView.kt      app/src/main/java/com/propdf/editor/ui/viewer/
+          [ -f "PdfPageAdapter.kt" ]         && mv PdfPageAdapter.kt         app/src/main/java/com/propdf/editor/ui/viewer/
+          [ -f "ToolsActivity.kt" ]          && mv ToolsActivity.kt          app/src/main/java/com/propdf/editor/ui/tools/
+          [ -f "DocumentScannerActivity.kt" ] && mv DocumentScannerActivity.kt app/src/main/java/com/propdf/editor/ui/scanner/
+          [ -f "PdfOperationsManager.kt" ]   && mv PdfOperationsManager.kt   app/src/main/java/com/propdf/editor/data/repository/
+          [ -f "OcrManager.kt" ]             && mv OcrManager.kt             app/src/main/java/com/propdf/editor/data/repository/
+          [ -f "ScannerProcessor.kt" ]       && mv ScannerProcessor.kt       app/src/main/java/com/propdf/editor/data/repository/
+          [ -f "RecentFilesDatabase.kt" ]    && mv RecentFilesDatabase.kt    app/src/main/java/com/propdf/editor/data/local/
+          [ -f "AppModule.kt" ]              && mv AppModule.kt              app/src/main/java/com/propdf/editor/di/
+          [ -f "FileHelper.kt" ]             && mv FileHelper.kt             app/src/main/java/com/propdf/editor/utils/
+          [ -f "PermissionUtils.kt" ]        && mv PermissionUtils.kt        app/src/main/java/com/propdf/editor/utils/
+
+          # Move Android resource files
+          [ -f "AndroidManifest.xml" ]  && mv AndroidManifest.xml  app/src/main/
+          [ -f "activity_main.xml" ]    && mv activity_main.xml    app/src/main/res/layout/
+          [ -f "bottom_nav_menu.xml" ]  && mv bottom_nav_menu.xml  app/src/main/res/menu/
+
+          # Gradle wrapper
+          [ -f "gradle-wrapper.properties" ] && cp gradle-wrapper.properties gradle/wrapper/
+          JAR=$(find . -not -path './.git/*' -name "gradle-wrapper.jar" 2>/dev/null | head -1)
+          [ -n "$JAR" ] && cp "$JAR" gradle/wrapper/gradle-wrapper.jar
+
+          echo "=== Project structure ==="
+          find app/src -type f | sort
+
+      - name: "Step 2: Generate Android resources"
+        script: python3 setup_project.py
+
+      - name: "Step 3: Set Gradle permissions"
+        script: chmod +x gradlew
+
+      - name: "Step 4: Build Debug APK"
+        script: |
+          export GRADLE_OPTS="-Xmx3g -XX:MaxMetaspaceSize=512m"
+          if [ -f "gradle/wrapper/gradle-wrapper.jar" ]; then
+            ./gradlew :app:assembleDebug --no-daemon --stacktrace 2>&1
+          else
+            gradle :app:assembleDebug --no-daemon --stacktrace 2>&1
+          fi
+
+      - name: "Step 5: Collect APK artifact"
+        script: |
+          echo "=== APK search ==="
+          find . -name "*.apk" | grep -v '.git' | sort
+          # Create outputs dir and copy APK with timestamp name
+          mkdir -p outputs
+          APK=$(find . -name "app-debug.apk" 2>/dev/null | head -1)
+          if [ -n "$APK" ]; then
+            STAMP=$(date +%Y%m%d_%H%M)
+            cp "$APK" "outputs/ProPDF_v3_${STAMP}.apk"
+            echo "✅ APK ready: outputs/ProPDF_v3_${STAMP}.apk"
+            ls -lh outputs/
+          else
+            echo "❌ APK not found — build may have failed"
+            find . -name "*.apk" | grep -v '.git'
+            exit 1
+          fi
+
+    artifacts:
+      # Multiple patterns ensure artifact is ALWAYS found
+      - outputs/*.apk
+      - app/build/outputs/apk/debug/*.apk
+      - app/build/outputs/apk/**/*.apk
+      - "**/*.apk"
+
+    publishing:
+      email:
+        recipients:
+          - your@gmail.com
+        notify:
+          success: true
+          failure: true
