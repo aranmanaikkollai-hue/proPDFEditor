@@ -1,0 +1,15 @@
+<?xml version="1.0" encoding="utf-8"?>
+<paths>
+    <!-- App internal files -->
+    <files-path          name="internal"       path="."/>
+    <!-- App cache -->
+    <cache-path          name="cache"          path="."/>
+    <!-- App external files (Android/data/...) -->
+    <external-files-path name="app_external"   path="."/>
+    <!-- External cache -->
+    <external-cache-path name="ext_cache"      path="."/>
+    <!-- Public Downloads — where tool output is saved -->
+    <external-path       name="downloads"      path="Download/"/>
+    <!-- Full external (fallback) -->
+    <external-path       name="external"       path="."/>
+</paths>
