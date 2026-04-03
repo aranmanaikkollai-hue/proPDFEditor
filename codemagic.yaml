@@ -1,0 +1,80 @@
+# FILE: codemagic.yaml
+# VERSION: 4.1 (Build-Fix Edition)
+# FEATURE: Automatic Wrapper Discovery + Email Reporting
+
+workflows:
+  android-debug:
+    name: ProPDF Editor - Debug APK
+    instance_type: mac_mini_m1
+    max_build_duration: 60
+    environment:
+      java: 17
+    scripts:
+      - name: Step 1 - Project Structure & Dynamic Wrapper Discovery
+        script: |
+          set -e
+
+          # 1. Create the mandatory Android directory tree
+          mkdir -p app/src/main/java/com/propdf/editor/di
+          mkdir -p app/src/main/java/com/propdf/editor/ui/viewer
+          mkdir -p app/src/main/java/com/propdf/editor/ui/scanner
+          mkdir -p app/src/main/java/com/propdf/editor/ui/tools
+          mkdir -p app/src/main/java/com/propdf/editor/data/repository
+          mkdir -p app/src/main/java/com/propdf/editor/data/local
+          mkdir -p app/src/main/java/com/propdf/editor/utils
+          mkdir -p app/src/main/res/layout
+          mkdir -p app/src/main/res/menu
+          mkdir -p app/src/main/res/xml
+          mkdir -p app/src/main/res/values
+          mkdir -p gradle/wrapper
+
+          # 2. DYNAMIC SEARCH FOR GRADLE WRAPPER (The Fix)
+          # This finds gradle-wrapper.jar anywhere in the repo and moves it to the expected path
+          echo "Searching for gradle-wrapper.jar..."
+          WRAPPER_PATH=$(find . -name "gradle-wrapper.jar" | head -n 1)
+          if [ -n "$WRAPPER_PATH" ]; then
+            echo "Found wrapper at: $WRAPPER_PATH. Copying to gradle/wrapper/"
+            cp "$WRAPPER_PATH" gradle/wrapper/gradle-wrapper.jar
+          else
+            echo "ERROR: gradle-wrapper.jar not found in repository!"
+            exit 1
+          fi
+
+          # 3. Copy other configuration files
+          [ -f "gradle-wrapper.properties" ] && cp gradle-wrapper.properties gradle/wrapper/
+          [ -f "app_build.gradle" ] && cp app_build.gradle app/build.gradle
+          [ -f "build.gradle" ]     && cp build.gradle build.gradle
+          [ -f "settings.gradle" ]  && cp settings.gradle settings.gradle
+          [ -f "AndroidManifest.xml" ] && cp AndroidManifest.xml app/src/main/AndroidManifest.xml
+
+          # 4. Copy Kotlin Source Files (Mapping based on Documentation)
+          # Note: Add any additional v4.0 files to this list
+          find . -name "OcrManager.kt" -exec cp {} app/src/main/java/com/propdf/editor/data/repository/ \;
+          find . -name "PdfRedactionManager.kt" -exec cp {} app/src/main/java/com/propdf/editor/data/repository/ \;
+          find . -name "AppShortcutsHelper.kt" -exec cp {} app/src/main/java/com/propdf/editor/utils/ \;
+          find . -name "TextReflowActivity.kt" -exec cp {} app/src/main/java/com/propdf/editor/ui/viewer/ \;
+          find . -name "DocumentScannerActivity.kt" -exec cp {} app/src/main/java/com/propdf/editor/ui/scanner/ \;
+          
+      - name: Step 2 - Resource Generation
+        script: |
+          if [ -f "setup_project.py" ]; then
+            python3 setup_project.py
+          fi
+
+      - name: Step 3 - Set Execution Permissions
+        script: chmod +x gradlew
+
+      - name: Step 4 - Build Debug APK
+        script: |
+          ./gradlew :app:assembleDebug --no-daemon
+
+    artifacts:
+      - app/build/outputs/apk/**/*.apk
+
+    publishing:
+      email:
+        recipients:
+          - aranmanaikkollai@gmail.com # UPDATE: Enter your email address here
+        notify:
+          success: true
+          failure: true
