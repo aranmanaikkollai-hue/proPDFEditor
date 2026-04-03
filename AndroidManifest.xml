@@ -1,0 +1,123 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- FILE: AndroidManifest.xml -->
+<!-- FLAT REPO ROOT -- codemagic.yaml copies to: app/src/main/AndroidManifest.xml -->
+<!--                                                                              -->
+<!-- CHANGES vs v3.0:                                                             -->
+<!--   Added: ScanSaveActivity   (post-scan review + save screen)                 -->
+<!--   Added: TextReflowActivity (PDF text reflow reading mode)                   -->
+<!--   All existing activities preserved unchanged                                 -->
+
+<manifest xmlns:android="http://schemas.android.com/apk/res/android">
+
+    <!-- Storage permissions -->
+    <uses-permission android:name="android.permission.READ_EXTERNAL_STORAGE"
+        android:maxSdkVersion="32" />
+    <uses-permission android:name="android.permission.WRITE_EXTERNAL_STORAGE"
+        android:maxSdkVersion="28" />
+    <uses-permission android:name="android.permission.READ_MEDIA_IMAGES" />
+
+    <!-- Camera -->
+    <uses-permission android:name="android.permission.CAMERA" />
+    <uses-feature android:name="android.hardware.camera"
+        android:required="false" />
+
+    <!-- Print -->
+    <uses-permission android:name="android.permission.EXPAND_STATUS_BAR" />
+
+    <application
+        android:name=".ProPDFApp"
+        android:allowBackup="true"
+        android:icon="@mipmap/ic_launcher"
+        android:roundIcon="@mipmap/ic_launcher_round"
+        android:label="@string/app_name"
+        android:supportsRtl="true"
+        android:theme="@style/Theme.ProPDFEditor"
+        android:hardwareAccelerated="true"
+        android:largeHeap="true">
+
+        <!-- ================================================================
+             EXISTING v3.0 ACTIVITIES
+             ================================================================ -->
+
+        <!-- Home / file browser -->
+        <activity
+            android:name=".ui.MainActivity"
+            android:exported="true"
+            android:windowSoftInputMode="adjustResize"
+            android:launchMode="singleTop">
+            <intent-filter>
+                <action android:name="android.intent.action.MAIN" />
+                <category android:name="android.intent.category.LAUNCHER" />
+            </intent-filter>
+            <!-- Short-cut actions dispatched from AppShortcutsHelper -->
+            <intent-filter>
+                <action android:name="com.propdf.editor.action.OPEN_PICKER" />
+                <action android:name="com.propdf.editor.action.OPEN_RECENT" />
+                <category android:name="android.intent.category.DEFAULT" />
+            </intent-filter>
+        </activity>
+
+        <!-- PDF viewer + annotations -->
+        <activity
+            android:name=".ui.viewer.ViewerActivity"
+            android:exported="true"
+            android:configChanges="orientation|screenSize"
+            android:windowSoftInputMode="adjustPan">
+            <intent-filter>
+                <action android:name="android.intent.action.VIEW" />
+                <category android:name="android.intent.category.DEFAULT" />
+                <category android:name="android.intent.category.BROWSABLE" />
+                <data android:mimeType="application/pdf" />
+            </intent-filter>
+        </activity>
+
+        <!-- PDF tools (watermark, compress, password, merge, split ...) -->
+        <activity
+            android:name=".ui.tools.ToolsActivity"
+            android:exported="false" />
+
+        <!-- Document scanner (CameraX) -->
+        <activity
+            android:name=".ui.scanner.DocumentScannerActivity"
+            android:exported="true"
+            android:screenOrientation="portrait"
+            android:windowSoftInputMode="adjustNothing">
+            <intent-filter>
+                <action android:name="com.propdf.editor.action.SCAN" />
+                <category android:name="android.intent.category.DEFAULT" />
+            </intent-filter>
+        </activity>
+
+        <!-- ================================================================
+             NEW v4.0 ACTIVITIES
+             ================================================================ -->
+
+        <!-- Post-scan review: name file, choose quality/category, save PDF -->
+        <activity
+            android:name=".ui.scanner.ScanSaveActivity"
+            android:exported="false"
+            android:screenOrientation="portrait"
+            android:windowSoftInputMode="adjustResize" />
+
+        <!-- Text reflow reading mode: single-column scrollable text from PDF -->
+        <activity
+            android:name=".ui.viewer.TextReflowActivity"
+            android:exported="false"
+            android:windowSoftInputMode="adjustResize" />
+
+        <!-- ================================================================
+             FILE PROVIDER (for sharing PDFs via Intent)
+             ================================================================ -->
+        <provider
+            android:name="androidx.core.content.FileProvider"
+            android:authorities="${applicationId}.fileprovider"
+            android:exported="false"
+            android:grantUriPermissions="true">
+            <meta-data
+                android:name="android.support.FILE_PROVIDER_PATHS"
+                android:resource="@xml/file_paths" />
+        </provider>
+
+    </application>
+
+</manifest>
