@@ -1,0 +1,83 @@
+# FILE: codemagic.yaml
+# VERSION: 4.7 (Workflow ID Sync + XML Sanitizer)
+# FIXES: "Workflow does not exist" error and "scanComment" XML crash
+
+workflows:
+  android-debug: # This ID must match your Codemagic project settings
+    name: ProPDF Editor Build
+    instance_type: mac_mini_m1
+    max_build_duration: 60
+    environment:
+      java: 17
+    scripts:
+      - name: Step 1 - Project Structure & XML Repair
+        script: |
+          set -e
+
+          # 1. Create directory tree
+          mkdir -p app/src/main/java/com/propdf/editor/di
+          mkdir -p app/src/main/java/com/propdf/editor/ui/viewer
+          mkdir -p app/src/main/java/com/propdf/editor/ui/scanner
+          mkdir -p app/src/main/java/com/propdf/editor/ui/tools
+          mkdir -p app/src/main/java/com/propdf/editor/data/repository
+          mkdir -p app/src/main/java/com/propdf/editor/data/local
+          mkdir -p app/src/main/java/com/propdf/editor/utils
+          mkdir -p app/src/main/res/layout
+          mkdir -p app/src/main/res/menu
+          mkdir -p app/src/main/res/xml
+          mkdir -p app/src/main/res/values
+          mkdir -p gradle/wrapper
+
+          # 2. DYNAMIC WRAPPER FIX
+          echo "Locating gradle-wrapper.jar..."
+          WRAPPER_SRC=$(find . -name "gradle-wrapper.jar" | grep -v "gradle/wrapper" | head -n 1)
+          if [ -n "$WRAPPER_SRC" ]; then
+            cp "$WRAPPER_SRC" gradle/wrapper/gradle-wrapper.jar
+          fi
+
+          # 3. MANIFEST SANITIZER (Fixes XMLScanner.scanComment)
+          # Strips comments and problematic double-dashes
+          if [ -f "AndroidManifest.xml" ]; then
+            echo "Repairing Manifest XML syntax..."
+            sed -e 's///g' -e '//d' AndroidManifest.xml > app/src/main/AndroidManifest.xml
+          fi
+
+          # 4. SMART CONFIG COPY (Avoids "Identical File" Error)
+          [ -f "app_build.gradle" ] && cp app_build.gradle app/build.gradle
+          [ -f "gradle-wrapper.properties" ] && cp gradle-wrapper.properties gradle/wrapper/
+          
+          # 5. KOTLIN SOURCE MAPPING
+          find . -maxdepth 1 -name "OcrManager.kt" -exec cp {} app/src/main/java/com/propdf/editor/data/repository/ \;
+          find . -maxdepth 1 -name "PdfRedactionManager.kt" -exec cp {} app/src/main/java/com/propdf/editor/data/repository/ \;
+          find . -maxdepth 1 -name "AppShortcutsHelper.kt" -exec cp {} app/src/main/java/com/propdf/editor/utils/ \;
+          find . -maxdepth 1 -name "TextReflowActivity.kt" -exec cp {} app/src/main/java/com/propdf/editor/ui/viewer/ \;
+          find . -maxdepth 1 -name "DocumentScannerActivity.kt" -exec cp {} app/src/main/java/com/propdf/editor/ui/scanner/ \;
+          find . -maxdepth 1 -name "ScanSaveActivity.kt" -exec cp {} app/src/main/java/com/propdf/editor/ui/scanner/ \;
+          
+          echo "✅ Project prepared."
+
+      - name: Step 2 - Resource Generation
+        script: |
+          if [ -f "setup_project.py" ]; then
+            python3 setup_project.py
+          fi
+
+      - name: Step 3 - Set Execution Permissions
+        script: chmod +x gradlew
+
+      - name: Step 4 - Build Debug APK
+        script: |
+          export GRADLE_OPTS="-Xmx3g"
+          ./gradlew :app:assembleDebug --no-daemon --stacktrace
+
+    artifacts:
+      - app/build/outputs/apk/**/*.apk
+
+    publishing:
+      email:
+        recipients:
+          - aranmanaikkollai@gmail.com
+        notify:
+          success: true
+          failure: true
+
