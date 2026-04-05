@@ -16,6 +16,7 @@ import android.view.*
 import android.widget.*
 import androidx.appcompat.app.AppCompatActivity
 import androidx.lifecycle.lifecycleScope
+import com.propdf.editor.data.repository.OcrManager
 import com.propdf.editor.data.repository.PdfOperationsManager
 import com.propdf.editor.utils.FileHelper
 import com.tom_roush.pdfbox.android.PDFBoxResourceLoader
@@ -41,6 +42,7 @@ class ViewerActivity : AppCompatActivity() {
     }
 
     @Inject lateinit var pdfOps: PdfOperationsManager
+    @Inject lateinit var ocrManager: OcrManager
 
     private var pdfFile     : File? = null
     private var pdfPassword : String? = null
@@ -54,12 +56,22 @@ class ViewerActivity : AppCompatActivity() {
     private var currentPage = 0
 
     // Search state
+    private data class SearchHit(
+        val pageIndex: Int,
+        val start: Int,
+        val end: Int,
+        val snippet: String
+    )
+
     private var searchQuery    = ""
-    private var searchResults  = listOf<Int>()  // page indices with match
+    private var searchHits     = emptyList<SearchHit>()
     private var searchResultIdx = 0
+    private var pageTextCache  = emptyMap<Int, String>()
+    private var searchUsedOcr  = false
 
     private val pageScales  = mutableMapOf<Int, Float>()
     private val canvases    = mutableMapOf<Int, AnnotationCanvasView>()
+    private val pageFrames  = mutableMapOf<Int, ZoomPageFrame>()
 
     private val colorHex = listOf(
         "#FFFF00","#FF9800","#F44336","#E91E63",
@@ -196,11 +208,16 @@ class ViewerActivity : AppCompatActivity() {
 
     private fun buildSearchBar(): LinearLayout {
         val bar = LinearLayout(this).apply {
-            orientation = LinearLayout.HORIZONTAL
-            layoutParams = LinearLayout.LayoutParams(-1, dp(50))
+            orientation = LinearLayout.VERTICAL
+            layoutParams = LinearLayout.LayoutParams(-1, dp(74))
             setBackgroundColor(Color.parseColor("#0D47A1"))
             setPadding(dp(8), dp(6), dp(8), dp(6)); gravity = Gravity.CENTER_VERTICAL
             visibility = View.GONE
+        }
+        val row = LinearLayout(this).apply {
+            orientation = LinearLayout.HORIZONTAL
+            layoutParams = LinearLayout.LayoutParams(-1, -2)
+            gravity = Gravity.CENTER_VERTICAL
         }
         val et = EditText(this).apply {
             hint = "Search in PDF..."; textSize = 14f; tag = "search_et"
@@ -228,12 +245,23 @@ class ViewerActivity : AppCompatActivity() {
             text = "0/0"; textSize = 11f; setTextColor(Color.parseColor("#AADDFF"))
             setPadding(dp(8), 0, dp(4), 0); tag = "search_count"
         }
-        bar.addView(et)
-        bar.addView(btnSearch)
-        bar.addView(tvCount)
-        bar.addView(makeTextBtn("<") { navigateSearch(-1) })
-        bar.addView(makeTextBtn(">") { navigateSearch(1) })
-        bar.addView(makeTextBtn("X") { hideSearchBar() })
+        val tvSnippet = TextView(this).apply {
+            text = "Search results will appear here"
+            textSize = 11f
+            setTextColor(Color.parseColor("#DDEEFF"))
+            maxLines = 1
+            ellipsize = android.text.TextUtils.TruncateAt.END
+            tag = "search_snippet"
+            layoutParams = LinearLayout.LayoutParams(-1, -2).apply { topMargin = dp(4) }
+        }
+        row.addView(et)
+        row.addView(btnSearch)
+        row.addView(tvCount)
+        row.addView(makeTextBtn("<") { navigateSearch(-1) })
+        row.addView(makeTextBtn(">") { navigateSearch(1) })
+        row.addView(makeTextBtn("X") { hideSearchBar() })
+        bar.addView(row)
+        bar.addView(tvSnippet)
         return bar
     }
 
@@ -246,7 +274,10 @@ class ViewerActivity : AppCompatActivity() {
 
     private fun hideSearchBar() {
         searchBar.visibility = View.GONE
-        searchQuery = ""; searchResults = emptyList()
+        searchQuery = ""
+        searchHits = emptyList()
+        searchResultIdx = 0
+        clearSearchHighlights()
         val imm = getSystemService(android.content.Context.INPUT_METHOD_SERVICE) as android.view.inputmethod.InputMethodManager
         imm.hideSoftInputFromWindow(searchBar.windowToken, 0)
     }
@@ -257,39 +288,152 @@ class ViewerActivity : AppCompatActivity() {
         val file = pdfFile ?: return
         progressBar.visibility = View.VISIBLE
         lifecycleScope.launch {
-            val results = withContext(Dispatchers.IO) {
+            val hits = withContext(Dispatchers.IO) {
                 try {
-                    val doc = if (pdfPassword != null) PDDocument.load(file, pdfPassword) else PDDocument.load(file)
-                    val found = mutableListOf<Int>()
-                    for (i in 1..doc.numberOfPages) {
-                        val s = com.tom_roush.pdfbox.text.PDFTextStripper()
-                        s.startPage = i
-                        s.endPage = i
-                        val pageText = try { s.getText(doc) } catch (_: Exception) { "" }
-                        if (pageText.contains(query, ignoreCase = true)) found.add(i - 1)
+                    if (pageTextCache.isEmpty()) {
+                        val prepared = extractSearchableText(file, pdfPassword)
+                        pageTextCache = prepared.first
+                        searchUsedOcr = prepared.second
                     }
-                    doc.close(); found
-                } catch (_: Exception) { emptyList() }
+                    findAllHits(pageTextCache, query)
+                } catch (_: Exception) { emptyList<SearchHit>() }
             }
             progressBar.visibility = View.GONE
-            searchResults = results; searchResultIdx = 0
+            searchHits = hits; searchResultIdx = 0
             val tvCount = searchBar.findViewWithTag<TextView>("search_count")
-            if (results.isEmpty()) {
+            if (hits.isEmpty()) {
                 tvCount?.text = "Not found"; toast("\"$query\" not found")
+                searchBar.findViewWithTag<TextView>("search_snippet")?.text = "No matches found"
+                clearSearchHighlights()
             } else {
-                tvCount?.text = "1/${results.size}"
-                goToPage(results[0])
-                toast("Found on pages: ${results.map { it + 1 }.joinToString(", ")}")
+                showSearchHit(0)
+                val modeLabel = if (searchUsedOcr) "OCR fallback" else "text layer"
+                toast("Found ${hits.size} matches using $modeLabel")
             }
         }
     }
 
     private fun navigateSearch(dir: Int) {
-        if (searchResults.isEmpty()) return
-        searchResultIdx = (searchResultIdx + dir + searchResults.size) % searchResults.size
-        searchBar.findViewWithTag<TextView>("search_count")?.text = "${searchResultIdx + 1}/${searchResults.size}"
-        goToPage(searchResults[searchResultIdx])
+        if (searchHits.isEmpty()) return
+        searchResultIdx = (searchResultIdx + dir + searchHits.size) % searchHits.size
+        showSearchHit(searchResultIdx)
     }
+
+    private suspend fun extractSearchableText(file: File, password: String?): Pair<Map<Int, String>, Boolean> {
+        val textLayer = extractTextLayerByPage(file, password)
+        if (textLayer.values.any { it.isNotBlank() }) return textLayer to false
+        return extractOcrTextByPage(file) to true
+    }
+
+    private fun extractTextLayerByPage(file: File, password: String?): Map<Int, String> {
+        val byPage = mutableMapOf<Int, String>()
+        val doc = if (password != null) PDDocument.load(file, password) else PDDocument.load(file)
+        try {
+            for (i in 1..doc.numberOfPages) {
+                val stripper = com.tom_roush.pdfbox.text.PDFTextStripper().apply {
+                    startPage = i
+                    endPage = i
+                }
+                val pageText = try { stripper.getText(doc) } catch (_: Exception) { "" }
+                byPage[i - 1] = pageText
+            }
+        } finally {
+            doc.close()
+        }
+        return byPage
+    }
+
+    private suspend fun extractOcrTextByPage(file: File): Map<Int, String> = withContext(Dispatchers.IO) {
+        val out = mutableMapOf<Int, String>()
+        val fd = ParcelFileDescriptor.open(file, ParcelFileDescriptor.MODE_READ_ONLY)
+        val renderer = PdfRenderer(fd)
+        try {
+            for (i in 0 until renderer.pageCount) {
+                val page = renderer.openPage(i)
+                val bmpW = (page.width * 2).coerceAtLeast(800)
+                val bmpH = (page.height * 2).coerceAtLeast(1000)
+                val bmp = Bitmap.createBitmap(bmpW, bmpH, Bitmap.Config.ARGB_8888)
+                bmp.eraseColor(Color.WHITE)
+                page.render(bmp, null, null, PdfRenderer.Page.RENDER_MODE_FOR_DISPLAY)
+                page.close()
+                val text = ocrManager.recognizeText(bmp).getOrDefault("")
+                out[i] = text
+                bmp.recycle()
+            }
+        } finally {
+            renderer.close()
+            fd.close()
+        }
+        out
+    }
+
+    private fun findAllHits(pageText: Map<Int, String>, query: String): List<SearchHit> {
+        val q = query.lowercase()
+        val hits = mutableListOf<SearchHit>()
+        pageText.toSortedMap().forEach { (page, text) ->
+            val src = text.replace('\n', ' ')
+            val lower = src.lowercase()
+            var from = 0
+            while (from < lower.length) {
+                val at = lower.indexOf(q, from)
+                if (at < 0) break
+                val end = (at + q.length).coerceAtMost(src.length)
+                val snippetStart = (at - 35).coerceAtLeast(0)
+                val snippetEnd = (end + 35).coerceAtMost(src.length)
+                hits.add(SearchHit(page, at, end, src.substring(snippetStart, snippetEnd).trim()))
+                from = end
+            }
+        }
+        return hits
+    }
+
+    private fun showSearchHit(idx: Int) {
+        val hit = searchHits.getOrNull(idx) ?: return
+        searchBar.findViewWithTag<TextView>("search_count")?.text = "${idx + 1}/${searchHits.size}"
+        val snippetView = searchBar.findViewWithTag<TextView>("search_snippet")
+        val snippet = if (hit.snippet.isBlank()) "(match on page ${hit.pageIndex + 1})" else hit.snippet
+        val lowerSnippet = snippet.lowercase()
+        val q = searchQuery.lowercase()
+        val at = lowerSnippet.indexOf(q)
+        if (at >= 0) {
+            val span = SpannableString(snippet)
+            span.setSpan(
+                BackgroundColorSpan(Color.parseColor("#FFEB3B")),
+                at,
+                (at + q.length).coerceAtMost(snippet.length),
+                Spannable.SPAN_EXCLUSIVE_EXCLUSIVE
+            )
+            snippetView?.text = span
+        } else {
+            snippetView?.text = snippet
+        }
+        goToPage(hit.pageIndex)
+        applySearchHighlights(hit.pageIndex)
+    }
+
+    private fun clearSearchHighlights() {
+        pageFrames.forEach { (_, frame) ->
+            frame.background = pageFrameBackground(Color.parseColor("#E5E5E5"), dp(1))
+        }
+    }
+
+    private fun applySearchHighlights(activePage: Int) {
+        val pagesWithHits = searchHits.map { it.pageIndex }.toSet()
+        pageFrames.forEach { (page, frame) ->
+            frame.background = when {
+                page == activePage -> pageFrameBackground(Color.parseColor("#FF9800"), dp(3))
+                pagesWithHits.contains(page) -> pageFrameBackground(Color.parseColor("#FFD54F"), dp(2))
+                else -> pageFrameBackground(Color.parseColor("#E5E5E5"), dp(1))
+            }
+        }
+    }
+
+    private fun pageFrameBackground(strokeColor: Int, strokeWidthPx: Int): Drawable =
+        GradientDrawable().apply {
+            setColor(Color.WHITE)
+            cornerRadius = dp(4).toFloat()
+            setStroke(strokeWidthPx, strokeColor)
+        }
 
     private fun buildAnnotToolbarGrid(): AlertDialog {
         data class T(val id: String, val lbl: String, val hex: String, val icon: Int)
@@ -531,7 +675,7 @@ class ViewerActivity : AppCompatActivity() {
     private fun addPage(bmp: Bitmap, idx: Int) {
         val frame = ZoomPageFrame(this).apply {
             layoutParams = LinearLayout.LayoutParams(-1, -2).apply { setMargins(dp(3), dp(2), dp(3), dp(2)) }
-            setBackgroundColor(Color.WHITE)
+            background = pageFrameBackground(Color.parseColor("#E5E5E5"), dp(1))
         }
         val iv = ImageView(this).apply {
             setImageBitmap(bmp); layoutParams = FrameLayout.LayoutParams(-1, -2); adjustViewBounds = true
@@ -551,6 +695,7 @@ class ViewerActivity : AppCompatActivity() {
             setStrokeWidth(strokeWidth); setTextSize(textSizePx)
         }
         canvases[idx] = cvs
+        pageFrames[idx] = frame
         frame.addView(iv); frame.addView(cvs); frame.addView(tvNum)
         pageContainer.addView(frame)
         applyReadingFilter(iv)
