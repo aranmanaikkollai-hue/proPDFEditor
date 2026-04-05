@@ -1,0 +1,119 @@
+workflows:
+  android-debug-build:
+    name: ProPDF Editor v4 - Debug APK
+    max_build_duration: 60
+    instance_type: mac_mini_m1
+    environment:
+      java: 17
+    scripts:
+      - name: Setup project structure
+        script: |
+          set -e
+          mkdir -p app/src/main/java/com/propdf/editor/ui/viewer
+          mkdir -p app/src/main/java/com/propdf/editor/ui/scanner
+          mkdir -p app/src/main/java/com/propdf/editor/ui/tools
+          mkdir -p app/src/main/java/com/propdf/editor/data/repository
+          mkdir -p app/src/main/java/com/propdf/editor/data/local
+          mkdir -p app/src/main/java/com/propdf/editor/di
+          mkdir -p app/src/main/java/com/propdf/editor/utils
+          mkdir -p app/src/main/res/layout
+          mkdir -p app/src/main/res/values
+          mkdir -p app/src/main/res/menu
+          mkdir -p app/src/main/res/xml
+          mkdir -p app/src/main/res/navigation
+          mkdir -p gradle/wrapper
+
+          # Gradle build config
+          [ -f "app_build.gradle" ]          && mv app_build.gradle app/build.gradle
+          [ ! -f "app/proguard-rules.pro" ]  && echo "# ProGuard" > app/proguard-rules.pro
+
+          # v3.0 core source files
+          [ -f "ProPDFApp.kt" ]              && mv ProPDFApp.kt     app/src/main/java/com/propdf/editor/
+          [ -f "MainActivity.kt" ]           && mv MainActivity.kt  app/src/main/java/com/propdf/editor/ui/
+          [ -f "ViewerActivity.kt" ]         && mv ViewerActivity.kt         app/src/main/java/com/propdf/editor/ui/viewer/
+          [ -f "AnnotationCanvasView.kt" ]   && mv AnnotationCanvasView.kt   app/src/main/java/com/propdf/editor/ui/viewer/
+          [ -f "AnnotatedPageView.kt" ]      && mv AnnotatedPageView.kt      app/src/main/java/com/propdf/editor/ui/viewer/
+          [ -f "PdfPageAdapter.kt" ]         && mv PdfPageAdapter.kt         app/src/main/java/com/propdf/editor/ui/viewer/
+          [ -f "ToolsActivity.kt" ]          && mv ToolsActivity.kt          app/src/main/java/com/propdf/editor/ui/tools/
+          [ -f "DocumentScannerActivity.kt" ] && mv DocumentScannerActivity.kt app/src/main/java/com/propdf/editor/ui/scanner/
+          [ -f "PdfOperationsManager.kt" ]   && mv PdfOperationsManager.kt   app/src/main/java/com/propdf/editor/data/repository/
+          [ -f "OcrManager.kt" ]             && mv OcrManager.kt             app/src/main/java/com/propdf/editor/data/repository/
+          [ -f "ScannerProcessor.kt" ]       && mv ScannerProcessor.kt       app/src/main/java/com/propdf/editor/data/repository/
+          [ -f "RecentFilesDatabase.kt" ]    && mv RecentFilesDatabase.kt    app/src/main/java/com/propdf/editor/data/local/
+          [ -f "AppModule.kt" ]              && mv AppModule.kt              app/src/main/java/com/propdf/editor/di/
+          [ -f "AppModule_v4.kt" ]           && mv AppModule_v4.kt           app/src/main/java/com/propdf/editor/di/AppModule.kt
+          [ -f "FileHelper.kt" ]             && mv FileHelper.kt             app/src/main/java/com/propdf/editor/utils/
+          [ -f "PermissionUtils.kt" ]        && mv PermissionUtils.kt        app/src/main/java/com/propdf/editor/utils/
+
+          # v4.0 NEW source files (these were the missing mv commands)
+          [ -f "EdgeDetectionProcessor.kt" ] && mv EdgeDetectionProcessor.kt  app/src/main/java/com/propdf/editor/data/repository/
+          [ -f "PdfRedactionManager.kt" ]    && mv PdfRedactionManager.kt     app/src/main/java/com/propdf/editor/data/repository/
+          [ -f "SignatureManager.kt" ]       && mv SignatureManager.kt         app/src/main/java/com/propdf/editor/data/repository/
+          [ -f "TextReflowManager.kt" ]      && mv TextReflowManager.kt       app/src/main/java/com/propdf/editor/data/repository/
+          [ -f "AppShortcutsHelper.kt" ]     && mv AppShortcutsHelper.kt      app/src/main/java/com/propdf/editor/utils/
+          [ -f "CategoryManager.kt" ]        && mv CategoryManager.kt         app/src/main/java/com/propdf/editor/utils/
+          [ -f "EdgeOverlayView.kt" ]        && mv EdgeOverlayView.kt         app/src/main/java/com/propdf/editor/ui/scanner/
+          [ -f "ScanSaveActivity.kt" ]       && mv ScanSaveActivity.kt        app/src/main/java/com/propdf/editor/ui/scanner/
+          [ -f "SignaturePadView.kt" ]       && mv SignaturePadView.kt         app/src/main/java/com/propdf/editor/ui/viewer/
+          [ -f "TextReflowActivity.kt" ]     && mv TextReflowActivity.kt      app/src/main/java/com/propdf/editor/ui/viewer/
+          [ -f "ZoomPageFrame.kt" ]          && mv ZoomPageFrame.kt            app/src/main/java/com/propdf/editor/ui/viewer/
+
+          # Resources
+          [ -f "AndroidManifest.xml" ]       && mv AndroidManifest.xml       app/src/main/
+          [ -f "activity_main.xml" ]         && mv activity_main.xml         app/src/main/res/layout/
+          [ -f "bottom_nav_menu.xml" ]       && mv bottom_nav_menu.xml       app/src/main/res/menu/
+          [ -f "file_paths.xml" ]            && mv file_paths.xml            app/src/main/res/xml/
+
+          # Gradle wrapper
+          [ -f "gradle-wrapper.properties" ] && cp gradle-wrapper.properties gradle/wrapper/ 2>/dev/null || true
+          JAR=$(find . -not -path './.git/*' -name "gradle-wrapper.jar" 2>/dev/null | head -1)
+          if [ -n "$JAR" ]; then
+            # Only copy if src and dst are different paths to avoid macOS cp identical-file error
+            DEST="gradle/wrapper/gradle-wrapper.jar"
+            if [ "$(realpath "$JAR" 2>/dev/null || echo "$JAR")" != "$(realpath "$DEST" 2>/dev/null || echo "$DEST")" ]; then
+              cp "$JAR" "$DEST"
+            fi
+            echo "Found gradle-wrapper.jar: $JAR"
+          else
+            echo "gradle-wrapper.jar not in repo - downloading..."
+            curl -fsSL -o /tmp/gw.zip "https://services.gradle.org/distributions/gradle-8.2-bin.zip" && \
+            unzip -p /tmp/gw.zip gradle-8.2/lib/plugins/gradle-wrapper-*.jar > gradle/wrapper/gradle-wrapper.jar 2>/dev/null || \
+            curl -fsSL -o gradle/wrapper/gradle-wrapper.jar \
+              "https://github.com/gradle/gradle/raw/v8.2.0/gradle/wrapper/gradle-wrapper.jar" || \
+            echo "WARNING: Could not download gradle-wrapper.jar - will use system gradle"
+          fi
+
+          echo "=== Final project structure ==="
+          find app/src -type f | sort
+
+      - name: Generate resources
+        script: python3 setup_project.py
+
+      - name: Set permissions
+        script: chmod +x gradlew
+
+      - name: Build Debug APK
+        script: |
+          export GRADLE_OPTS="-Xmx3g -XX:MaxMetaspaceSize=512m"
+          if [ -f "gradle/wrapper/gradle-wrapper.jar" ]; then
+            echo "Using Gradle wrapper..."
+            ./gradlew :app:assembleDebug --no-daemon --stacktrace 2>&1
+          else
+            echo "Using system gradle..."
+            gradle :app:assembleDebug --no-daemon --stacktrace 2>&1
+          fi
+
+      - name: Locate and collect APK
+        script: |
+          find . -name "*.apk" | sort
+          mkdir -p outputs
+          find . -name "*.apk" ! -path "./.git/*" -exec cp {} outputs/ \;
+          STAMP=$(date +%Y%m%d_%H%M%S)
+          find . -name "app-debug.apk" -exec cp {} "outputs/ProPDF_v4_${STAMP}.apk" \; 2>/dev/null || true
+          echo "=== Artifacts ==="
+          ls -lh outputs/
+
+    artifacts:
+      - app/build/outputs/apk/**/*.apk
+      - outputs/*.apk
+      - "**/*.apk"
