@@ -1,0 +1,101 @@
+workflows:
+  android-debug-build:
+    name: ProPDF Editor v3 - Debug APK
+    max_build_duration: 60
+    instance_type: mac_mini_m1
+    environment:
+      java: 17
+    scripts:
+      - name: Setup project structure
+        script: |
+          set -e
+          mkdir -p app/src/main/java/com/propdf/editor/ui/viewer
+          mkdir -p app/src/main/java/com/propdf/editor/ui/scanner
+          mkdir -p app/src/main/java/com/propdf/editor/ui/tools
+          mkdir -p app/src/main/java/com/propdf/editor/data/repository
+          mkdir -p app/src/main/java/com/propdf/editor/data/local
+          mkdir -p app/src/main/java/com/propdf/editor/di
+          mkdir -p app/src/main/java/com/propdf/editor/utils
+          mkdir -p app/src/main/res/layout
+          mkdir -p app/src/main/res/values
+          mkdir -p app/src/main/res/menu
+          mkdir -p app/src/main/res/xml
+          mkdir -p app/src/main/res/navigation
+          mkdir -p gradle/wrapper
+
+          # Gradle build files
+          [ -f "app_build.gradle" ]         && mv app_build.gradle app/build.gradle
+          [ ! -f "app/proguard-rules.pro" ] && echo "# ProGuard" > app/proguard-rules.pro
+
+          # Application layer
+          [ -f "ProPDFApp.kt" ]             && mv ProPDFApp.kt  app/src/main/java/com/propdf/editor/
+          [ -f "AppModule.kt" ]             && mv AppModule.kt  app/src/main/java/com/propdf/editor/di/
+
+          # UI layer
+          [ -f "MainActivity.kt" ]          && mv MainActivity.kt         app/src/main/java/com/propdf/editor/ui/
+          [ -f "ViewerActivity.kt" ]        && mv ViewerActivity.kt        app/src/main/java/com/propdf/editor/ui/viewer/
+          [ -f "AnnotationCanvasView.kt" ]  && mv AnnotationCanvasView.kt  app/src/main/java/com/propdf/editor/ui/viewer/
+          [ -f "AnnotatedPageView.kt" ]     && mv AnnotatedPageView.kt     app/src/main/java/com/propdf/editor/ui/viewer/
+          [ -f "PdfPageAdapter.kt" ]        && mv PdfPageAdapter.kt        app/src/main/java/com/propdf/editor/ui/viewer/
+          [ -f "ToolsActivity.kt" ]         && mv ToolsActivity.kt         app/src/main/java/com/propdf/editor/ui/tools/
+          [ -f "DocumentScannerActivity.kt" ] && mv DocumentScannerActivity.kt app/src/main/java/com/propdf/editor/ui/scanner/
+
+          # Data layer
+          [ -f "PdfOperationsManager.kt" ]  && mv PdfOperationsManager.kt  app/src/main/java/com/propdf/editor/data/repository/
+          [ -f "OcrManager.kt" ]            && mv OcrManager.kt             app/src/main/java/com/propdf/editor/data/repository/
+          [ -f "ScannerProcessor.kt" ]      && mv ScannerProcessor.kt       app/src/main/java/com/propdf/editor/data/repository/
+          [ -f "RecentFilesDatabase.kt" ]   && mv RecentFilesDatabase.kt    app/src/main/java/com/propdf/editor/data/local/
+          [ -f "FileHelper.kt" ]            && mv FileHelper.kt             app/src/main/java/com/propdf/editor/utils/
+
+          # Resources
+          [ -f "AndroidManifest.xml" ]      && mv AndroidManifest.xml      app/src/main/
+          [ -f "activity_main.xml" ]        && mv activity_main.xml        app/src/main/res/layout/
+          [ -f "bottom_nav_menu.xml" ]      && mv bottom_nav_menu.xml      app/src/main/res/menu/
+          [ -f "file_paths.xml" ]           && mv file_paths.xml           app/src/main/res/xml/
+
+          # Gradle wrapper - safe copy with identical-file check
+          [ -f "gradle-wrapper.properties" ] && cp gradle-wrapper.properties gradle/wrapper/ 2>/dev/null || true
+          JAR=$(find . -not -path './.git/*' -name "gradle-wrapper.jar" 2>/dev/null | head -1)
+          if [ -n "$JAR" ]; then
+            DEST="gradle/wrapper/gradle-wrapper.jar"
+            SRC_REAL=$(realpath "$JAR"   2>/dev/null || echo "$JAR")
+            DST_REAL=$(realpath "$DEST"  2>/dev/null || echo "$DEST")
+            if [ "$SRC_REAL" != "$DST_REAL" ]; then
+              cp "$JAR" "$DEST"
+            fi
+            echo "gradle-wrapper.jar ready"
+          else
+            echo "gradle-wrapper.jar not found - build will use system gradle"
+          fi
+
+          echo "=== Project structure ==="
+          find app/src -type f | sort
+
+      - name: Generate resources
+        script: python3 setup_project.py
+
+      - name: Set permissions
+        script: chmod +x gradlew
+
+      - name: Build Debug APK
+        script: |
+          export GRADLE_OPTS="-Xmx3g -XX:MaxMetaspaceSize=512m"
+          if [ -f "gradle/wrapper/gradle-wrapper.jar" ]; then
+            ./gradlew :app:assembleDebug --no-daemon --stacktrace 2>&1
+          else
+            gradle :app:assembleDebug --no-daemon --stacktrace 2>&1
+          fi
+
+      - name: Collect APK
+        script: |
+          mkdir -p outputs
+          find . -name "*.apk" ! -path "./.git/*" -exec cp {} outputs/ \; 2>/dev/null || true
+          STAMP=$(date +%Y%m%d_%H%M%S)
+          find . -name "app-debug.apk" -exec cp {} "outputs/ProPDF_v3_${STAMP}.apk" \; 2>/dev/null || true
+          echo "=== Artifacts ==="
+          ls -lh outputs/
+
+    artifacts:
+      - app/build/outputs/apk/**/*.apk
+      - outputs/*.apk
+      - "**/*.apk"
