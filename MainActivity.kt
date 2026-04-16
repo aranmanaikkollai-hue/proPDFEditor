@@ -24,6 +24,29 @@ import java.util.*
 
 @AndroidEntryPoint
 class MainActivity : AppCompatActivity() {
+    // Add these variables at the top of MainActivity class
+private var currentViewMode = 0 // 0: List, 1: Grid, 2: Tiles
+
+private fun toggleDashboardView(recyclerView: RecyclerView) {
+    currentViewMode = (currentViewMode + 1) % 3
+    
+    when (currentViewMode) {
+        0 -> { // List View
+            recyclerView.layoutManager = LinearLayoutManager(this)
+            // Update button icon/text to "List"
+        }
+        1 -> { // Grid View
+            recyclerView.layoutManager = GridLayoutManager(this, 2)
+            // Update button icon/text to "Grid"
+        }
+        2 -> { // Tiles View (Larger Grid)
+            recyclerView.layoutManager = GridLayoutManager(this, 3)
+            // Update button icon/text to "Tiles"
+        }
+    }
+    recyclerView.adapter?.notifyDataSetChanged()
+}
+
 
     private val db   by lazy { RecentFilesDatabase.get(this) }
     private val prefs: SharedPreferences by lazy { getSharedPreferences("propdf_prefs", MODE_PRIVATE) }
