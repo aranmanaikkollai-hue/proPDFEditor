@@ -115,11 +115,47 @@ class ViewerActivity : AppCompatActivity() {
         pdfUri = if (uriStr != null) Uri.parse(uriStr) else null
         pdfPassword = intent.getStringExtra(EXTRA_PASSWORD)
 
+            override fun onCreate(savedInstanceState: Bundle?) {
+        super.onCreate(savedInstanceState)
+
+        val uriStr = intent.getStringExtra(EXTRA_URI)
+        pdfUri = if (uriStr != null) Uri.parse(uriStr) else null
+        pdfPassword = intent.getStringExtra(EXTRA_PASSWORD)
+
         val root = RelativeLayout(this).apply {
-            setBackgroundColor(Color.BLACK)
+            setBackgroundColor(Color.parseColor("#121212")) // Dark grey, not pitch black
         }
+
+        // 1. PDF Container (This is where your PDFBox view goes)
+        val pdfContainer = FrameLayout(this).apply {
+            id = View.generateViewId()
+            // TODO: Add your PDF rendering canvas/view here
+            // addView(myPdfRendererView)
+        }
+        root.addView(pdfContainer, RelativeLayout.LayoutParams(
+            RelativeLayout.LayoutParams.MATCH_PARENT, 
+            RelativeLayout.LayoutParams.MATCH_PARENT
+        ))
+
+        // 2. Add Annotation Toolbar to Bottom
+        val annotBar = buildAnnotationToolbar().apply {
+            id = View.generateViewId()
+        }
+        root.addView(annotBar, RelativeLayout.LayoutParams(-1, -2).apply {
+            addRule(RelativeLayout.ALIGN_PARENT_BOTTOM)
+        })
+
+        // 3. Add Search Bar to Top
+        val searchBar = buildSearchBar().apply {
+            id = View.generateViewId()
+        }
+        root.addView(searchBar, RelativeLayout.LayoutParams(-1, -2).apply {
+            addRule(RelativeLayout.ALIGN_PARENT_TOP)
+        })
+
         setContentView(root)
-    }
+            }
+            
 
     // -------------------------------------------------------
     // SEARCH BAR
