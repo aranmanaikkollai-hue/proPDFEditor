@@ -61,6 +61,22 @@ private fun toggleDashboardView(recyclerView: RecyclerView) {
     private lateinit var tvSection     : TextView
     private lateinit var tabRow        : LinearLayout
     private lateinit var themeBtn      : ImageButton
+   
+    categoryButton.setOnLongClickListener {
+    val subInput = EditText(this).apply { hint = "Enter Subcategory Name" }
+    
+    android.app.AlertDialog.Builder(this)
+        .setTitle("New Subcategory")
+        .setView(subInput)
+        .setPositiveButton("Add") { _, _ ->
+            val name = subInput.text.toString()
+            // Logic to add 'name' to your category list
+        }
+        .setNegativeButton("Cancel", null)
+        .show()
+    true
+    }
+    
 
     // ?? Color scheme (switches between dark/light) ????????????????????
     // Dark  mode: bg #121212, card #2A2A2A, text white
