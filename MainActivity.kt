@@ -32,7 +32,9 @@ class MainActivity : AppCompatActivity() {
 
     private var isDark = true
     private var currentTab = "recent"
-    private var viewMode: String = "list"   // "list" | "grid" | "tile"
+    
+    // UI State from Additions
+    private var viewMode: String = "list"   
     private var sortMode: String = "date"   
     private var sortAsc: Boolean = false
     private var allFileEntities: List<RecentFileEntity> = emptyList()
@@ -40,13 +42,10 @@ class MainActivity : AppCompatActivity() {
     private lateinit var rootFrame: FrameLayout
     private lateinit var fileListContainer: LinearLayout
     private lateinit var tvEmpty: TextView
-    private lateinit var tvSection: TextView
-    private lateinit var tabRow: LinearLayout
     private lateinit var viewToggleBtn: ImageButton
     private lateinit var sortBtn: TextView
 
     private val PRIMARY = "#448AFF"
-    private val c_pri = Color.parseColor(PRIMARY)
 
     private fun bg() = if (isDark) Color.parseColor("#121212") else Color.parseColor("#F5F5F7")
     private fun txt1() = if (isDark) "#FFFFFF" else "#1A1A1A"
@@ -67,77 +66,89 @@ class MainActivity : AppCompatActivity() {
         window.statusBarColor = bg()
         rootFrame = FrameLayout(this).apply { setBackgroundColor(bg()) }
 
-        val column = LinearLayout(this).apply {
+        val mainLayout = LinearLayout(this).apply {
             orientation = LinearLayout.VERTICAL
             layoutParams = FrameLayout.LayoutParams(-1, -1)
         }
 
-        // Header
-        column.addView(LinearLayout(this).apply {
+        // Header Section
+        mainLayout.addView(LinearLayout(this).apply {
             setPadding(dp(16), dp(12), dp(16), dp(12))
             addView(TextView(this@MainActivity).apply {
                 text = "ProPDF"; textSize = 22f; typeface = Typeface.DEFAULT_BOLD
-                setTextColor(c_pri); layoutParams = LinearLayout.LayoutParams(0, -2, 1f)
+                setTextColor(Color.parseColor(PRIMARY)); layoutParams = LinearLayout.LayoutParams(0, -2, 1f)
             })
             addView(ImageButton(this@MainActivity).apply {
                 setImageResource(if (isDark) android.R.drawable.ic_menu_mapmode else android.R.drawable.ic_menu_day)
-                setBackgroundColor(Color.TRANSPARENT)
+                setBackgroundColor(Color.TRANSPARENT); setColorFilter(Color.parseColor(txt2()))
                 setOnClickListener { toggleTheme() }
             })
         })
 
-        // Tab Bar
-        tabRow = LinearLayout(this).apply {
-            setPadding(dp(12), dp(8), dp(12), dp(8))
-            listOf("Recent" to "recent", "Starred" to "starred", "Vault" to "categories").forEach { (name, id) ->
-                addView(TextView(this@MainActivity).apply {
-                    text = name; setPadding(dp(16), dp(8), dp(16), dp(8))
-                    setTextColor(if (currentTab == id) c_pri else Color.parseColor(txt2()))
-                    setOnClickListener { currentTab = id; rebuildFileList() }
-                })
-            }
+        // Tab Selector Row
+        val tabs = LinearLayout(this).apply { setPadding(dp(12), dp(8), dp(12), dp(8)) }
+        listOf("Recent", "Starred", "Vault").forEach { label ->
+            tabs.addView(TextView(this@MainActivity).apply {
+                text = label; setPadding(dp(16), dp(8), dp(16), dp(8))
+                setTextColor(Color.parseColor(txt2()))
+                setOnClickListener { currentTab = label.lowercase(); rebuildFileList() }
+            })
         }
-        column.addView(tabRow)
+        mainLayout.addView(tabs)
 
-        // Sort/View Controls
-        column.addView(LinearLayout(this).apply {
+        // Controls Row (Sort and View Mode)
+        mainLayout.addView(LinearLayout(this).apply {
             setPadding(dp(16), 0, dp(16), dp(8))
             sortBtn = TextView(this@MainActivity).apply {
-                text = "Sort by Date ▼"; textSize = 12f; setTextColor(Color.parseColor(txt2()))
+                text = "Sort by Date ▼"; textSize = 11f; setTextColor(Color.parseColor(txt2()))
                 layoutParams = LinearLayout.LayoutParams(0, -2, 1f)
                 setOnClickListener { showSortMenu() }
             }
             viewToggleBtn = ImageButton(this@MainActivity).apply {
-                setImageResource(android.R.drawable.ic_menu_agenda) // FIX: Replaced ic_menu_grid
-                setBackgroundColor(Color.TRANSPARENT); setColorFilter(c_pri)
-                setOnClickListener { cycleViewMode() }
+                // FIXED: Using standard ic_menu_agenda instead of unresolved ic_menu_grid
+                setImageResource(android.R.drawable.ic_menu_agenda)
+                setBackgroundColor(Color.TRANSPARENT); setColorFilter(Color.parseColor(PRIMARY))
+                setOnClickListener { 
+                    viewMode = if (viewMode == "list") "grid" else "list"
+                    rebuildFileList()
+                }
             }
             addView(sortBtn); addView(viewToggleBtn)
         })
 
-        fileListContainer = LinearLayout(this).apply { orientation = LinearLayout.VERTICAL }
-        val scroll = ScrollView(this).apply { addView(fileListContainer) }
-        column.addView(scroll, LinearLayout.LayoutParams(-1, 0, 1f))
+        val scroll = ScrollView(this).apply { layoutParams = LinearLayout.LayoutParams(-1, 0, 1f) }
+        fileListContainer = LinearLayout(this).apply { 
+            orientation = LinearLayout.VERTICAL
+            setPadding(dp(16), dp(8), dp(16), dp(100)) 
+        }
+        tvEmpty = TextView(this).apply { 
+            text = "No Files Found"; gravity = Gravity.CENTER; setTextColor(Color.parseColor(txt2()))
+            setPadding(0, dp(50), 0, 0); visibility = View.GONE
+        }
 
-        rootFrame.addView(column)
-        rootFrame.addView(buildFab())
-        setContentView(rootFrame)
-    }
+        val bodyFrame = FrameLayout(this)
+        bodyFrame.addView(tvEmpty); bodyFrame.addView(fileListContainer)
+        scroll.addView(bodyFrame); mainLayout.addView(scroll)
+        rootFrame.addView(mainLayout)
 
-    private fun buildFab() = MaterialCardView(this).apply {
-        layoutParams = FrameLayout.LayoutParams(dp(56), dp(56), Gravity.BOTTOM or Gravity.CENTER_HORIZONTAL).apply { bottomMargin = dp(24) }
-        radius = dp(28).toFloat(); setCardBackgroundColor(c_pri)
-        setOnClickListener { pdfPicker.launch(arrayOf("application/pdf")) }
-        addView(ImageView(this@MainActivity).apply {
-            setImageResource(android.R.drawable.ic_input_add); setColorFilter(Color.WHITE)
-            layoutParams = FrameLayout.LayoutParams(dp(24), dp(24), Gravity.CENTER)
+        // Floating Action Button
+        rootFrame.addView(MaterialCardView(this).apply {
+            layoutParams = FrameLayout.LayoutParams(dp(56), dp(56), Gravity.BOTTOM or Gravity.CENTER_HORIZONTAL).apply { bottomMargin = dp(24) }
+            radius = dp(28).toFloat(); setCardBackgroundColor(Color.parseColor(PRIMARY)); elevation = dp(6).toFloat()
+            setOnClickListener { pdfPicker.launch(arrayOf("application/pdf")) }
+            addView(ImageView(this@MainActivity).apply {
+                setImageResource(android.R.drawable.ic_input_add); setColorFilter(Color.WHITE)
+                layoutParams = FrameLayout.LayoutParams(dp(24), dp(24), Gravity.CENTER)
+            })
         })
+
+        setContentView(rootFrame)
     }
 
     private fun observeFiles() {
         lifecycleScope.launch {
-            db.recentFilesDao().getAll().collect { files ->
-                allFileEntities = files
+            db.recentFilesDao().getAll().collect { entities ->
+                allFileEntities = entities
                 rebuildFileList()
             }
         }
@@ -145,16 +156,22 @@ class MainActivity : AppCompatActivity() {
 
     private fun rebuildFileList() {
         fileListContainer.removeAllViews()
-        allFileEntities.forEach { entity ->
-            fileListContainer.addView(buildFileCard(entity))
+        val filtered = if (currentTab == "starred") allFileEntities.filter { it.isFavourite } else allFileEntities
+        tvEmpty.visibility = if (filtered.isEmpty()) View.VISIBLE else View.GONE
+        
+        filtered.forEach { file ->
+            val card = MaterialCardView(this).apply {
+                layoutParams = LinearLayout.LayoutParams(-1, -2).apply { setMargins(0, 0, 0, dp(12)) }
+                setCardBackgroundColor(Color.parseColor(if (isDark) "#2A2A2A" else "#FFFFFF"))
+                radius = dp(12).toFloat()
+                setOnClickListener { ViewerActivity.start(this@MainActivity, Uri.parse(file.uri)) }
+                addView(TextView(this@MainActivity).apply {
+                    text = file.displayName; setPadding(dp(16), dp(16), dp(16), dp(16))
+                    setTextColor(Color.parseColor(txt1()))
+                })
+            }
+            fileListContainer.addView(card)
         }
-    }
-
-    private fun buildFileCard(f: RecentFileEntity) = MaterialCardView(this).apply {
-        layoutParams = LinearLayout.LayoutParams(-1, -2).apply { setMargins(dp(16), 0, dp(16), dp(12)) }
-        radius = dp(12).toFloat(); setCardBackgroundColor(Color.parseColor(if (isDark) "#2A2A2A" else "#FFFFFF"))
-        setOnClickListener { ViewerActivity.start(this@MainActivity, Uri.parse(f.uri)) }
-        addView(TextView(this@MainActivity).apply { text = f.displayName; setPadding(dp(16), dp(16), dp(16), dp(16)); setTextColor(Color.parseColor(txt1())) })
     }
 
     private fun openUri(uri: Uri) {
@@ -173,13 +190,12 @@ class MainActivity : AppCompatActivity() {
         recreate()
     }
 
-    private fun cycleViewMode() {
-        viewMode = if (viewMode == "list") "grid" else "list"
-        rebuildFileList()
-    }
-
     private fun showSortMenu() {
-        AlertDialog.Builder(this).setTitle("Sort By").setItems(arrayOf("Name", "Date", "Size")) { _, _ -> }.show()
+        val options = arrayOf("Name", "Date", "Size")
+        AlertDialog.Builder(this).setTitle("Sort By").setItems(options) { _, i ->
+            sortMode = options[i].lowercase()
+            rebuildFileList()
+        }.show()
     }
 
     private fun dp(v: Int) = (v * resources.displayMetrics.density).toInt()
