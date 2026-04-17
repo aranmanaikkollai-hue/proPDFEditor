@@ -13,7 +13,11 @@ import android.widget.LinearLayout
 import android.widget.Toast
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.appcompat.app.AppCompatActivity
-import androidx.camera.core.*
+import androidx.camera.core.Camera // Added missing import 
+import androidx.camera.core.CameraSelector
+import androidx.camera.core.ImageCapture
+import androidx.camera.core.ImageCaptureException
+import androidx.camera.core.Preview
 import androidx.camera.lifecycle.ProcessCameraProvider
 import androidx.camera.view.PreviewView
 import androidx.core.content.ContextCompat
@@ -26,7 +30,7 @@ class DocumentScannerActivity : AppCompatActivity() {
     private lateinit var cameraExecutor: ExecutorService
     private lateinit var previewView: PreviewView
     private var imageCapture: ImageCapture? = null
-    private var camera: Camera? = null
+    private var camera: Camera? = null // Now resolves correctly 
 
     private lateinit var captureBtn: ImageButton
     private lateinit var flashBtn: ImageButton
@@ -53,7 +57,6 @@ class DocumentScannerActivity : AppCompatActivity() {
         }
         root.addView(previewView)
 
-        // Bottom Controls Container
         val controls = LinearLayout(this).apply {
             orientation = LinearLayout.HORIZONTAL
             gravity = Gravity.CENTER
@@ -62,7 +65,7 @@ class DocumentScannerActivity : AppCompatActivity() {
         }
 
         flashBtn = ImageButton(this).apply {
-            setImageResource(android.R.drawable.btn_star) // Using star as a placeholder for flash
+            setImageResource(android.R.drawable.btn_star) 
             setBackgroundColor(Color.TRANSPARENT)
             setColorFilter(Color.WHITE)
             layoutParams = LinearLayout.LayoutParams(dp(50), dp(50)).apply { marginEnd = dp(40) }
@@ -71,21 +74,17 @@ class DocumentScannerActivity : AppCompatActivity() {
 
         captureBtn = ImageButton(this).apply {
             setImageResource(android.R.drawable.ic_menu_camera)
-            setBackgroundColor(Color.WHITE)
             layoutParams = LinearLayout.LayoutParams(dp(72), dp(72))
-            // Simple circular background
-            val shape = android.graphics.drawable.GradientDrawable().apply {
+            background = android.graphics.drawable.GradientDrawable().apply {
                 shape = android.graphics.drawable.GradientDrawable.OVAL
                 setColor(Color.WHITE)
             }
-            background = shape
             setOnClickListener { takePhoto() }
         }
 
         controls.addView(flashBtn)
         controls.addView(captureBtn)
         root.addView(controls)
-
         setContentView(root)
     }
 
@@ -94,7 +93,6 @@ class DocumentScannerActivity : AppCompatActivity() {
 
         cameraProviderFuture.addListener({
             val cameraProvider: ProcessCameraProvider = cameraProviderFuture.get()
-
             val preview = Preview.Builder().build().also {
                 it.setSurfaceProvider(previewView.surfaceProvider)
             }
@@ -126,7 +124,6 @@ class DocumentScannerActivity : AppCompatActivity() {
             object : ImageCapture.OnImageSavedCallback {
                 override fun onImageSaved(output: ImageCapture.OutputFileResults) {
                     Toast.makeText(baseContext, "Page Saved", Toast.LENGTH_SHORT).show()
-                    // Here you would navigate to a cropping or filter screen
                 }
                 override fun onError(exc: ImageCaptureException) {
                     Toast.makeText(baseContext, "Capture failed", Toast.LENGTH_SHORT).show()
@@ -142,11 +139,10 @@ class DocumentScannerActivity : AppCompatActivity() {
     }
 
     /**
-     * CRITICAL FIX: The build log error "setEnabled hides member" is resolved 
-     * by explicitly adding the 'override' modifier.
+     * FIXED: Renamed to setScannerEnabled and removed 'override'.
+     * Activity does not have a setEnabled(Boolean) to override.
      */
-    override fun setEnabled(enabled: Boolean) {
-        super.setEnabled(enabled)
+    fun setScannerEnabled(enabled: Boolean) {
         captureBtn.isEnabled = enabled
         captureBtn.alpha = if (enabled) 1.0f else 0.5f
     }
