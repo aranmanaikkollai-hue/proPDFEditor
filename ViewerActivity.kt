@@ -4,17 +4,14 @@ import android.content.Context
 import android.content.Intent
 import android.graphics.Bitmap
 import android.graphics.Color
-import android.graphics.pdf.PdfRenderer
+import android.graphics.pdf.PdfRenderer // CORRECTED IMPORT
 import android.net.Uri
 import android.os.Bundle
 import android.os.ParcelFileDescriptor
 import android.view.Gravity
-import android.view.ScaleGestureDetector
-import android.view.View
 import android.widget.*
 import androidx.appcompat.app.AppCompatActivity
 import androidx.lifecycle.lifecycleScope
-import com.propdf.editor.ui.tools.ToolsActivity
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
@@ -23,129 +20,82 @@ import java.io.FileOutputStream
 
 class ViewerActivity : AppCompatActivity() {
 
-    private var pdfRenderer: PdfRenderer? = null
-    private var parcelFileDescriptor: ParcelFileDescriptor? = null
+    private var renderer: PdfRenderer? = null
+    private var pfd: ParcelFileDescriptor? = null
     private lateinit var pageContainer: LinearLayout
-    private lateinit var scrollView: ScrollView
-    private lateinit var loadingBar: ProgressBar
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
-        setupUI()
-
-        val uriString = intent.getStringExtra(EXTRA_URI)
-        if (uriString != null) {
-            loadPdf(Uri.parse(uriString))
-        } else {
-            Toast.makeText(this, "Error: No PDF URI found", Toast.LENGTH_SHORT).show()
-            finish()
-        }
-    }
-
-    private fun setupUI() {
-        val root = FrameLayout(this).apply {
-            setBackgroundColor(Color.parseColor("#E5E5E5"))
-        }
-
-        scrollView = ScrollView(this).apply {
-            layoutParams = FrameLayout.LayoutParams(-1, -1)
-            isFillViewport = true
-        }
-
+        
+        val scroll = ScrollView(this).apply { setBackgroundColor(Color.DKGRAY) }
         pageContainer = LinearLayout(this).apply {
             orientation = LinearLayout.VERTICAL
             gravity = Gravity.CENTER_HORIZONTAL
-            setPadding(0, dp(16), 0, dp(100))
+            setPadding(0, 40, 0, 100)
         }
+        scroll.addView(pageContainer)
+        setContentView(scroll)
 
-        loadingBar = ProgressBar(this).apply {
-            layoutParams = FrameLayout.LayoutParams(dp(50), dp(50), Gravity.CENTER)
-            visibility = View.VISIBLE
+        val uriString = intent.getStringExtra("extra_pdf_uri")
+        if (uriString != null) {
+            loadPdf(Uri.parse(uriString))
         }
-
-        scrollView.addView(pageContainer)
-        root.addView(scrollView)
-        root.addView(loadingBar)
-        setContentView(root)
     }
 
     private fun loadPdf(uri: Uri) {
         lifecycleScope.launch {
             try {
                 val file = withContext(Dispatchers.IO) {
-                    val tempFile = File(cacheDir, "temp_viewer.pdf")
+                    val temp = File(cacheDir, "viewer_temp.pdf")
                     contentResolver.openInputStream(uri)?.use { input ->
-                        FileOutputStream(tempFile).use { output ->
-                            input.copyTo(output)
-                        }
+                        FileOutputStream(temp).use { output -> input.copyTo(output) }
                     }
-                    tempFile
+                    temp
                 }
                 
-                initRenderer(file)
-                renderAllPages()
-                loadingBar.visibility = View.GONE
-            } catch (e: Exception) {
-                loadingBar.visibility = View.GONE
-                Toast.makeText(this@ViewerActivity, "Failed to load PDF", Toast.LENGTH_LONG).show()
-            }
-        }
-    }
-
-    private fun initRenderer(file: File) {
-        parcelFileDescriptor = ParcelFileDescriptor.open(file, ParcelFileDescriptor.MODE_READ_ONLY)
-        parcelFileDescriptor?.let {
-            pdfRenderer = PdfRenderer(it)
-        }
-    }
-
-    private fun renderAllPages() {
-        val renderer = pdfRenderer ?: return
-        pageContainer.removeAllViews()
-
-        for (i in 0 until renderer.pageCount) {
-            val page = renderer.openPage(i)
-            
-            // Calculate height based on screen width to maintain aspect ratio
-            val screenWidth = resources.displayMetrics.widthPixels - dp(32)
-            val ratio = screenWidth.toFloat() / page.width.toFloat()
-            val calcHeight = (page.height * ratio).toInt()
-
-            val bitmap = Bitmap.createBitmap(screenWidth, calcHeight, Bitmap.Config.ARGB_8888)
-            page.render(bitmap, null, null, PdfRenderer.Page.RENDER_MODE_FOR_DISPLAY)
-            
-            val imageView = ImageView(this).apply {
-                layoutParams = LinearLayout.LayoutParams(screenWidth, calcHeight).apply {
-                    setMargins(0, 0, 0, dp(16))
+                pfd = ParcelFileDescriptor.open(file, ParcelFileDescriptor.MODE_READ_ONLY)
+                pfd?.let {
+                    renderer = PdfRenderer(it)
+                    renderPages()
                 }
-                setImageBitmap(bitmap)
-                elevation = dp(4).toFloat()
-                setBackgroundColor(Color.WHITE)
+            } catch (e: Exception) {
+                Toast.makeText(this@ViewerActivity, "Error opening PDF", Toast.LENGTH_SHORT).show()
             }
+        }
+    }
+
+    private fun renderPages() {
+        val res = renderer ?: return
+        pageContainer.removeAllViews()
+        
+        for (i in 0 until res.pageCount) {
+            val page = res.openPage(i)
+            val bmp = Bitmap.createBitmap(page.width, page.height, Bitmap.Config.ARGB_8888)
+            page.render(bmp, null, null, PdfRenderer.Page.RENDER_MODE_FOR_DISPLAY)
             
-            pageContainer.addView(imageView)
+            val iv = ImageView(this).apply {
+                setImageBitmap(bmp)
+                layoutParams = LinearLayout.LayoutParams(-1, -2).apply { setMargins(0, 0, 0, 30) }
+                setBackgroundColor(Color.WHITE)
+                elevation = 10f
+            }
+            pageContainer.addView(iv)
             page.close()
         }
     }
 
     override fun onDestroy() {
         try {
-            pdfRenderer?.close()
-            parcelFileDescriptor?.close()
-        } catch (e: Exception) {
-            e.printStackTrace()
-        }
+            renderer?.close()
+            pfd?.close()
+        } catch (e: Exception) {}
         super.onDestroy()
     }
 
-    private fun dp(v: Int) = (v * resources.displayMetrics.density).toInt()
-
     companion object {
-        private const val EXTRA_URI = "extra_pdf_uri"
-
         fun start(context: Context, uri: Uri) {
             val intent = Intent(context, ViewerActivity::class.java).apply {
-                putExtra(EXTRA_URI, uri.toString())
+                putExtra("extra_pdf_uri", uri.toString())
             }
             context.startActivity(intent)
         }
