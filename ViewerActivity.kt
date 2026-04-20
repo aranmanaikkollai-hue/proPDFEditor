@@ -1,4 +1,3 @@
-
 package com.propdf.editor.ui.viewer
 
 import android.content.ClipData
