@@ -37,7 +37,10 @@ interface RecentFilesDao {
 
     @Query("UPDATE recent_files SET category = :cat WHERE uri = :uri")
     suspend fun setCategory(uri: String, cat: String)
-
+    
+    @Query("DELETE FROM recent_files WHERE isFavourite = 0 AND (category IS NULL OR category = '')")
+    suspend fun clearRecentOnly()
+    
     @Query("DELETE FROM recent_files WHERE uri = :uri")
     suspend fun delete(uri: String)
 
