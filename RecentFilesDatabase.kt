@@ -65,7 +65,10 @@ interface RecentFilesDao {
     @Query("DELETE FROM recent_files")
     suspend fun clearAll()
 
-    @Query("SELECT * FROM recent_files WHERE uri = :uri LIMIT 1")
+    @Query("DELETE FROM recent_files WHERE isFavourite = 0 AND (category IS NULL OR category = '')")
+  suspend fun clearRecentOnly()
+
+  @Query("SELECT * FROM recent_files WHERE uri = :uri LIMIT 1")
     suspend fun getByUri(uri: String): RecentFileEntity?
 
     @Query("UPDATE recent_files SET pageCount = :count WHERE uri = :uri")
