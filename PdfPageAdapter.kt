@@ -1,4 +1,15 @@
- * Uses ARGB_8888 for full-quality rendering and annotation compositing.
+package com.propdf.editor.ui.viewer
+
+import android.graphics.Bitmap
+import android.graphics.Color
+import android.graphics.ColorMatrix
+import android.graphics.ColorMatrixColorFilter
+import android.graphics.pdf.PdfRenderer
+import android.view.ViewGroup
+import androidx.recyclerview.widget.RecyclerView
+import kotlinx.coroutines.
+
+ Uses ARGB_8888 for full-quality rendering and annotation compositing.
         ))
     )
 
