@@ -1,0 +1,20 @@
+workflows:
+  android-workflow:
+    name: Android Build
+    max_build_duration: 30
+    environment:
+      groups:
+        - android_credentials
+      vars:
+        GRADLE_OPTS: "-Xmx4g -Dorg.gradle.daemon=false -Dorg.gradle.jvmargs=-Xmx4g -Dkotlin.compiler.execution.strategy=in-process"
+      java: 17
+    scripts:
+      - name: Set up local.properties
+        script: |
+          echo "flutter.sdk=$HOME/programs/flutter" > "$CM_BUILD_DIR/local.properties"
+      - name: Build Debug APK
+        script: |
+          cd "$CM_BUILD_DIR"
+          ./gradlew :app:assembleDebug --stacktrace
+    artifacts:
+      - app/build/outputs/**/*.apk
