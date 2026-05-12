@@ -1,0 +1,45 @@
+workflows:
+  android-workflow:
+    name: Android Build
+    max_build_duration: 60
+    environment:
+      groups:
+        - android_credentials
+      vars:
+        GRADLE_OPTS: "-Xmx4g -Dorg.gradle.daemon=false -Dorg.gradle.jvmargs=-Xmx4g -Dkotlin.compiler.execution.strategy=in-process"
+      java: 17
+    cache:
+      cache_paths:
+        - $CM_BUILD_DIR/.gradle
+        - $HOME/.gradle/caches
+    scripts:
+      - name: Fix gradlew permissions
+        script: |
+          cd "$CM_BUILD_DIR"
+          chmod +x ./gradlew
+          echo "gradlew permissions fixed"
+      - name: Clean previous build cache
+        script: |
+          cd "$CM_BUILD_DIR"
+          rm -rf app/build
+          rm -rf core/build
+          rm -rf viewer/build
+          rm -rf editor/build
+          rm -rf annotations/build
+          rm -rf scanner/build
+          rm -rf security/build
+          rm -rf ads/build
+          rm -rf ocr/build
+          rm -rf .gradle/buildOutputCleanup
+          ./gradlew clean --no-daemon || true
+          echo "Build cache cleared"
+      - name: Set up local.properties
+        script: |
+          cd "$CM_BUILD_DIR"
+          echo "sdk.dir=/usr/local/share/android-sdk" > "$CM_BUILD_DIR/local.properties"
+      - name: Build Debug APK
+        script: |
+          cd "$CM_BUILD_DIR"
+          ./gradlew :app:assembleDebug --stacktrace --no-daemon --rerun-tasks
+    artifacts:
+      - app/build/outputs/**/*.apk
