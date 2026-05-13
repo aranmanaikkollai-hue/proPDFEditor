@@ -26,7 +26,7 @@ abstract class UseCase<P, R>(private val dispatchers: DispatcherProvider) {
 }
 
 abstract class FlowUseCase<P, R>(private val dispatchers: DispatcherProvider) {
-    operator fun invoke(params: P): Flow<<AppResult<R>> = flow {
+    operator fun invoke(params: P): Flow<AppResult<R>> = flow {
         emit(AppResult.Loading())
         emit(AppResult.Success(execute(params)))
     }.catch { emit(AppResult.Error(it.toAppException())) }
