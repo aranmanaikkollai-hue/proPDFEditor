@@ -188,7 +188,7 @@ class PdfOperationsRepositoryImpl @Inject constructor(
     override suspend fun rotatePages(
         inputFile: File,
         outputFile: File,
-        rotations: Map<Int, Float>
+        rotations: Map<Int, Int>
     ): AppResult<File> = withContext(dispatchers.io) {
         runCatching {
             val doc = PdfDocument(PdfReader(inputFile.absolutePath), PdfWriter(outputFile.absolutePath))
@@ -330,8 +330,8 @@ class PdfOperationsRepositoryImpl @Inject constructor(
                 val targetSize = PageSize(widthPt, heightPt)
                 for (i in 1..src.numberOfPages) {
                     val srcPage = src.getPage(i)
-                    val srcW = srcPage.pageSize.width
-                    val srcH = srcPage.pageSize.height
+                    val srcW = srcPage.pageSize.width.toFloat()
+                    val srcH = srcPage.pageSize.height.toFloat()
                     val scale = kotlin.math.min(widthPt / srcW, heightPt / srcH)
                     val offX = (widthPt - srcW * scale) / 2f
                     val offY = (heightPt - srcH * scale) / 2f
