@@ -56,10 +56,8 @@ interface RecentFilesDao {
     @Query("SELECT * FROM recent_files WHERE uri = :uri LIMIT 1")
     suspend fun getByUri(uri: String): RecentFileEntity?
 }
-
-@Database(entities = [RecentFileEntity::class], version = 1)
+@Database(entities = [RecentFileEntity::class], version = 1, exportSchema = false)
 abstract class RecentFilesDatabase : RoomDatabase() {
-    abstract fun recentFilesDao(): RecentFilesDao
 
     companion object {
         @Volatile
