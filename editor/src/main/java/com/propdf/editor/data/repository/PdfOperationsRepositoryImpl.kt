@@ -10,7 +10,14 @@ import com.itextpdf.io.image.ImageDataFactory
 import com.itextpdf.kernel.colors.DeviceRgb
 import com.itextpdf.kernel.font.PdfFontFactory
 import com.itextpdf.kernel.geom.PageSize
-import com.itextpdf.kernel.pdf.*
+import com.itextpdf.kernel.pdf.PdfDocument as IPdfDocument
+import com.itextpdf.kernel.pdf.PdfName
+import com.itextpdf.kernel.pdf.PdfNumber
+import com.itextpdf.kernel.pdf.PdfReader
+import com.itextpdf.kernel.pdf.PdfWriter
+import com.itextpdf.kernel.pdf.ReaderProperties
+import com.itextpdf.kernel.pdf.WriterProperties
+import com.itextpdf.kernel.pdf.EncryptionConstants
 import com.itextpdf.kernel.pdf.canvas.PdfCanvas
 import com.itextpdf.kernel.pdf.extgstate.PdfExtGState
 import com.itextpdf.kernel.utils.PdfMerger
@@ -46,11 +53,11 @@ class PdfOperationsRepositoryImpl @Inject constructor(
     override suspend fun merge(request: MergeRequest, outputFile: File): AppResult<File> =
         withContext(dispatchers.io) {
             runCatching {
-                val out = PdfDocument(PdfWriter(outputFile.absolutePath))
+                val out = IPdfDocument(PdfWriter(outputFile.absolutePath))
                 try {
                     val merger = PdfMerger(out)
                     request.inputUris.map { File(it) }.filter { it.exists() }.forEach { f ->
-                        val src = PdfDocument(PdfReader(f.absolutePath))
+                        val src = IPdfDocument(PdfReader(f.absolutePath))
                         try { merger.merge(src, 1, src.numberOfPages) } finally { src.close() }
                     }
                 } finally { out.close() }
@@ -63,11 +70,11 @@ class PdfOperationsRepositoryImpl @Inject constructor(
         withContext(dispatchers.io) {
             runCatching {
                 val result = mutableListOf<File>()
-                val src = PdfDocument(PdfReader(request.inputUri))
+                val src = IPdfDocument(PdfReader(request.inputUri))
                 try {
                     request.ranges.forEachIndexed { i, range ->
                         val out = File(request.outputDir, "part${i + 1}_${System.currentTimeMillis()}.pdf")
-                        val dest = PdfDocument(PdfWriter(out.absolutePath))
+                        val dest = IPdfDocument(PdfWriter(out.absolutePath))
                         try {
                             PdfMerger(dest).merge(src,
                                 range.first.coerceIn(1, src.numberOfPages),
@@ -92,7 +99,7 @@ class PdfOperationsRepositoryImpl @Inject constructor(
                 setFullCompressionMode(true)
                 useSmartMode()
             }
-            val doc = PdfDocument(PdfReader(inputFile.absolutePath), PdfWriter(outputFile.absolutePath, props))
+            val doc = IPdfDocument(PdfReader(inputFile.absolutePath), PdfWriter(outputFile.absolutePath, props))
             try { } finally { doc.close() }
             outputFile
         }.toAppResult()
@@ -108,7 +115,7 @@ class PdfOperationsRepositoryImpl @Inject constructor(
             var perms = EncryptionConstants.ALLOW_SCREENREADERS
             if (config.allowPrinting) perms = perms or EncryptionConstants.ALLOW_PRINTING
             if (config.allowCopying) perms = perms or EncryptionConstants.ALLOW_COPY
-            val doc = PdfDocument(
+            val doc = IPdfDocument(
                 PdfReader(inputFile.absolutePath),
                 PdfWriter(outputFile.absolutePath, WriterProperties().setStandardEncryption(
                     config.userPassword?.toByteArray(),
@@ -126,7 +133,7 @@ class PdfOperationsRepositoryImpl @Inject constructor(
     override suspend fun decrypt(inputFile: File, outputFile: File, password: String): AppResult<File> =
         withContext(dispatchers.io) {
             runCatching {
-                val doc = PdfDocument(
+                val doc = IPdfDocument(
                     PdfReader(inputFile.absolutePath, ReaderProperties().setPassword(password.toByteArray())),
                     PdfWriter(outputFile.absolutePath)
                 )
@@ -142,7 +149,7 @@ class PdfOperationsRepositoryImpl @Inject constructor(
         config: WatermarkConfig
     ): AppResult<File> = withContext(dispatchers.io) {
         runCatching {
-            val doc = PdfDocument(PdfReader(inputFile.absolutePath), PdfWriter(outputFile.absolutePath))
+            val doc = IPdfDocument(PdfReader(inputFile.absolutePath), PdfWriter(outputFile.absolutePath))
             try {
                 val font = PdfFontFactory.createFont()
                 val gs = PdfExtGState().apply { fillOpacity = config.opacity; strokeOpacity = config.opacity }
@@ -174,7 +181,7 @@ class PdfOperationsRepositoryImpl @Inject constructor(
         pages: List<Int>
     ): AppResult<File> = withContext(dispatchers.io) {
         runCatching {
-            val doc = PdfDocument(PdfReader(inputFile.absolutePath), PdfWriter(outputFile.absolutePath))
+            val doc = IPdfDocument(PdfReader(inputFile.absolutePath), PdfWriter(outputFile.absolutePath))
             try {
                 pages.sortedDescending().forEach { n ->
                     if (n in 1..doc.numberOfPages) doc.removePage(n)
@@ -191,7 +198,7 @@ class PdfOperationsRepositoryImpl @Inject constructor(
         rotations: Map<Int, Int>
     ): AppResult<File> = withContext(dispatchers.io) {
         runCatching {
-            val doc = PdfDocument(PdfReader(inputFile.absolutePath), PdfWriter(outputFile.absolutePath))
+            val doc = IPdfDocument(PdfReader(inputFile.absolutePath), PdfWriter(outputFile.absolutePath))
             try {
                 rotations.forEach { (n, deg) ->
                     if (n in 1..doc.numberOfPages) {
@@ -211,7 +218,7 @@ class PdfOperationsRepositoryImpl @Inject constructor(
         config: PageNumberConfig
     ): AppResult<File> = withContext(dispatchers.io) {
         runCatching {
-            val doc = PdfDocument(PdfReader(inputFile.absolutePath), PdfWriter(outputFile.absolutePath))
+            val doc = IPdfDocument(PdfReader(inputFile.absolutePath), PdfWriter(outputFile.absolutePath))
             try {
                 val font = PdfFontFactory.createFont()
                 val total = doc.numberOfPages
@@ -246,7 +253,7 @@ class PdfOperationsRepositoryImpl @Inject constructor(
         config: HeaderFooterConfig
     ): AppResult<File> = withContext(dispatchers.io) {
         runCatching {
-            val doc = PdfDocument(PdfReader(inputFile.absolutePath), PdfWriter(outputFile.absolutePath))
+            val doc = IPdfDocument(PdfReader(inputFile.absolutePath), PdfWriter(outputFile.absolutePath))
             try {
                 for (i in 1..doc.numberOfPages) {
                     val page = doc.getPage(i)
@@ -266,7 +273,7 @@ class PdfOperationsRepositoryImpl @Inject constructor(
     override suspend fun imagesToPdf(imageFiles: List<File>, outputFile: File): AppResult<File> =
         withContext(dispatchers.io) {
             runCatching {
-                val pdfDoc = PdfDocument(PdfWriter(outputFile.absolutePath))
+                val pdfDoc = IPdfDocument(PdfWriter(outputFile.absolutePath))
                 val doc = Document(pdfDoc)
                 try {
                     imageFiles.filter { it.exists() && it.length() > 0 }.forEach { f ->
@@ -294,7 +301,7 @@ class PdfOperationsRepositoryImpl @Inject constructor(
     ): AppResult<File> = withContext(dispatchers.io) {
         runCatching {
             val outputFile = File(inputFile.parent, "output_${System.currentTimeMillis()}.pdf")
-            val doc = PdfDocument(PdfReader(inputFile.absolutePath), PdfWriter(outputFile.absolutePath))
+            val doc = IPdfDocument(PdfReader(inputFile.absolutePath), PdfWriter(outputFile.absolutePath))
             try {
                 val page = doc.getPage(pageNum.coerceIn(1, doc.numberOfPages))
                 val ps = page.pageSize
@@ -323,8 +330,8 @@ class PdfOperationsRepositoryImpl @Inject constructor(
         heightPt: Float
     ): AppResult<File> = withContext(dispatchers.io) {
         runCatching {
-            val src = PdfDocument(PdfReader(inputFile.absolutePath))
-            val dest = PdfDocument(PdfWriter(outputFile.absolutePath))
+            val src = IPdfDocument(PdfReader(inputFile.absolutePath))
+            val dest = IPdfDocument(PdfWriter(outputFile.absolutePath))
             val doc = Document(dest)
             try {
                 val targetSize = PageSize(widthPt, heightPt)
@@ -355,11 +362,11 @@ class PdfOperationsRepositoryImpl @Inject constructor(
     override suspend fun saveAnnotations(
         inputFile: File,
         outputFile: File,
-        pageAnnotations: Map<Int, Pair<List<AnnotationStroke>, Float>>,
-        pageTextAnnotations: Map<Int, Pair<List<AnnotationText>, Float>>
+        pageAnnotations: Map<Int, Pair<List<<AnnotationStroke>, Float>>,
+        pageTextAnnotations: Map<Int, Pair<List<<AnnotationText>, Float>>
     ): AppResult<File> = withContext(dispatchers.io) {
         runCatching {
-            val doc = PdfDocument(PdfReader(inputFile.absolutePath), PdfWriter(outputFile.absolutePath))
+            val doc = IPdfDocument(PdfReader(inputFile.absolutePath), PdfWriter(outputFile.absolutePath))
             try {
                 val allPages = (pageAnnotations.keys + pageTextAnnotations.keys).toSet()
                 for (idx in allPages) {
@@ -423,7 +430,7 @@ class PdfOperationsRepositoryImpl @Inject constructor(
 
     // ===================== PRIVATE HELPERS =====================
     private fun embedTextAsBitmap(
-        canvas: PdfCanvas, doc: PdfDocument, page: com.itextpdf.kernel.pdf.PdfPage,
+        canvas: PdfCanvas, doc: IPdfDocument, page: com.itextpdf.kernel.pdf.PdfPage,
         text: String, fontSizePt: Float, ps: com.itextpdf.kernel.geom.Rectangle,
         alignment: String, isHeader: Boolean
     ) {
