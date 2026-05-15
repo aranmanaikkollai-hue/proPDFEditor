@@ -1,0 +1,30 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">ProPDF Editor</string>
+
+    <!-- Navigation -->
+    <string name="previous_page">Previous Page</string>
+    <string name="next_page">Next Page</string>
+    <string name="thumbnails">Thumbnails</string>
+    <string name="more_options">More Options</string>
+
+    <!-- FAB -->
+    <string name="add_tab">Add Tab</string>
+    <string name="night_mode">Night Mode</string>
+
+    <!-- Bottom Sheet -->
+    <string name="zoom_mode">Zoom</string>
+    <string name="fit_width">Fit Width</string>
+    <string name="fit_page">Fit Page</string>
+    <string name="rotate">Rotate</string>
+    <string name="scroll_mode">Scroll</string>
+    <string name="continuous">Continuous</string>
+    <string name="horizontal">Horizontal</string>
+    <string name="theme">Theme</string>
+    <string name="theme_cycle">Cycle</string>
+
+    <!-- Menu -->
+    <string name="search">Search</string>
+    <string name="bookmark">Bookmark</string>
+    <string name="share">Share</string>
+</resources>
