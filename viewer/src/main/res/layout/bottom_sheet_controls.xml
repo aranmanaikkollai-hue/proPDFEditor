@@ -1,0 +1,146 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout
+    xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
+    android:layout_width="match_parent"
+    android:layout_height="wrap_content"
+    android:orientation="vertical"
+    android:padding="16dp"
+    android:background="@drawable/bg_bottom_sheet">
+
+    <!-- Handle -->
+    <View
+        android:layout_width="40dp"
+        android:layout_height="4dp"
+        android:layout_gravity="center_horizontal"
+        android:background="@drawable/bg_handle"
+        android:layout_marginBottom="16dp" />
+
+    <!-- Zoom modes -->
+    <TextView
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:text="@string/zoom_mode"
+        android:textColor="@android:color/white"
+        android:textSize="16sp"
+        android:textStyle="bold"
+        android:layout_marginBottom="8dp" />
+
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:orientation="horizontal"
+        android:layout_marginBottom="16dp">
+
+        <com.google.android.material.button.MaterialButton
+            android:id="@+id/btnFitWidth"
+            style="@style/Widget.Material3.Button.TextButton"
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:layout_weight="1"
+            android:text="@string/fit_width"
+            android:textSize="12sp"
+            app:icon="@drawable/ic_fit_width"
+            app:iconGravity="top" />
+
+        <com.google.android.material.button.MaterialButton
+            android:id="@+id/btnFitPage"
+            style="@style/Widget.Material3.Button.TextButton"
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:layout_weight="1"
+            android:text="@string/fit_page"
+            android:textSize="12sp"
+            app:icon="@drawable/ic_fit_page"
+            app:iconGravity="top" />
+
+        <com.google.android.material.button.MaterialButton
+            android:id="@+id/btnRotate"
+            style="@style/Widget.Material3.Button.TextButton"
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:layout_weight="1"
+            android:text="@string/rotate"
+            android:textSize="12sp"
+            app:icon="@drawable/ic_rotate"
+            app:iconGravity="top" />
+    </LinearLayout>
+
+    <!-- Scroll modes -->
+    <TextView
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:text="@string/scroll_mode"
+        android:textColor="@android:color/white"
+        android:textSize="16sp"
+        android:textStyle="bold"
+        android:layout_marginBottom="8dp" />
+
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:orientation="horizontal"
+        android:layout_marginBottom="16dp">
+
+        <com.google.android.material.button.MaterialButton
+            android:id="@+id/btnContinuousScroll"
+            style="@style/Widget.Material3.Button.TextButton"
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:layout_weight="1"
+            android:text="@string/continuous"
+            android:textSize="12sp"
+            app:icon="@drawable/ic_scroll"
+            app:iconGravity="top" />
+
+        <com.google.android.material.button.MaterialButton
+            android:id="@+id/btnHorizontal"
+            style="@style/Widget.Material3.Button.TextButton"
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:layout_weight="1"
+            android:text="@string/horizontal"
+            android:textSize="12sp"
+            app:icon="@drawable/ic_horizontal"
+            app:iconGravity="top" />
+    </LinearLayout>
+
+    <!-- Themes -->
+    <TextView
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:text="@string/theme"
+        android:textColor="@android:color/white"
+        android:textSize="16sp"
+        android:textStyle="bold"
+        android:layout_marginBottom="8dp" />
+
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:orientation="horizontal">
+
+        <com.google.android.material.button.MaterialButton
+            android:id="@+id/btnTheme"
+            style="@style/Widget.Material3.Button.TextButton"
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:layout_weight="1"
+            android:text="@string/theme_cycle"
+            android:textSize="12sp"
+            app:icon="@drawable/ic_theme"
+            app:iconGravity="top" />
+
+        <com.google.android.material.button.MaterialButton
+            android:id="@+id/btnNightMode"
+            style="@style/Widget.Material3.Button.TextButton"
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:layout_weight="1"
+            android:text="@string/night_mode"
+            android:textSize="12sp"
+            app:icon="@drawable/ic_night"
+            app:iconGravity="top" />
+    </LinearLayout>
+
+</LinearLayout>
