@@ -25,4 +25,11 @@
         android:title="@string/more_options"
         android:icon="@drawable/ic_more"
         app:showAsAction="always" />
+    
+    <item
+    android:id="@+id/action_tools"
+    android:title="Tools"
+    android:icon="@drawable/ic_tools"
+    app:showAsAction="ifRoom" />
+    
 </menu>
