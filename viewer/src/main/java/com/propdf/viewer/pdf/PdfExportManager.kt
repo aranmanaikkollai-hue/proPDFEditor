@@ -53,7 +53,20 @@ class PdfExportManager(
         val result = engine.splitPdf(source, outputDir) { current, total ->
             updateOperation(PdfOperationResult.InProgress.create(operationId, current, total))
         }
-        return handleResult(operationId, result, getUriSize(source))
+        return when {
+            result.isSuccess -> {
+                val files = result.getOrThrow()
+                val totalOutputSize = files.sumOf { it.length() }
+                val originalSize = getUriSize(source)
+                updateOperation(PdfOperationResult.Success(operationId, files.first(), files.size, originalSize, totalOutputSize, 0))
+                operationId
+            }
+            else -> {
+                val error = result.exceptionOrNull() ?: Exception("Unknown error")
+                updateOperation(PdfOperationResult.Failure(operationId, error))
+                operationId
+            }
+        }
     }
 
     suspend fun extract(source: Uri, pageIndices: List<Int>, outputName: String = "extracted_${System.currentTimeMillis()}.pdf"): String {
