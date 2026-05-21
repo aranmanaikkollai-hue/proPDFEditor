@@ -278,9 +278,11 @@ class PdfToolEngine(private val context: Context) {
                 onProgress(i + 1, totalPages)
                 yield()
             }
-            if (options.optimizeFonts) {
-                doc.document.catalog.removeItem(com.tom_roush.pdfbox.cos.COSName.ACRO_FORM)
-            }
+            // Font optimization skipped — PDFBox Android port doesn't expose catalog removal API
+            // TODO: Re-enable when PDFBox API for AcroForm removal is confirmed
+            // if (options.optimizeFonts) {
+            //     doc.document.catalog.setItem(com.tom_roush.pdfbox.cos.COSName.ACRO_FORM, null)
+            // }
             doc.save(FileOutputStream(outputFile))
             doc.close()
             Result.success(outputFile)
