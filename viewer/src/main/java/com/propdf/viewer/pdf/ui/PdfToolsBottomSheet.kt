@@ -6,7 +6,7 @@ import android.view.LayoutInflater
 import android.view.View
 import android.view.ViewGroup
 import androidx.core.view.isVisible
-import androidx.fragment.app.activityViewModels
+import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.lifecycleScope
 import androidx.lifecycle.repeatOnLifecycle
@@ -24,7 +24,9 @@ class PdfToolsBottomSheet : BottomSheetDialogFragment() {
     private var _binding: BottomSheetPdfToolsBinding? = null
     private val binding get() = _binding!!
 
-    private val viewModel: PdfToolsViewModel by activityViewModels()
+    private val viewModel: PdfToolsViewModel by lazy {
+        ViewModelProvider(requireActivity())[PdfToolsViewModel::class.java]
+    }
 
     private var currentSourceUri: Uri? = null
     private var currentPageCount: Int = 0
