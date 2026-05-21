@@ -1,0 +1,9 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <color name="scanner_bg">#0E0E0E</color>
+    <color name="scanner_panel_bg">#1A1A1A</color>
+    <color name="scanner_accent">#448AFF</color>
+    <color name="scanner_text">#FFFFFF</color>
+    <color name="scanner_text_secondary">#A0A0A0</color>
+    <color name="scanner_surface">#2A2A2A</color>
+</resources>

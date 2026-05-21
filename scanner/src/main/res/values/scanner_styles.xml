@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <style name="ScannerFilterButton" parent="Widget.MaterialComponents.Button.OutlinedButton">
+        <item name="android:layout_width">wrap_content</item>
+        <item name="android:layout_height">wrap_content</item>
+        <item name="android:layout_marginEnd">8dp</item>
+        <item name="android:textSize">12sp</item>
+        <item name="cornerRadius">16dp</item>
+        <item name="strokeColor">@color/scanner_accent</item>
+        <item name="android:textColor">@color/scanner_text</item>
+    </style>
+</resources>
