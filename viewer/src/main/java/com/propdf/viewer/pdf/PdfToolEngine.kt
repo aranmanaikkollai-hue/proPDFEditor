@@ -279,7 +279,7 @@ class PdfToolEngine(private val context: Context) {
                 yield()
             }
             if (options.optimizeFonts) {
-                doc.document.catalog.acroForm = null
+                doc.document.catalog.removeItem(com.tom_roush.pdfbox.cos.COSName.ACRO_FORM)
             }
             doc.save(FileOutputStream(outputFile))
             doc.close()
