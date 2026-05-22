@@ -1,0 +1,65 @@
+<?xml version="1.0" encoding="utf-8"?>
+<androidx.coordinatorlayout.widget.CoordinatorLayout 
+    xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
+    xmlns:tools="http://schemas.android.com/tools"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:background="@color/scanner_background"
+    tools:context=".scanner.ScannerActivity">
+
+    <com.propdf.scanner.camera.ScannerCameraView
+        android:id="@+id/cameraPreview"
+        android:layout_width="match_parent"
+        android:layout_height="match_parent" />
+
+    <com.propdf.scanner.view.DocumentOverlayView
+        android:id="@+id/documentOverlay"
+        android:layout_width="match_parent"
+        android:layout_height="match_parent" />
+
+    <ImageView
+        android:id="@+id/captureButton"
+        android:layout_width="72dp"
+        android:layout_height="72dp"
+        android:layout_gravity="bottom|center_horizontal"
+        android:layout_marginBottom="32dp"
+        android:background="@drawable/circle_button"
+        android:contentDescription="@string/capture"
+        android:padding="16dp"
+        android:src="@drawable/ic_camera"
+        app:tint="@android:color/white" />
+
+    <ImageButton
+        android:id="@+id/flashToggle"
+        android:layout_width="48dp"
+        android:layout_height="48dp"
+        android:layout_gravity="top|end"
+        android:layout_margin="16dp"
+        android:background="@drawable/circle_button_bg"
+        android:contentDescription="@string/flash"
+        android:padding="12dp"
+        android:src="@drawable/ic_flash_off"
+        app:tint="@android:color/white" />
+
+    <ImageButton
+        android:id="@+id/galleryButton"
+        android:layout_width="48dp"
+        android:layout_height="48dp"
+        android:layout_gravity="top|start"
+        android:layout_margin="16dp"
+        android:background="@drawable/circle_button_bg"
+        android:contentDescription="@string/gallery"
+        android:padding="12dp"
+        android:src="@drawable/ic_gallery"
+        app:tint="@android:color/white" />
+
+    <ProgressBar
+        android:id="@+id/progressBar"
+        style="?android:attr/progressBarStyleLarge"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_gravity="center"
+        android:visibility="gone" />
+
+</androidx.coordinatorlayout.widget.CoordinatorLayout>
