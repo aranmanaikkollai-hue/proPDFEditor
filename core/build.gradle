@@ -1,62 +1,43 @@
+// core/build.gradle.kts
 plugins {
-    id 'com.android.library'
-    id 'org.jetbrains.kotlin.android'
-    id 'org.jetbrains.kotlin.plugin.parcelize'
-    id 'org.jetbrains.kotlin.kapt'
-    id 'com.google.dagger.hilt.android'
+    id("com.android.library")
+    id("org.jetbrains.kotlin.android")
+    id("com.google.dagger.hilt.android")
+    id("org.jetbrains.kotlin.kapt")
 }
 
 android {
-    namespace 'com.propdf.core'
-    compileSdk 34
+    namespace = "com.propdf.core"
+    compileSdk = 34
 
     defaultConfig {
-        minSdk 21
-        testInstrumentationRunner "androidx.test.runner.AndroidJUnitRunner"
-        consumerProguardFiles "consumer-rules.pro"
-    }
-
-    buildTypes {
-        release {
-            minifyEnabled false
-            proguardFiles getDefaultProguardFile('proguard-android-optimize.txt'), 'proguard-rules.pro'
-        }
+        minSdk = 24
+        targetSdk = 34
     }
 
     compileOptions {
-        sourceCompatibility JavaVersion.VERSION_17
-        targetCompatibility JavaVersion.VERSION_17
+        sourceCompatibility = JavaVersion.VERSION_17
+        targetCompatibility = JavaVersion.VERSION_17
     }
 
     kotlinOptions {
-        jvmTarget = '17'
+        jvmTarget = "17"
     }
 }
 
 dependencies {
-    // Kotlin
-    implementation 'org.jetbrains.kotlinx:kotlinx-coroutines-android:1.7.3'
+    // Kotlin stdlib - REQUIRED for KAPT
+    implementation("org.jetbrains.kotlin:kotlin-stdlib:1.9.20")
+    implementation("org.jetbrains.kotlinx:kotlinx-coroutines-android:1.7.3")
 
-    // AndroidX Core
-    implementation 'androidx.core:core-ktx:1.12.0'
+    // Hilt
+    implementation("com.google.dagger:hilt-android:2.48")
+    kapt("com.google.dagger:hilt-compiler:2.48")
 
-    // Room (for database entities and DAOs)
-    implementation 'androidx.room:room-runtime:2.6.1'
-    implementation 'androidx.room:room-ktx:2.6.1'
-    kapt 'androidx.room:room-compiler:2.6.1'
+    // Room (if using)
+    implementation("androidx.room:room-runtime:2.6.1")
+    kapt("androidx.room:room-compiler:2.6.1")
 
-    // Hilt (for DI annotations)
-    implementation 'com.google.dagger:hilt-android:2.50'
-    kapt 'com.google.dagger:hilt-compiler:2.50'
-
-    // ML Kit (for OCR repository)
-    implementation 'com.google.mlkit:text-recognition:16.0.0'
-
-    // Lifecycle (for ViewModel support in core)
-    implementation 'androidx.lifecycle:lifecycle-viewmodel-ktx:2.7.0'
-
-    // Tests
-    testImplementation 'junit:junit:4.13.2'
-    testImplementation 'org.jetbrains.kotlinx:kotlinx-coroutines-test:1.7.3'
-    androidTestImplementation 'androidx.test.ext:junit:1.1.5'
+    // Testing
+    testImplementation("junit:junit:4.13.2")
 }
