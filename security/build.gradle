@@ -1,0 +1,81 @@
+plugins {
+    id 'com.android.library'
+    id 'org.jetbrains.kotlin.android'
+    id 'org.jetbrains.kotlin.kapt'
+    id 'com.google.dagger.hilt.android'
+}
+
+android {
+    namespace 'com.propdf.security'
+    compileSdk 34
+
+    defaultConfig {
+        minSdk 24
+        targetSdk 34
+        testInstrumentationRunner "androidx.test.runner.AndroidJUnitRunner"
+        consumerProguardFiles "consumer-rules.pro"
+    }
+
+    buildTypes {
+        release {
+            minifyEnabled false
+            proguardFiles getDefaultProguardFile('proguard-android-optimize.txt'), 'proguard-rules.pro'
+        }
+        debug {
+            minifyEnabled false
+        }
+    }
+
+    compileOptions {
+        sourceCompatibility JavaVersion.VERSION_17
+        targetCompatibility JavaVersion.VERSION_17
+    }
+
+    kotlinOptions {
+        jvmTarget = '17'
+    }
+
+    packaging {
+        resources {
+            // Prevent duplicate BouncyCastle META-INF files
+            excludes += ['META-INF/versions/9/OSGI-INF/MANIFEST.MF']
+            pickFirsts += ['META-INF/LICENSE.md', 'META-INF/NOTICE.md']
+        }
+    }
+}
+
+configurations.all {
+    // Force the single BouncyCastle artifact that pdfbox-android uses
+    // so bcprov-jdk15on (pulled in by old iText) is replaced by jdk15to18
+    resolutionStrategy.eachDependency { DependencyResolveDetails details ->
+        if (details.requested.group == 'org.bouncycastle' &&
+            details.requested.name == 'bcprov-jdk15on') {
+            details.useTarget group: 'org.bouncycastle',
+                             name: 'bcprov-jdk15to18',
+                             version: '1.70'
+            details.because 'Unify BouncyCastle variant — pdfbox-android requires jdk15to18'
+        }
+    }
+}
+
+dependencies {
+    implementation "org.jetbrains.kotlin:kotlin-stdlib:1.9.20"
+    implementation project(':core')
+
+    implementation "androidx.core:core-ktx:1.12.0"
+    implementation "androidx.appcompat:appcompat:1.6.1"
+
+    implementation "com.google.dagger:hilt-android:2.50"
+    kapt "com.google.dagger:hilt-compiler:2.50"
+
+    implementation "org.jetbrains.kotlinx:kotlinx-coroutines-android:1.7.3"
+
+    // iText 7 Community — used by EncryptionManager, RedactionEngine, WatermarkEngine
+    // Exclude bcprov-jdk15on so only bcprov-jdk15to18 (from pdfbox) is on classpath
+    implementation('com.itextpdf:itext7-core:7.2.5') {
+        exclude group: 'org.bouncycastle', module: 'bcprov-jdk15on'
+        exclude group: 'org.bouncycastle', module: 'bcpkix-jdk15on'
+    }
+
+    testImplementation "junit:junit:4.13.2"
+}
