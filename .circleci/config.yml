@@ -1,0 +1,191 @@
+# CircleCI configuration for proPDFEditor Android project
+# Uses Android Docker image with Java 17 (required for KAPT 1.9.20 compatibility)
+# Java 21+ breaks KAPT due to JPMS module sealing of com.sun.tools.javac
+
+version: 2.1
+
+orbs:
+  android: circleci/android@2.5.0
+
+executors:
+  android-executor:
+    docker:
+      - image: cimg/android:2024.04-ndk
+    resource_class: large
+    environment:
+      # Force Java 17 — KAPT 1.9.20 is incompatible with Java 21+ JPMS
+      JAVA_HOME: /usr/lib/jvm/java-17-openjdk-amd64
+      PATH: /usr/lib/jvm/java-17-openjdk-amd64/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin
+      JVM_OPTS: -Xmx4096m
+      GRADLE_OPTS: -Xmx4096m -Dorg.gradle.daemon=false -Dorg.gradle.jvmargs=-Xmx4096m -Dkotlin.compiler.execution.strategy=in-process
+
+commands:
+  setup-java-17:
+    description: "Install and configure Java 17 (required for KAPT compatibility)"
+    steps:
+      - run:
+          name: Install OpenJDK 17
+          command: |
+            sudo apt-get update
+            sudo apt-get install -y openjdk-17-jdk
+            java -version
+            javac -version
+      - run:
+          name: Verify Java 17
+          command: |
+            export JAVA_HOME=/usr/lib/jvm/java-17-openjdk-amd64
+            export PATH=$JAVA_HOME/bin:$PATH
+            java -version
+            echo "JAVA_HOME=$JAVA_HOME"
+
+  setup-android:
+    description: "Setup Android SDK and accept licenses"
+    steps:
+      - run:
+          name: Accept Android Licenses
+          command: |
+            yes | sdkmanager --licenses || true
+      - run:
+          name: Setup local.properties
+          command: |
+            echo "sdk.dir=/opt/android/sdk" > local.properties
+
+  gradle-cache:
+    description: "Restore and save Gradle cache"
+    steps:
+      - restore_cache:
+          keys:
+            - v1-gradle-{{ checksum "build.gradle" }}-{{ checksum "gradle.properties" }}
+            - v1-gradle-{{ checksum "build.gradle" }}
+            - v1-gradle-
+      - save_cache:
+          paths:
+            - ~/.gradle/caches
+            - ~/.gradle/wrapper
+          key: v1-gradle-{{ checksum "build.gradle" }}-{{ checksum "gradle.properties" }}
+
+jobs:
+  build-and-test:
+    executor: android-executor
+    steps:
+      - checkout
+      - setup-java-17
+      - setup-android
+      - gradle-cache
+      - run:
+          name: Fix gradlew permissions
+          command: chmod +x ./gradlew
+      - run:
+          name: Clean Build
+          command: |
+            export JAVA_HOME=/usr/lib/jvm/java-17-openjdk-amd64
+            export PATH=$JAVA_HOME/bin:$PATH
+            ./gradlew clean --no-daemon
+      - run:
+          name: Build Debug APK
+          command: |
+            export JAVA_HOME=/usr/lib/jvm/java-17-openjdk-amd64
+            export PATH=$JAVA_HOME/bin:$PATH
+            ./gradlew :app:assembleDebug --no-daemon --stacktrace
+      - run:
+          name: Run Unit Tests
+          command: |
+            export JAVA_HOME=/usr/lib/jvm/java-17-openjdk-amd64
+            export PATH=$JAVA_HOME/bin:$PATH
+            ./gradlew testDebugUnitTest --no-daemon --stacktrace
+      - store_test_results:
+          path: app/build/test-results/testDebugUnitTest
+      - store_test_results:
+          path: core/build/test-results/testDebugUnitTest
+      - store_test_results:
+          path: editor/build/test-results/testDebugUnitTest
+      - store_test_results:
+          path: security/build/test-results/testDebugUnitTest
+      - store_test_results:
+          path: scanner/build/test-results/testDebugUnitTest
+      - store_test_results:
+          path: viewer/build/test-results/testDebugUnitTest
+      - store_test_results:
+          path: ocr/build/test-results/testDebugUnitTest
+      - store_test_results:
+          path: ads/build/test-results/testDebugUnitTest
+      - store_test_results:
+          path: annotations/build/test-results/testDebugUnitTest
+      - store_artifacts:
+          path: app/build/outputs/apk/debug
+          destination: debug-apk
+      - store_artifacts:
+          path: app/build/reports
+          destination: build-reports
+      - store_artifacts:
+          path: app/build/test-results
+          destination: test-results
+
+  build-only:
+    executor: android-executor
+    steps:
+      - checkout
+      - setup-java-17
+      - setup-android
+      - gradle-cache
+      - run:
+          name: Fix gradlew permissions
+          command: chmod +x ./gradlew
+      - run:
+          name: Clean Build
+          command: |
+            export JAVA_HOME=/usr/lib/jvm/java-17-openjdk-amd64
+            export PATH=$JAVA_HOME/bin:$PATH
+            ./gradlew clean --no-daemon
+      - run:
+          name: Build Debug APK
+          command: |
+            export JAVA_HOME=/usr/lib/jvm/java-17-openjdk-amd64
+            export PATH=$JAVA_HOME/bin:$PATH
+            ./gradlew :app:assembleDebug --no-daemon --stacktrace
+      - store_artifacts:
+          path: app/build/outputs/apk/debug
+          destination: debug-apk
+
+  diagnose-kapt:
+    executor: android-executor
+    steps:
+      - checkout
+      - setup-java-17
+      - setup-android
+      - gradle-cache
+      - run:
+          name: Fix gradlew permissions
+          command: chmod +x ./gradlew
+      - run:
+          name: Diagnose KAPT Error (disable KAPT to show real error)
+          command: |
+            export JAVA_HOME=/usr/lib/jvm/java-17-openjdk-amd64
+            export PATH=$JAVA_HOME/bin:$PATH
+            ./gradlew showRealErrors --no-daemon --stacktrace || true
+      - store_artifacts:
+          path: build/reports
+          destination: diagnostic-reports
+
+workflows:
+  version: 2
+  build-test-deploy:
+    jobs:
+      - build-and-test:
+          filters:
+            branches:
+              only:
+                - main
+                - master
+                - develop
+      - build-only:
+          filters:
+            branches:
+              ignore:
+                - main
+                - master
+                - develop
+
+  diagnose:
+    jobs:
+      - diagnose-kapt
