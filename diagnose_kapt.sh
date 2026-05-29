@@ -1,0 +1,95 @@
+#!/bin/bash
+set -ex
+
+cd "$CM_BUILD_DIR" || cd /home/circleci/project
+
+# Backup original app/build.gradle
+cp app/build.gradle app/build.gradle.backup
+
+# Create diagnostic version without kapt/hilt plugins
+cat > app/build.gradle << 'EOF'
+plugins {
+    id 'com.android.application'
+    id 'org.jetbrains.kotlin.android'
+}
+
+android {
+    namespace 'com.propdfeditor'
+    compileSdk 34
+
+    defaultConfig {
+        applicationId "com.propdfeditor"
+        minSdk 24
+        targetSdk 34
+        versionCode 1
+        versionName "1.0"
+        testInstrumentationRunner "androidx.test.runner.AndroidJUnitRunner"
+    }
+
+    buildTypes {
+        release {
+            minifyEnabled false
+            shrinkResources false
+            proguardFiles getDefaultProguardFile('proguard-android-optimize.txt'), 'proguard-rules.pro'
+        }
+        debug {
+            minifyEnabled false
+            shrinkResources false
+        }
+    }
+
+    compileOptions {
+        sourceCompatibility JavaVersion.VERSION_17
+        targetCompatibility JavaVersion.VERSION_17
+    }
+
+    kotlinOptions {
+        jvmTarget = '17'
+    }
+
+    buildFeatures {
+        viewBinding true
+    }
+}
+
+dependencies {
+    implementation "org.jetbrains.kotlin:kotlin-stdlib:1.9.20"
+
+    implementation project(':core')
+    implementation project(':viewer')
+    implementation project(':editor')
+    implementation project(':scanner')
+    implementation project(':security')
+    implementation project(':ads')
+    implementation project(':ocr')
+    implementation project(':annotations')
+
+    implementation "androidx.core:core-ktx:1.12.0"
+    implementation "androidx.appcompat:appcompat:1.6.1"
+    implementation "com.google.android.material:material:1.11.0"
+    implementation "androidx.constraintlayout:constraintlayout:2.1.4"
+    implementation "androidx.lifecycle:lifecycle-viewmodel-ktx:2.7.0"
+    implementation "androidx.lifecycle:lifecycle-runtime-ktx:2.7.0"
+    implementation "androidx.activity:activity-ktx:1.8.2"
+    implementation "androidx.fragment:fragment-ktx:1.6.2"
+
+    implementation "org.jetbrains.kotlinx:kotlinx-coroutines-android:1.7.3"
+
+    testImplementation "junit:junit:4.13.2"
+    androidTestImplementation "androidx.test.ext:junit:1.1.5"
+    androidTestImplementation "androidx.test.espresso:espresso-core:3.5.1"
+}
+EOF
+
+export JAVA_HOME=/usr/lib/jvm/java-17-openjdk-amd64
+
+# Clean and compile without KAPT - this will show the REAL error
+./gradlew clean :app:compileDebugKotlin --no-daemon --stacktrace --info 2>&1 | tee diagnose.log || true
+
+# Restore original
+mv app/build.gradle.backup app/build.gradle
+
+# Show the actual compilation errors from the log
+echo "========== REAL COMPILATION ERRORS =========="
+grep -E "e: |error:|Unresolved reference" diagnose.log || echo "No explicit errors found in log"
+echo "==========================================="

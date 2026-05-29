@@ -1,0 +1,68 @@
+// Root build.gradle — AGP 8.2.0 + Kotlin 1.9.20 + Hilt 2.50
+
+buildscript {
+    ext {
+        kotlin_version = '1.9.20'
+        hilt_version = '2.50'
+        agp_version = '8.2.0'
+    }
+    repositories {
+        google()
+        mavenCentral()
+        gradlePluginPortal()
+    }
+    dependencies {
+        classpath "com.android.tools.build:gradle:$agp_version"
+        classpath "org.jetbrains.kotlin:kotlin-gradle-plugin:$kotlin_version"
+        classpath "com.google.dagger:hilt-android-gradle-plugin:$hilt_version"
+    }
+}
+
+allprojects {
+    repositories {
+        google()
+        mavenCentral()
+        maven { url 'https://jitpack.io' }
+    }
+
+    // ── Prevent BouncyCastle duplicate-class clash ──────────────────────────
+    configurations.all {
+        resolutionStrategy.eachDependency { DependencyResolveDetails details ->
+            if (details.requested.group == 'org.bouncycastle') {
+                switch (details.requested.name) {
+                    case 'bcprov-jdk15on':
+                        details.useTarget(
+                            group: 'org.bouncycastle',
+                            name: 'bcprov-jdk15to18',
+                            version: '1.70'
+                        )
+                        details.because 'Unify BouncyCastle — jdk15to18 is the superset used by pdfbox-android'
+                        break
+                    case 'bcpkix-jdk15on':
+                        details.useTarget(
+                            group: 'org.bouncycastle',
+                            name: 'bcpkix-jdk15to18',
+                            version: '1.70'
+                        )
+                        details.because 'Unify BouncyCastle PKIX variant to match pdfbox-android'
+                        break
+                }
+            }
+        }
+        exclude group: 'org.bouncycastle', module: 'bcprov-jdk15on'
+        exclude group: 'org.bouncycastle', module: 'bcpkix-jdk15on'
+    }
+
+    // ── Diagnostic: conditionally disable ALL KAPT tasks ────────────────────
+    // Run with: ./gradlew :app:compileDebugKotlin -PdisableKapt=true --no-daemon
+    // This reveals the real compilation error behind "Could not load module <Error module>"
+    if (project.hasProperty('disableKapt')) {
+        // Use afterEvaluate to ensure Kotlin plugin has applied its tasks
+        afterEvaluate {
+            tasks.matching { it.name.contains('kapt') }.configureEach {
+                enabled = false
+                println("[disableKapt] Skipping: ${it.name}")
+            }
+        }
+    }
+}
