@@ -52,22 +52,14 @@ allprojects {
         exclude group: 'org.bouncycastle', module: 'bcprov-jdk15on'
         exclude group: 'org.bouncycastle', module: 'bcpkix-jdk15on'
     }
-}
 
-// ── Diagnostic: disable KAPT to reveal real compilation errors ──────────
-// Run: ./gradlew showRealErrors --no-daemon
-// This disables all kapt tasks and runs :app:compileDebugKotlin directly,
-// exposing the actual bad import / unresolved reference.
-tasks.register('showRealErrors') {
-    group = 'Help'
-    description = 'Disables KAPT to reveal the real error behind "Could not load module <Error module>"'
-    doFirst {
-        allprojects { proj ->
-            proj.tasks.matching { it.name.contains('kapt') }.configureEach {
-                enabled = false
-                println("[showRealErrors] Disabled: ${it.name}")
-            }
+    // ── Diagnostic: conditionally disable KAPT ─────────────────────────────
+    // Run with: ./gradlew :app:compileDebugKotlin -PdisableKapt=true --no-daemon
+    // This reveals the real compilation error behind "Could not load module <Error module>"
+    if (project.hasProperty('disableKapt')) {
+        tasks.withType(org.jetbrains.kotlin.gradle.internal.KaptTask).configureEach {
+            enabled = false
+            println("[disableKapt] Skipping: ${it.name}")
         }
     }
-    finalizedBy ':app:compileDebugKotlin'
 }
