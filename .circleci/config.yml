@@ -1,0 +1,83 @@
+version: 2.1
+
+jobs:
+  build:
+    docker:
+      - image: cimg/android:2024.01
+    resource_class: large
+    environment:
+      JVM_OPTS: -Xmx4096m
+      GRADLE_OPTS: -Xmx4096m -Dorg.gradle.daemon=false
+    steps:
+      - checkout
+      - restore_cache:
+          key: gradle-{{ checksum "build.gradle" }}-{{ checksum "app/build.gradle" }}
+      - run:
+          name: Grant execute permission for gradlew
+          command: chmod +x gradlew
+      - run:
+          name: Deep clean
+          command: |
+            ./gradlew clean --no-daemon
+            find . -path "*/build/tmp/kotlin-classes/*/META-INF/*.kotlin_module" -delete 2>/dev/null || true
+            find . -path "*/build/intermediates/javac/*/classes/META-INF/*.kotlin_module" -delete 2>/dev/null || true
+            echo "Cleaned stale .kotlin_module files"
+      - run:
+          name: Build Debug APK
+          command: ./gradlew :app:assembleDebug --no-daemon --stacktrace
+      - save_cache:
+          paths:
+            - ~/.gradle
+          key: gradle-{{ checksum "build.gradle" }}-{{ checksum "app/build.gradle" }}
+      - store_artifacts:
+          path: app/build/outputs/apk/debug
+          destination: apk-debug
+      - store_artifacts:
+          path: app/build/reports
+          destination: build-reports
+
+  build-release:
+    docker:
+      - image: cimg/android:2024.01
+    resource_class: large
+    environment:
+      JVM_OPTS: -Xmx4096m
+      GRADLE_OPTS: -Xmx4096m -Dorg.gradle.daemon=false
+    steps:
+      - checkout
+      - restore_cache:
+          key: gradle-{{ checksum "build.gradle" }}-{{ checksum "app/build.gradle" }}
+      - run:
+          name: Grant execute permission for gradlew
+          command: chmod +x gradlew
+      - run:
+          name: Deep clean
+          command: |
+            ./gradlew clean --no-daemon
+            find . -path "*/build/tmp/kotlin-classes/*/META-INF/*.kotlin_module" -delete 2>/dev/null || true
+            find . -path "*/build/intermediates/javac/*/classes/META-INF/*.kotlin_module" -delete 2>/dev/null || true
+      - run:
+          name: Build Release APK
+          command: ./gradlew :app:assembleRelease --no-daemon --stacktrace
+      - save_cache:
+          paths:
+            - ~/.gradle
+          key: gradle-{{ checksum "build.gradle" }}-{{ checksum "app/build.gradle" }}
+      - store_artifacts:
+          path: app/build/outputs/apk/release
+          destination: apk-release
+
+workflows:
+  version: 2
+  build-debug:
+    jobs:
+      - build:
+          filters:
+            branches:
+              only: main
+  build-release:
+    jobs:
+      - build-release:
+          filters:
+            branches:
+              only: main
