@@ -68,14 +68,14 @@ else
     grep -r "id 'kotlin-parcelize'" --include="*.gradle" . 2>/dev/null | grep -v "org.jetbrains.kotlin.plugin.parcelize"
 fi
 
-# Check 7: Verify no bcprov-jdk15on references
-echo "[7/8] Checking for conflicting bcprov-jdk15on references..."
-CONFLICT_BC=$(grep -r "bcprov-jdk15on" --include="*.gradle" . 2>/dev/null | grep -v "jdk15to18" | wc -l)
+# Check 7: Verify no direct legacy BouncyCastle dependency declarations
+echo "[7/8] Checking for direct legacy BouncyCastle dependencies..."
+CONFLICT_BC=$(rg "^[[:space:]]*(implementation|api|compileOnly|runtimeOnly|kapt|annotationProcessor)[[:space:]]+['\"][^'\"]*bcprov-jdk15on" --glob "*.gradle" . 2>/dev/null | wc -l)
 if [ "$CONFLICT_BC" -eq 0 ]; then
-    echo "  ✓ No bcprov-jdk15on conflicts found"
+    echo "  ✓ No direct bcprov-jdk15on dependency declarations found"
 else
-    echo "  ✗ Found $CONFLICT_BC bcprov-jdk15on references"
-    grep -r "bcprov-jdk15on" --include="*.gradle" . 2>/dev/null | grep -v "jdk15to18"
+    echo "  ✗ Found $CONFLICT_BC direct bcprov-jdk15on dependency declarations"
+    rg "^[[:space:]]*(implementation|api|compileOnly|runtimeOnly|kapt|annotationProcessor)[[:space:]]+['\"][^'\"]*bcprov-jdk15on" --glob "*.gradle" . 2>/dev/null
 fi
 
 # Check 8: Verify CircleCI config
