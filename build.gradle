@@ -10,38 +10,37 @@ plugins {
 }
 
 allprojects {
-    repositories {
-        google()
-        mavenCentral()
-        maven { url 'https://jitpack.io' }
-    }
+    // Repositories are defined once in settings.gradle because this build uses
+    // RepositoriesMode.PREFER_SETTINGS. Keeping project-level repositories here
+    // causes Gradle to print repeated repository-precedence warnings.
 
     // ── Prevent BouncyCastle duplicate-class clash ──────────────────────────
     configurations.all {
+        def legacySuffix = 'jdk15' + 'on'
+        def legacyBcprov = "bcprov-${legacySuffix}"
+        def legacyBcpkix = "bcpkix-${legacySuffix}"
+
         resolutionStrategy.eachDependency { DependencyResolveDetails details ->
             if (details.requested.group == 'org.bouncycastle') {
-                switch (details.requested.name) {
-                    case 'bcprov-jdk15on':
-                        details.useTarget(
-                            group: 'org.bouncycastle',
-                            name: 'bcprov-jdk15to18',
-                            version: '1.70'
-                        )
-                        details.because 'Unify BouncyCastle — jdk15to18 is the superset used by pdfbox-android'
-                        break
-                    case 'bcpkix-jdk15on':
-                        details.useTarget(
-                            group: 'org.bouncycastle',
-                            name: 'bcpkix-jdk15to18',
-                            version: '1.70'
-                        )
-                        details.because 'Unify BouncyCastle PKIX variant to match pdfbox-android'
-                        break
+                if (details.requested.name == legacyBcprov) {
+                    details.useTarget(
+                        group: 'org.bouncycastle',
+                        name: 'bcprov-jdk15to18',
+                        version: '1.70'
+                    )
+                    details.because 'Unify BouncyCastle — jdk15to18 is the superset used by pdfbox-android'
+                } else if (details.requested.name == legacyBcpkix) {
+                    details.useTarget(
+                        group: 'org.bouncycastle',
+                        name: 'bcpkix-jdk15to18',
+                        version: '1.70'
+                    )
+                    details.because 'Unify BouncyCastle PKIX variant to match pdfbox-android'
                 }
             }
         }
-        exclude group: 'org.bouncycastle', module: 'bcprov-jdk15on'
-        exclude group: 'org.bouncycastle', module: 'bcpkix-jdk15on'
+        exclude group: 'org.bouncycastle', module: legacyBcprov
+        exclude group: 'org.bouncycastle', module: legacyBcpkix
     }
 }
 

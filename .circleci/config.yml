@@ -16,7 +16,7 @@ jobs:
           name: Grant execute permission for gradlew
           command: chmod +x gradlew
       - run:
-          name: Deep clean
+          name: Delete stale kotlin_module files
           command: |
             ./gradlew clean --no-daemon
             find . -path "*/build/tmp/kotlin-classes/*/META-INF/*.kotlin_module" -delete 2>/dev/null || true
@@ -51,7 +51,7 @@ jobs:
           name: Grant execute permission for gradlew
           command: chmod +x gradlew
       - run:
-          name: Deep clean
+          name: Delete stale kotlin_module files
           command: |
             ./gradlew clean --no-daemon
             find . -path "*/build/tmp/kotlin-classes/*/META-INF/*.kotlin_module" -delete 2>/dev/null || true
