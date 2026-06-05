@@ -10,11 +10,9 @@ plugins {
 }
 
 allprojects {
-    repositories {
-        google()
-        mavenCentral()
-        maven { url 'https://jitpack.io' }
-    }
+    // Repositories are defined once in settings.gradle because this build uses
+    // RepositoriesMode.PREFER_SETTINGS. Keeping project-level repositories here
+    // causes Gradle to print repeated repository-precedence warnings.
 
     // ── Prevent BouncyCastle duplicate-class clash ──────────────────────────
     configurations.all {
