@@ -22,6 +22,7 @@
     <string name="horizontal">Horizontal</string>
     <string name="theme">Theme</string>
     <string name="theme_cycle">Cycle</string>
+    <string name="close_tab">Close tab</string>
 
     <!-- Menu -->
     <string name="search">Search</string>
