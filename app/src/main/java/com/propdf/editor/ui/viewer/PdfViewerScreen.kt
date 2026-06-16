@@ -94,7 +94,41 @@ fun PdfViewerScreen(
                         .clip(RoundedCornerShape(8.dp))
                         .background(MaterialTheme.colorScheme.surfaceVariant),
                     contentAlignment = Alignment.Center
-                ) {
+                ) // In PDFViewerScreen.kt, inside the PDFCanvas Box:
+Box(modifier = Modifier.fillMaxSize()) {
+    // PDF content (existing)
+    PDFCanvas(...)
+
+    // Annotation overlay (new)
+    val annotationViewModel: AnnotationViewModel = hiltViewModel()
+    val currentTool by annotationViewModel.currentTool.collectAsState()
+    val currentColor by annotationViewModel.currentColor.collectAsState()
+    val currentStrokeWidth by annotationViewModel.currentStrokeWidth.collectAsState()
+
+    AnnotationOverlay(
+        pageIndex = currentPage,
+        layerManager = remember { annotationViewModel.layers.value.firstOrNull()?.let { ... } ?: LayerManager() },
+        currentTool = currentTool,
+        currentColor = currentColor,
+        currentStrokeWidth = currentStrokeWidth,
+        onAnnotationCreated = { annotationViewModel.createAnnotation(it) },
+        onAnnotationSelected = { annotationViewModel.selectAnnotation(it) },
+        modifier = Modifier.fillMaxSize()
+    )
+}
+
+// Toolbar at bottom
+AnnotationToolbar(
+    currentTool = currentTool,
+    onToolSelected = { annotationViewModel.setTool(it) },
+    currentColor = currentColor,
+    onColorSelected = { annotationViewModel.setColor(it) },
+    currentStrokeWidth = currentStrokeWidth,
+    onStrokeWidthChanged = { annotationViewModel.setStrokeWidth(it) },
+    historyManager = annotationViewModel.historyManager,
+    onUndo = { annotationViewModel.undo() },
+    onRedo = { annotationViewModel.redo() }
+) {
                     Column(horizontalAlignment = Alignment.CenterHorizontally) {
                         Icon(
                             Icons.Default.PictureAsPdf,
