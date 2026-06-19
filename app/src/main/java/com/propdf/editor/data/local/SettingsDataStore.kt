@@ -14,10 +14,6 @@ import javax.inject.Singleton
 
 private val Context.dataStore: DataStore<Preferences> by preferencesDataStore(name = "settings")
 
-/**
- * Persistent settings storage using Jetpack DataStore.
- * Coroutine-safe, type-safe, and lifecycle-aware.
- */
 @Singleton
 class SettingsDataStore @Inject constructor(
     @ApplicationContext private val context: Context
