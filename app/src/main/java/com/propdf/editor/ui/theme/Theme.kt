@@ -52,10 +52,6 @@ private val DarkColors = darkColorScheme(
     scrim = md_theme_dark_scrim,
 )
 
-/**
- * Base ProPDF theme. Use this for preview/testing or when DataStore is not available.
- * For production, prefer [ProPDFThemeWithSettings].
- */
 @Composable
 fun ProPDFTheme(
     darkTheme: Boolean = isSystemInDarkTheme(),
@@ -86,11 +82,6 @@ fun ProPDFTheme(
     )
 }
 
-/**
- * DataStore-aware theme wrapper.
- * Collects persisted user preferences and applies them automatically.
- * This is the recommended entry point for the app theme.
- */
 @Composable
 fun ProPDFThemeWithSettings(
     settingsDataStore: SettingsDataStore,
