@@ -40,6 +40,8 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.lifecycleScope
@@ -52,11 +54,12 @@ import androidx.navigation.compose.currentBackStackEntryAsState
 import androidx.navigation.compose.rememberNavController
 import com.propdf.core.domain.result.AppResult
 import com.propdf.core.saf.SafEngine
+import com.propdf.editor.data.local.SettingsDataStore
 import com.propdf.editor.ui.files.FilesScreen
 import com.propdf.editor.ui.home.HomeScreen
 import com.propdf.editor.ui.scanner.ModernScannerActivity
 import com.propdf.editor.ui.settings.SettingsScreen
-import com.propdf.editor.ui.theme.ProPDFTheme
+import com.propdf.editor.ui.theme.ProPDFThemeWithSettings
 import com.propdf.editor.ui.tools.LaunchCardScreen
 import com.propdf.editor.ui.tools.ToolsActivity
 import com.propdf.editor.ui.tools.ToolsScreen
@@ -80,30 +83,129 @@ class MainActivity : ComponentActivity() {
     private val viewModel: MainViewModel by viewModels()
 
     @Inject lateinit var safEngine: SafEngine
+    @Inject lateinit var settingsDataStore: SettingsDataStore
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         enableEdgeToEdge()
-        observeViewerLaunch()
+
+        lifecycleScope.launch {
+            repeatOnLifecycle(Lifecycle.State.STARTED) {
+                viewModel.events.collect { event ->
+                    when (event) {
+                        is MainViewModel.Event.OpenPdf -> launchViewer(event.uri)
+                        is MainViewModel.Event.OpenScanner -> launchScanner()
+                        is MainViewModel.Event.OpenTools -> launchTools()
+                        is MainViewModel.Event.Error -> {
+                            // Show snackbar or toast
+                        }
+                    }
+                }
+            }
+        }
+
         setContent {
-            ProPDFTheme {
-                Surface(modifier = Modifier.fillMaxSize(), color = MaterialTheme.colorScheme.background) {
-                    MainApp(viewModel)
+            // Use DataStore-aware theme for persistent settings
+            ProPDFThemeWithSettings(settingsDataStore = settingsDataStore) {
+                Surface(
+                    modifier = Modifier.fillMaxSize(),
+                    color = MaterialTheme.colorScheme.background
+                ) {
+                    MainScreen(viewModel = viewModel)
                 }
             }
         }
     }
 
-    private fun observeViewerLaunch() {
-        lifecycleScope.launch {
-            repeatOnLifecycle(Lifecycle.State.STARTED) {
-                viewModel.uiState.collect { state ->
-                    val uriStr = state.launchViewerUri ?: return@collect
-                    viewModel.onViewerLaunched()
-                    val uri = runCatching { Uri.parse(uriStr) }.getOrNull() ?: return@collect
-                    val fileResult = safEngine.resolveToFile(uri)
-                    if (fileResult is AppResult.Success) {
-                        startActivity(PremiumViewerActivity.createIntent(this@MainActivity, fileResult.data.absolutePath))
+    private fun launchViewer(uri: Uri) {
+        val intent = Intent(this, PremiumViewerActivity::class.java).apply {
+            data = uri
+            flags = Intent.FLAG_GRANT_READ_URI_PERMISSION
+        }
+        startActivity(intent)
+    }
+
+    private fun launchScanner() {
+        startActivity(Intent(this, ModernScannerActivity::class.java))
+    }
+
+    private fun launchTools() {
+        startActivity(Intent(this, ToolsActivity::class.java))
+    }
+}
+
+@Composable
+fun MainScreen(viewModel: MainViewModel) {
+    val navController = rememberNavController()
+    val context = LocalContext.current
+    val configuration = LocalConfiguration.current
+    val isWideScreen = configuration.screenWidthDp >= 600
+
+    val launcher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.OpenDocument()
+    ) { uri ->
+        uri?.let { viewModel.openPdf(it) }
+    }
+
+    val onOpenPdf = remember { { launcher.launch(arrayOf("application/pdf")) } }
+
+    Scaffold(
+        bottomBar = {
+            if (!isWideScreen) {
+                BottomNavBar(navController)
+            }
+        }
+    ) { padding ->
+        Row(modifier = Modifier.fillMaxSize()) {
+            if (isWideScreen) {
+                SideNavRail(navController)
+            }
+            Box(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .padding(padding)
+            ) {
+                NavHost(
+                    navController = navController,
+                    startDestination = Screen.Home.route,
+                    modifier = Modifier.fillMaxSize()
+                ) {
+                    composable(Screen.Home.route) {
+                        HomeScreen(
+                            navController = navController,
+                            mainViewModel = viewModel,
+                            onOpenPdf = onOpenPdf
+                        )
+                    }
+                    composable(Screen.Files.route) {
+                        FilesScreen(viewModel = viewModel, onOpenPdf = onOpenPdf)
+                    }
+                    composable(Screen.Scanner.route) {
+                        // Scanner is handled by bottom nav click
+                        HomeScreen(
+                            navController = navController,
+                            mainViewModel = viewModel,
+                            onOpenPdf = onOpenPdf
+                        )
+                    }
+                    composable(Screen.Tools.route) {
+                        ToolsScreen(navController)
+                    }
+                    composable(Screen.Settings.route,
+                        enterTransition = {
+                            slideIntoContainer(
+                                AnimatedContentTransitionScope.SlideDirection.Left,
+                                animationSpec = tween(300)
+                            )
+                        },
+                        exitTransition = {
+                            slideOutOfContainer(
+                                AnimatedContentTransitionScope.SlideDirection.Right,
+                                animationSpec = tween(300)
+                            )
+                        }
+                    ) {
+                        SettingsScreen(navController)
                     }
                 }
             }
@@ -112,61 +214,60 @@ class MainActivity : ComponentActivity() {
 }
 
 @Composable
-fun MainApp(viewModel: MainViewModel) {
-    val navController = rememberNavController()
-    val context = LocalContext.current
-    val configuration = LocalConfiguration.current
-    val useRail = configuration.screenWidthDp >= 600 || configuration.orientation == android.content.res.Configuration.ORIENTATION_LANDSCAPE
-    val openPdfLauncher = rememberLauncherForActivityResult(ActivityResultContracts.OpenDocument()) { uri ->
-        uri?.let {
-            runCatching { context.contentResolver.takePersistableUriPermission(it, Intent.FLAG_GRANT_READ_URI_PERMISSION) }
-            viewModel.openPdf(it)
-        }
-    }
-    val openPdf = remember(openPdfLauncher) { { openPdfLauncher.launch(arrayOf("application/pdf")) } }
-
-    AdaptiveNavigationScaffold(navController = navController, useRail = useRail) { innerPadding ->
-        NavHost(
-            navController = navController,
-            startDestination = Screen.Home.route,
-            modifier = Modifier.padding(innerPadding),
-            enterTransition = { slideIntoContainer(AnimatedContentTransitionScope.SlideDirection.Left, animationSpec = tween(220)) },
-            exitTransition = { slideOutOfContainer(AnimatedContentTransitionScope.SlideDirection.Left, animationSpec = tween(220)) },
-            popEnterTransition = { slideIntoContainer(AnimatedContentTransitionScope.SlideDirection.Right, animationSpec = tween(220)) },
-            popExitTransition = { slideOutOfContainer(AnimatedContentTransitionScope.SlideDirection.Right, animationSpec = tween(220)) }
-        ) {
-            composable(Screen.Home.route) { HomeScreen(navController, viewModel, onOpenPdf = openPdf) }
-            composable(Screen.Files.route) { FilesScreen(viewModel, onOpenPdf = openPdf) }
-            composable(Screen.Scanner.route) { LaunchCardScreen("Scanner", "Capture documents offline with the built-in scanner.", "Open Scanner") { context.startActivity(Intent(context, ModernScannerActivity::class.java)) } }
-            composable(Screen.Tools.route) { ToolsScreen { context.startActivity(Intent(context, ToolsActivity::class.java)) } }
-            composable(Screen.Settings.route) { SettingsScreen(navController) }
+fun BottomNavBar(navController: androidx.navigation.NavController) {
+    NavigationBar {
+        val navBackStackEntry by navController.currentBackStackEntryAsState()
+        val currentDestination = navBackStackEntry?.destination
+        bottomNavItems.forEach { screen ->
+            NavigationBarItem(
+                icon = { Icon(screen.icon, contentDescription = screen.title) },
+                label = { Text(screen.title) },
+                selected = currentDestination?.hierarchy?.any { it.route == screen.route } == true,
+                onClick = {
+                    if (screen.route == "scanner") {
+                        // Launch scanner activity
+                        return@NavigationBarItem
+                    }
+                    navController.navigate(screen.route) {
+                        popUpTo(navController.graph.findStartDestination().id) {
+                            saveState = true
+                        }
+                        launchSingleTop = true
+                        restoreState = true
+                    }
+                },
+                modifier = Modifier.semantics {
+                    contentDescription = "${screen.title} tab"
+                }
+            )
         }
     }
 }
 
 @Composable
-private fun AdaptiveNavigationScaffold(navController: androidx.navigation.NavHostController, useRail: Boolean, content: @Composable (PaddingValues) -> Unit) {
-    val navBackStackEntry by navController.currentBackStackEntryAsState()
-    val currentDestination = navBackStackEntry?.destination
-    val navigate: (Screen) -> Unit = { screen ->
-        navController.navigate(screen.route) {
-            popUpTo(navController.graph.findStartDestination().id) { saveState = true }
-            launchSingleTop = true
-            restoreState = true
+fun SideNavRail(navController: androidx.navigation.NavController) {
+    NavigationRail {
+        val navBackStackEntry by navController.currentBackStackEntryAsState()
+        val currentDestination = navBackStackEntry?.destination
+        bottomNavItems.forEach { screen ->
+            NavigationRailItem(
+                icon = { Icon(screen.icon, contentDescription = screen.title) },
+                label = { Text(screen.title) },
+                selected = currentDestination?.hierarchy?.any { it.route == screen.route } == true,
+                onClick = {
+                    if (screen.route == "scanner") {
+                        return@NavigationRailItem
+                    }
+                    navController.navigate(screen.route) {
+                        popUpTo(navController.graph.findStartDestination().id) {
+                            saveState = true
+                        }
+                        launchSingleTop = true
+                        restoreState = true
+                    }
+                }
+            )
         }
-    }
-    if (useRail) {
-        Row(Modifier.fillMaxSize()) {
-            NavigationRail { bottomNavItems.forEach { item -> NavItem(item, currentDestination?.hierarchy?.any { it.route == item.route } == true, true) { navigate(item) } } }
-            Box(Modifier.weight(1f)) { content(PaddingValues(0.dp)) }
-        }
-    } else {
-        Scaffold(bottomBar = { NavigationBar { bottomNavItems.forEach { item -> NavItem(item, currentDestination?.hierarchy?.any { it.route == item.route } == true, false) { navigate(item) } } } }, content = content)
     }
 }
 
-@Composable
-private fun NavItem(screen: Screen, selected: Boolean, rail: Boolean, onClick: () -> Unit) {
-    if (rail) NavigationRailItem(selected = selected, onClick = onClick, icon = { Icon(screen.icon, screen.title) }, label = { Text(screen.title) })
-    else NavigationBarItem(selected = selected, onClick = onClick, icon = { Icon(screen.icon, screen.title) }, label = { Text(screen.title) })
-}
