@@ -34,11 +34,6 @@ import androidx.compose.ui.graphics.Shape
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 
-/**
- * Premium shimmer skeleton loader.
- * Uses a translating gradient to create a wave effect.
- * Optimized for low battery impact with 1200ms cycle.
- */
 @Composable
 fun SkeletonBox(
     modifier: Modifier = Modifier,
@@ -108,10 +103,6 @@ fun SkeletonCircle(modifier: Modifier = Modifier, size: Dp = 48.dp) {
     )
 }
 
-/**
- * Full home screen skeleton layout.
- * Mirrors the actual HomeScreen structure for seamless transitions.
- */
 @Composable
 fun HomeSkeletonLoader() {
     Column(
@@ -120,23 +111,18 @@ fun HomeSkeletonLoader() {
             .padding(16.dp),
         verticalArrangement = Arrangement.spacedBy(16.dp)
     ) {
-        // Continue reading skeleton
         SkeletonBox(
             modifier = Modifier
                 .fillMaxWidth()
                 .height(96.dp),
             shape = RoundedCornerShape(20.dp)
         )
-
-        // Storage card skeleton
         SkeletonBox(
             modifier = Modifier
                 .fillMaxWidth()
                 .height(160.dp),
             shape = RoundedCornerShape(20.dp)
         )
-
-        // Quick actions skeleton
         Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
             repeat(4) {
                 SkeletonBox(
@@ -147,16 +133,8 @@ fun HomeSkeletonLoader() {
                 )
             }
         }
-
-        // Section title
         SkeletonText(widthFraction = 0.3f)
-
-        // Recent files skeleton
-        repeat(3) {
-            SkeletonCard()
-        }
-
-        // Categories skeleton
+        repeat(3) { SkeletonCard() }
         SkeletonText(widthFraction = 0.3f)
         Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
             repeat(2) {
@@ -171,9 +149,6 @@ fun HomeSkeletonLoader() {
     }
 }
 
-/**
- * Files screen skeleton for list view.
- */
 @Composable
 fun FilesListSkeleton() {
     LazyColumn(
@@ -187,9 +162,6 @@ fun FilesListSkeleton() {
     }
 }
 
-/**
- * Files screen skeleton for grid view.
- */
 @Composable
 fun FilesGridSkeleton() {
     androidx.compose.foundation.lazy.grid.LazyVerticalGrid(
