@@ -14,6 +14,7 @@ import androidx.compose.ui.graphics.toArgb
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalView
 import androidx.core.view.WindowCompat
+import com.propdf.editor.data.local.SettingsDataStore
 
 private val LightColors = lightColorScheme(
     primary = md_theme_light_primary, onPrimary = md_theme_light_onPrimary,
@@ -52,7 +53,11 @@ private val DarkColors = darkColorScheme(
 )
 
 @Composable
-fun ProPDFTheme(darkTheme: Boolean = isSystemInDarkTheme(), dynamicColor: Boolean = true, content: @Composable () -> Unit) {
+fun ProPDFTheme(
+    darkTheme: Boolean = isSystemInDarkTheme(),
+    dynamicColor: Boolean = true,
+    content: @Composable () -> Unit
+) {
     val colorScheme = when {
         dynamicColor && Build.VERSION.SDK_INT >= Build.VERSION_CODES.S -> {
             val context = LocalContext.current
@@ -61,6 +66,7 @@ fun ProPDFTheme(darkTheme: Boolean = isSystemInDarkTheme(), dynamicColor: Boolea
         darkTheme -> DarkColors
         else -> LightColors
     }
+    
     val view = LocalView.current
     if (!view.isInEditMode) {
         SideEffect {
@@ -69,5 +75,43 @@ fun ProPDFTheme(darkTheme: Boolean = isSystemInDarkTheme(), dynamicColor: Boolea
             WindowCompat.getInsetsController(window, view).isAppearanceLightStatusBars = !darkTheme
         }
     }
-    MaterialTheme(colorScheme = colorScheme, typography = Typography, shapes = Shapes, content = content)
+    
+    MaterialTheme(
+        colorScheme = colorScheme,
+        typography = Typography,
+        shapes = Shapes,
+        content = content
+    )
+}
+
+/**
+ * DataStore-aware theme wrapper. Collects persisted preferences and applies them.
+ */
+@Composable
+fun ProPDFThemeWithSettings(
+    settingsDataStore: SettingsDataStore,
+    content: @Composable () -> Unit
+) {
+    val darkTheme by settingsDataStore.isDarkMode.collectAsStateWithLifecycle(
+        initialValue = isSystemInDarkTheme()
+    )
+    val dynamicColor by settingsDataStore.isDynamicColor.collectAsStateWithLifecycle(
+        initialValue = true
+    )
+    
+    ProPDFTheme(
+        darkTheme = darkTheme,
+        dynamicColor = dynamicColor,
+        content = content
+    )
+}
+
+// Re-export for convenience
+@Composable
+private fun <T> kotlinx.coroutines.flow.Flow<T>.collectAsStateWithLifecycle(initialValue: T): androidx.compose.runtime.State<T> {
+    val state = androidx.compose.runtime.remember { androidx.compose.runtime.mutableStateOf(initialValue) }
+    androidx.compose.runtime.LaunchedEffect(this) {
+        this@collectAsStateWithLifecycle.collect { state.value = it }
+    }
+    return state
 }
