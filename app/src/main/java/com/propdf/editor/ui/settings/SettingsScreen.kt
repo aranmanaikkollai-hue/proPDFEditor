@@ -19,7 +19,6 @@ import androidx.navigation.NavController
 fun SettingsScreen(navController: NavController) {
     var darkMode by remember { mutableStateOf(false) }
     var dynamicColors by remember { mutableStateOf(true) }
-    var autoSync by remember { mutableStateOf(true) }
     var autoDeleteDays by remember { mutableStateOf(30f) }
 
     Scaffold(
@@ -43,8 +42,7 @@ fun SettingsScreen(navController: NavController) {
             item { SettingsSwitch(Icons.Default.DarkMode, "Dark Mode", "Use dark theme", darkMode) { darkMode = it } }
             item { SettingsSwitch(Icons.Default.Palette, "Dynamic Colors", "Use system wallpaper colors", dynamicColors) { dynamicColors = it } }
 
-            item { SettingsSection("Storage & Sync") }
-            item { SettingsSwitch(Icons.Default.Sync, "Auto Sync", "Automatically sync with cloud", autoSync) { autoSync = it } }
+            item { SettingsSection("Local Storage") }
             item {
                 Card(shape = RoundedCornerShape(16.dp)) {
                     Column(modifier = Modifier.padding(16.dp)) {
