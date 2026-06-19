@@ -2,7 +2,6 @@ package com.propdf.editor.ui.theme
 
 import androidx.compose.ui.graphics.Color
 
-// ===================== MATERIAL 3 LIGHT THEME =====================
 val md_theme_light_primary = Color(0xFF1E88E5)
 val md_theme_light_onPrimary = Color(0xFFFFFFFF)
 val md_theme_light_primaryContainer = Color(0xFFD6E4FF)
@@ -33,7 +32,6 @@ val md_theme_light_surfaceTint = Color(0xFF1E88E5)
 val md_theme_light_outlineVariant = Color(0xFFC4C6D0)
 val md_theme_light_scrim = Color(0xFF000000)
 
-// ===================== MATERIAL 3 DARK THEME =====================
 val md_theme_dark_primary = Color(0xFFA8C8FF)
 val md_theme_dark_onPrimary = Color(0xFF003062)
 val md_theme_dark_primaryContainer = Color(0xFF00468A)
@@ -64,7 +62,6 @@ val md_theme_dark_surfaceTint = Color(0xFFA8C8FF)
 val md_theme_dark_outlineVariant = Color(0xFF44474E)
 val md_theme_dark_scrim = Color(0xFF000000)
 
-// ===================== PDF ACCENT COLORS =====================
 val pdf_blue = Color(0xFF1E88E5)
 val pdf_green = Color(0xFF43A047)
 val pdf_orange = Color(0xFFFF9800)
