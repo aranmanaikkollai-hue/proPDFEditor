@@ -17,19 +17,7 @@ import androidx.compose.ui.composed
 import androidx.compose.ui.draw.scale
 import androidx.compose.ui.semantics.Role
 import kotlinx.coroutines.flow.Flow
-import kotlinx.coroutines.flow.StateFlow
 
-/**
- * Premium gesture feedback with reduced motion support.
- * Scales down to 0.96 on press, springs back on release.
- * Respects user's reduced motion preference for accessibility.
- *
- * Usage:
- *   Modifier.premiumClickable(
- *       reducedMotion = settingsDataStore.isReducedMotion,
- *       onClick = { /* action */ }
- *   )
- */
 fun Modifier.premiumClickable(
     enabled: Boolean = true,
     role: Role? = null,
@@ -40,7 +28,6 @@ fun Modifier.premiumClickable(
     val isPressed by interactionSource.collectIsPressedAsState()
     val scale = remember { Animatable(1f) }
 
-    // Collect reduced motion preference
     val isReducedMotion by reducedMotion.collectAsStateWithLifecycle(initialValue = false)
 
     val targetScale = when {
@@ -72,10 +59,6 @@ fun Modifier.premiumClickable(
         )
 }
 
-/**
- * Non-animated clickable for use inside Material components that already provide ripple.
- * Still respects reduced motion for any custom scale animations.
- */
 @Composable
 fun Modifier.animatedScale(
     targetScale: Float,
@@ -107,3 +90,4 @@ private fun <T> Flow<T>.collectAsStateWithLifecycle(initialValue: T): androidx.c
     }
     return state
 }
+
