@@ -21,6 +21,7 @@ import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.navigation.NavController
 import com.propdf.editor.ui.main.MainViewModel
 import com.propdf.editor.domain.model.*
@@ -32,16 +33,17 @@ import com.propdf.editor.ui.theme.*
 fun HomeScreen(
     navController: NavController,
     mainViewModel: MainViewModel,
+    onOpenPdf: () -> Unit,
     viewModel: HomeViewModel = hiltViewModel()
 ) {
-    val uiState by viewModel.uiState.collectAsState()
+    val uiState by viewModel.uiState.collectAsStateWithLifecycle()
 
     Scaffold(
         topBar = {
             TopAppBar(
                 title = { Text("ProPDF Editor", style = MaterialTheme.typography.titleLarge) },
                 actions = {
-                    IconButton(onClick = { navController.navigate("search") }) {
+                    IconButton(onClick = { navController.navigate("files") }) {
                         Icon(Icons.Default.Search, contentDescription = "Search")
                     }
                     IconButton(onClick = { navController.navigate("settings") }) {
@@ -62,7 +64,7 @@ fun HomeScreen(
                     Icon(Icons.Default.CameraAlt, contentDescription = "Scan")
                 }
                 FloatingActionButton(
-                    onClick = { /* Open file picker */ },
+                    onClick = onOpenPdf,
                     containerColor = MaterialTheme.colorScheme.primaryContainer,
                     contentColor = MaterialTheme.colorScheme.onPrimaryContainer
                 ) {
@@ -130,10 +132,10 @@ fun StatItem(value: String, label: String, color: Color) {
 @Composable
 fun QuickActionsRow(navController: NavController) {
     val actions = listOf(
-        QuickAction("Open", Icons.Default.FolderOpen, pdf_blue, "folders"),
-        QuickAction("Favorites", Icons.Default.Star, pdf_amber, "favorites"),
-        QuickAction("Cloud", Icons.Default.Cloud, pdf_teal, "cloud"),
-        QuickAction("Recycle Bin", Icons.Default.Delete, pdf_red, "recyclebin")
+        QuickAction("Files", Icons.Default.FolderOpen, pdf_blue, "files"),
+        QuickAction("Favorites", Icons.Default.Star, pdf_amber, "files"),
+        QuickAction("Scanner", Icons.Default.CameraAlt, pdf_teal, "scanner"),
+        QuickAction("Tools", Icons.Default.Build, pdf_red, "tools")
     )
     LazyRow(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
         items(actions) { action ->
