@@ -52,24 +52,15 @@ import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.launch
 import javax.inject.Inject
 
-/**
- * Premium Settings Screen with DataStore persistence.
- * All appearance settings (dark mode, dynamic color, reduced motion)
- * are saved immediately and reflected across the app.
- */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun SettingsScreen(
-    navController: NavController,
-    viewModel: SettingsViewModel = hiltViewModel()
-) {
+fun SettingsScreen(navController: NavController, viewModel: SettingsViewModel = hiltViewModel()) {
     val settingsDataStore = viewModel.settingsDataStore
     val scope = rememberCoroutineScope()
 
     val darkMode by settingsDataStore.isDarkMode.collectAsStateWithLifecycle(initialValue = false)
     val dynamicColor by settingsDataStore.isDynamicColor.collectAsStateWithLifecycle(initialValue = true)
     val reducedMotion by settingsDataStore.isReducedMotion.collectAsStateWithLifecycle(initialValue = false)
-
     var autoDeleteDays by rememberSaveable { mutableFloatStateOf(30f) }
 
     Scaffold(
@@ -81,192 +72,91 @@ fun SettingsScreen(
                         Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back")
                     }
                 },
-                colors = TopAppBarDefaults.topAppBarColors(
-                    containerColor = MaterialTheme.colorScheme.surface
-                )
+                colors = TopAppBarDefaults.topAppBarColors(containerColor = MaterialTheme.colorScheme.surface)
             )
         }
     ) { padding ->
         LazyColumn(
-            modifier = Modifier
-                .fillMaxSize()
-                .padding(padding),
+            modifier = Modifier.fillMaxSize().padding(padding),
             contentPadding = androidx.compose.foundation.layout.PaddingValues(16.dp),
             verticalArrangement = Arrangement.spacedBy(8.dp)
         ) {
             item { SettingsSection("Appearance") }
             item {
-                SettingsSwitch(
-                    icon = Icons.Default.DarkMode,
-                    title = "Dark Mode",
-                    subtitle = "Use dark theme for low-light environments",
-                    checked = darkMode,
-                    onCheckedChange = {
-                        scope.launch { settingsDataStore.setDarkMode(it) }
-                    }
-                )
+                SettingsSwitch(Icons.Default.DarkMode, "Dark Mode",
+                    "Use dark theme for low-light environments", darkMode) {
+                    scope.launch { settingsDataStore.setDarkMode(it) }
+                }
             }
             item {
-                SettingsSwitch(
-                    icon = Icons.Default.Palette,
-                    title = "Dynamic Colors",
-                    subtitle = "Use system wallpaper colors (Android 12+)",
-                    checked = dynamicColor,
-                    onCheckedChange = {
-                        scope.launch { settingsDataStore.setDynamicColor(it) }
-                    }
-                )
+                SettingsSwitch(Icons.Default.Palette, "Dynamic Colors",
+                    "Use system wallpaper colors (Android 12+)", dynamicColor) {
+                    scope.launch { settingsDataStore.setDynamicColor(it) }
+                }
             }
             item {
-                SettingsSwitch(
-                    icon = Icons.Default.MotionPhotosOff,
-                    title = "Reduced Motion",
-                    subtitle = "Minimize animations for accessibility",
-                    checked = reducedMotion,
-                    onCheckedChange = {
-                        scope.launch { settingsDataStore.setReducedMotion(it) }
-                    }
-                )
+                SettingsSwitch(Icons.Default.MotionPhotosOff, "Reduced Motion",
+                    "Minimize animations for accessibility", reducedMotion) {
+                    scope.launch { settingsDataStore.setReducedMotion(it) }
+                }
             }
-
             item { SettingsSection("Storage Management") }
             item {
                 Card(shape = RoundedCornerShape(16.dp)) {
                     Column(modifier = Modifier.padding(16.dp)) {
-                        Text(
-                            "Auto-delete from recycle bin after ${autoDeleteDays.toInt()} days",
-                            style = MaterialTheme.typography.labelLarge
-                        )
+                        Text("Auto-delete from recycle bin after ${autoDeleteDays.toInt()} days",
+                            style = MaterialTheme.typography.labelLarge)
                         Spacer(modifier = Modifier.height(8.dp))
-                        Slider(
-                            value = autoDeleteDays,
-                            onValueChange = { autoDeleteDays = it },
-                            valueRange = 1f..90f,
-                            steps = 88,
-                            modifier = Modifier.semantics {
-                                contentDescription = "Auto-delete days slider"
-                            }
-                        )
+                        Slider(value = autoDeleteDays, onValueChange = { autoDeleteDays = it },
+                            valueRange = 1f..90f, steps = 88,
+                            modifier = Modifier.semantics { contentDescription = "Auto-delete days slider" })
                     }
                 }
             }
-
             item { SettingsSection("About") }
-            item {
-                SettingsClickItem(
-                    icon = Icons.Default.Info,
-                    title = "About ProPDF",
-                    subtitle = "Version 3.0.0 · Offline-first PDF workspace"
-                ) {}
-            }
-            item {
-                SettingsClickItem(
-                    icon = Icons.Default.Policy,
-                    title = "Privacy Policy",
-                    subtitle = "Your data never leaves this device"
-                ) {}
-            }
-            item {
-                SettingsClickItem(
-                    icon = Icons.Default.Help,
-                    title = "Help & Support",
-                    subtitle = "FAQs, tips, and contact information"
-                ) {}
-            }
+            item { SettingsClickItem(Icons.Default.Info, "About ProPDF", "Version 3.0.0 · Offline-first PDF workspace") {} }
+            item { SettingsClickItem(Icons.Default.Policy, "Privacy Policy", "Your data never leaves this device") {} }
+            item { SettingsClickItem(Icons.Default.Help, "Help & Support", "FAQs, tips, and contact information") {} }
         }
     }
 }
 
 @Composable
 fun SettingsSection(title: String) {
-    Text(
-        title,
-        style = MaterialTheme.typography.titleSmall,
-        color = MaterialTheme.colorScheme.primary,
-        modifier = Modifier.padding(vertical = 8.dp)
-    )
+    Text(title, style = MaterialTheme.typography.titleSmall, color = MaterialTheme.colorScheme.primary,
+        modifier = Modifier.padding(vertical = 8.dp))
 }
 
 @Composable
-fun SettingsSwitch(
-    icon: ImageVector,
-    title: String,
-    subtitle: String,
-    checked: Boolean,
-    onCheckedChange: (Boolean) -> Unit
-) {
+fun SettingsSwitch(icon: ImageVector, title: String, subtitle: String, checked: Boolean, onCheckedChange: (Boolean) -> Unit) {
     Card(shape = RoundedCornerShape(16.dp)) {
-        Row(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(16.dp),
-            verticalAlignment = Alignment.CenterVertically
-        ) {
-            Icon(
-                icon,
-                null,
-                tint = MaterialTheme.colorScheme.primary,
-                modifier = Modifier.size(24.dp)
-            )
+        Row(modifier = Modifier.fillMaxWidth().padding(16.dp), verticalAlignment = Alignment.CenterVertically) {
+            Icon(icon, null, tint = MaterialTheme.colorScheme.primary, modifier = Modifier.size(24.dp))
             Spacer(modifier = Modifier.width(16.dp))
             Column(modifier = Modifier.weight(1f)) {
                 Text(title, style = MaterialTheme.typography.labelLarge)
-                Text(
-                    subtitle,
-                    style = MaterialTheme.typography.labelSmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant
-                )
+                Text(subtitle, style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
             }
-            Switch(
-                checked = checked,
-                onCheckedChange = onCheckedChange
-            )
+            Switch(checked = checked, onCheckedChange = onCheckedChange)
         }
     }
 }
 
 @Composable
-fun SettingsClickItem(
-    icon: ImageVector,
-    title: String,
-    subtitle: String,
-    onClick: () -> Unit
-) {
-    Surface(
-        onClick = onClick,
-        modifier = Modifier.fillMaxWidth(),
-        shape = RoundedCornerShape(16.dp),
-        color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f)
-    ) {
-        Row(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(16.dp),
-            verticalAlignment = Alignment.CenterVertically
-        ) {
-            Icon(
-                icon,
-                null,
-                tint = MaterialTheme.colorScheme.primary,
-                modifier = Modifier.size(24.dp)
-            )
+fun SettingsClickItem(icon: ImageVector, title: String, subtitle: String, onClick: () -> Unit) {
+    Surface(onClick = onClick, modifier = Modifier.fillMaxWidth(), shape = RoundedCornerShape(16.dp),
+        color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f)) {
+        Row(modifier = Modifier.fillMaxWidth().padding(16.dp), verticalAlignment = Alignment.CenterVertically) {
+            Icon(icon, null, tint = MaterialTheme.colorScheme.primary, modifier = Modifier.size(24.dp))
             Spacer(modifier = Modifier.width(16.dp))
             Column(modifier = Modifier.weight(1f)) {
                 Text(title, style = MaterialTheme.typography.labelLarge)
-                Text(
-                    subtitle,
-                    style = MaterialTheme.typography.labelSmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant
-                )
+                Text(subtitle, style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
             }
         }
     }
 }
 
-/**
- * Hilt ViewModel for SettingsScreen.
- * Exposes SettingsDataStore for UI consumption.
- */
 @HiltViewModel
 class SettingsViewModel @Inject constructor(
     val settingsDataStore: SettingsDataStore
