@@ -6,7 +6,6 @@ import androidx.compose.animation.core.tween
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
 import androidx.compose.animation.with
-import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -68,10 +67,6 @@ import com.propdf.editor.ui.theme.pdf_teal
 
 enum class FileViewMode { LIST, GRID }
 
-/**
- * Premium Files Screen with adaptive grid/list toggle, shimmer skeletons,
- * and smooth animated transitions between view modes.
- */
 @OptIn(ExperimentalMaterial3Api::class, ExperimentalAnimationApi::class)
 @Composable
 fun FilesScreen(viewModel: MainViewModel, onOpenPdf: () -> Unit) {
@@ -84,67 +79,39 @@ fun FilesScreen(viewModel: MainViewModel, onOpenPdf: () -> Unit) {
                 title = { Text("Files") },
                 actions = {
                     IconButton(
-                        onClick = {
-                            viewMode = if (viewMode == FileViewMode.LIST)
-                                FileViewMode.GRID else FileViewMode.LIST
-                        },
+                        onClick = { viewMode = if (viewMode == FileViewMode.LIST) FileViewMode.GRID else FileViewMode.LIST },
                         modifier = Modifier.semantics {
-                            contentDescription = if (viewMode == FileViewMode.LIST)
-                                "Switch to grid view" else "Switch to list view"
+                            contentDescription = if (viewMode == FileViewMode.LIST) "Switch to grid view" else "Switch to list view"
                         }
                     ) {
                         Icon(
-                            imageVector = if (viewMode == FileViewMode.LIST)
-                                Icons.Default.GridView else Icons.Default.ViewList,
+                            if (viewMode == FileViewMode.LIST) Icons.Default.GridView else Icons.Default.ViewList,
                             contentDescription = null
                         )
                     }
                 },
-                colors = TopAppBarDefaults.topAppBarColors(
-                    containerColor = MaterialTheme.colorScheme.surface
-                )
+                colors = TopAppBarDefaults.topAppBarColors(containerColor = MaterialTheme.colorScheme.surface)
             )
         },
         floatingActionButton = {
-            ExtendedFloatingActionButton(
-                onClick = onOpenPdf,
-                icon = { Icon(Icons.Default.Add, null) },
-                text = { Text("Open PDF") }
-            )
+            ExtendedFloatingActionButton(onClick = onOpenPdf, icon = { Icon(Icons.Default.Add, null) }, text = { Text("Open PDF") })
         }
     ) { padding ->
-        Column(
-            modifier = Modifier
-                .fillMaxSize()
-                .padding(padding)
-        ) {
+        Column(modifier = Modifier.fillMaxSize().padding(padding)) {
             OutlinedTextField(
-                value = state.searchQuery,
-                onValueChange = viewModel::setSearchQuery,
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(16.dp),
+                value = state.searchQuery, onValueChange = viewModel::setSearchQuery,
+                modifier = Modifier.fillMaxWidth().padding(16.dp),
                 leadingIcon = { Icon(Icons.Default.Search, null) },
-                singleLine = true,
-                label = { Text("Search offline library") },
+                singleLine = true, label = { Text("Search offline library") },
                 shape = RoundedCornerShape(16.dp)
             )
-
             AnimatedContent(
                 targetState = state.isLoading to viewMode,
-                transitionSpec = {
-                    fadeIn(animationSpec = tween(220)) with
-                    fadeOut(animationSpec = tween(220))
-                },
+                transitionSpec = { fadeIn(tween(220)) with fadeOut(tween(220)) },
                 label = "files_content"
             ) { (isLoading, mode) ->
                 when {
-                    isLoading -> {
-                        when (mode) {
-                            FileViewMode.LIST -> FilesListSkeleton()
-                            FileViewMode.GRID -> FilesGridSkeleton()
-                        }
-                    }
+                    isLoading -> when (mode) { FileViewMode.LIST -> FilesListSkeleton(); FileViewMode.GRID -> FilesGridSkeleton() }
                     state.files.isEmpty() -> EmptyFilesCard(onOpenPdf)
                     else -> when (mode) {
                         FileViewMode.LIST -> FilesListView(
@@ -165,101 +132,51 @@ fun FilesScreen(viewModel: MainViewModel, onOpenPdf: () -> Unit) {
 }
 
 @Composable
-fun FilesListView(
-    files: List<RecentFile>,
-    onFileClick: (RecentFile) -> Unit,
-    onFavoriteClick: (RecentFile) -> Unit
-) {
-    LazyColumn(
-        modifier = Modifier.fillMaxSize(),
-        contentPadding = PaddingValues(16.dp),
-        verticalArrangement = Arrangement.spacedBy(12.dp)
-    ) {
+fun FilesListView(files: List<RecentFile>, onFileClick: (RecentFile) -> Unit, onFavoriteClick: (RecentFile) -> Unit) {
+    LazyColumn(modifier = Modifier.fillMaxSize(), contentPadding = PaddingValues(16.dp),
+        verticalArrangement = Arrangement.spacedBy(12.dp)) {
         items(files, key = { it.uri }) { file ->
-            RecentFileRow(
-                file = file,
-                onClick = { onFileClick(file) },
-                onFavorite = { onFavoriteClick(file) }
-            )
+            RecentFileRow(file = file, onClick = { onFileClick(file) }, onFavorite = { onFavoriteClick(file) })
         }
     }
 }
 
 @Composable
-fun FilesGridView(
-    files: List<RecentFile>,
-    onFileClick: (RecentFile) -> Unit,
-    onFavoriteClick: (RecentFile) -> Unit
-) {
+fun FilesGridView(files: List<RecentFile>, onFileClick: (RecentFile) -> Unit, onFavoriteClick: (RecentFile) -> Unit) {
     LazyVerticalGrid(
-        columns = GridCells.Adaptive(minSize = 160.dp),
-        modifier = Modifier.fillMaxSize(),
+        columns = GridCells.Adaptive(minSize = 160.dp), modifier = Modifier.fillMaxSize(),
         contentPadding = PaddingValues(16.dp),
         horizontalArrangement = Arrangement.spacedBy(12.dp),
         verticalArrangement = Arrangement.spacedBy(12.dp)
     ) {
         items(files, key = { it.uri }) { file ->
-            FileGridCard(
-                file = file,
-                onClick = { onFileClick(file) },
-                onFavorite = { onFavoriteClick(file) }
-            )
+            FileGridCard(file = file, onClick = { onFileClick(file) }, onFavorite = { onFavoriteClick(file) })
         }
     }
 }
 
 @Composable
-fun FileGridCard(
-    file: RecentFile,
-    onClick: () -> Unit,
-    onFavorite: () -> Unit
-) {
+fun FileGridCard(file: RecentFile, onClick: () -> Unit, onFavorite: () -> Unit) {
     Card(
-        onClick = onClick,
-        modifier = Modifier.fillMaxWidth(),
-        shape = RoundedCornerShape(20.dp),
-        colors = CardDefaults.cardColors(
-            containerColor = MaterialTheme.colorScheme.surface
-        ),
+        onClick = onClick, modifier = Modifier.fillMaxWidth(), shape = RoundedCornerShape(20.dp),
+        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
         elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
     ) {
-        Column(
-            modifier = Modifier.padding(16.dp),
-            horizontalAlignment = Alignment.CenterHorizontally
-        ) {
-            Box(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .aspectRatio(0.75f)
-                    .clip(RoundedCornerShape(16.dp))
-                    .background(pdf_blue.copy(alpha = 0.1f)),
-                contentAlignment = Alignment.Center
-            ) {
-                Icon(
-                    imageVector = Icons.Default.PictureAsPdf,
-                    contentDescription = null,
-                    tint = pdf_blue,
-                    modifier = Modifier.size(48.dp)
-                )
+        Column(modifier = Modifier.padding(16.dp), horizontalAlignment = Alignment.CenterHorizontally) {
+            Box(modifier = Modifier.fillMaxWidth().aspectRatio(0.75f).clip(RoundedCornerShape(16.dp))
+                .background(pdf_blue.copy(alpha = 0.1f)), contentAlignment = Alignment.Center) {
+                Icon(Icons.Default.PictureAsPdf, null, tint = pdf_blue, modifier = Modifier.size(48.dp))
             }
             Spacer(modifier = Modifier.height(12.dp))
-            Text(
-                file.displayName,
-                style = MaterialTheme.typography.labelLarge,
-                maxLines = 1,
-                overflow = TextOverflow.Ellipsis,
-                modifier = Modifier.fillMaxWidth()
-            )
-            Text(
-                formatFileSize(file.fileSizeBytes),
-                style = MaterialTheme.typography.labelSmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant
-            )
+            Text(file.displayName, style = MaterialTheme.typography.labelLarge, maxLines = 1,
+                overflow = TextOverflow.Ellipsis, modifier = Modifier.fillMaxWidth())
+            Text(formatFileSize(file.fileSizeBytes), style = MaterialTheme.typography.labelSmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant)
             Spacer(modifier = Modifier.height(8.dp))
             IconButton(onClick = onFavorite) {
                 Icon(
-                    imageVector = if (file.isFavourite) Icons.Default.Star else Icons.Default.StarBorder,
-                    contentDescription = if (file.isFavourite) "Remove favorite" else "Add favorite",
+                    if (file.isFavourite) Icons.Default.Star else Icons.Default.StarBorder,
+                    if (file.isFavourite) "Remove favorite" else "Add favorite",
                     tint = if (file.isFavourite) pdf_teal else MaterialTheme.colorScheme.onSurfaceVariant
                 )
             }
@@ -268,59 +185,23 @@ fun FileGridCard(
 }
 
 @Composable
-fun RecentFileRow(
-    file: RecentFile,
-    onClick: () -> Unit,
-    onFavorite: () -> Unit
-) {
-    Card(
-        onClick = onClick,
-        modifier = Modifier.fillMaxWidth(),
-        shape = RoundedCornerShape(20.dp),
-        elevation = CardDefaults.cardElevation(1.dp)
-    ) {
-        Row(
-            Modifier.padding(16.dp),
-            verticalAlignment = Alignment.CenterVertically
-        ) {
-            Box(
-                modifier = Modifier
-                    .size(48.dp)
-                    .clip(RoundedCornerShape(12.dp))
-                    .background(pdf_blue.copy(alpha = 0.15f)),
-                contentAlignment = Alignment.Center
-            ) {
-                Icon(
-                    Icons.Default.PictureAsPdf,
-                    contentDescription = null,
-                    tint = pdf_blue,
-                    modifier = Modifier.size(24.dp)
-                )
+fun RecentFileRow(file: RecentFile, onClick: () -> Unit, onFavorite: () -> Unit) {
+    Card(onClick = onClick, modifier = Modifier.fillMaxWidth(), shape = RoundedCornerShape(20.dp),
+        elevation = CardDefaults.cardElevation(1.dp)) {
+        Row(Modifier.padding(16.dp), verticalAlignment = Alignment.CenterVertically) {
+            Box(modifier = Modifier.size(48.dp).clip(RoundedCornerShape(12.dp))
+                .background(pdf_blue.copy(alpha = 0.15f)), contentAlignment = Alignment.Center) {
+                Icon(Icons.Default.PictureAsPdf, null, tint = pdf_blue, modifier = Modifier.size(24.dp))
             }
-            Column(
-                Modifier
-                    .weight(1f)
-                    .padding(horizontal = 16.dp)
-            ) {
-                Text(
-                    file.displayName,
-                    maxLines = 1,
-                    overflow = TextOverflow.Ellipsis,
-                    style = MaterialTheme.typography.titleSmall
-                )
+            Column(Modifier.weight(1f).padding(horizontal = 16.dp)) {
+                Text(file.displayName, maxLines = 1, overflow = TextOverflow.Ellipsis, style = MaterialTheme.typography.titleSmall)
                 Spacer(Modifier.height(2.dp))
-                Text(
-                    "${formatFileSize(file.fileSizeBytes)} · ${file.pageCount} pages",
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant
-                )
+                Text("${formatFileSize(file.fileSizeBytes)} · ${file.pageCount} pages",
+                    style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
             }
             IconButton(onClick = onFavorite) {
-                Icon(
-                    if (file.isFavourite) Icons.Default.Star else Icons.Default.StarBorder,
-                    contentDescription = "Favorite",
-                    tint = if (file.isFavourite) pdf_teal else MaterialTheme.colorScheme.onSurfaceVariant
-                )
+                Icon(if (file.isFavourite) Icons.Default.Star else Icons.Default.StarBorder,
+                    "Favorite", tint = if (file.isFavourite) pdf_teal else MaterialTheme.colorScheme.onSurfaceVariant)
             }
         }
     }
@@ -328,45 +209,18 @@ fun RecentFileRow(
 
 @Composable
 fun EmptyFilesCard(onOpenPdf: () -> Unit) {
-    Box(
-        modifier = Modifier
-            .fillMaxSize()
-            .padding(32.dp),
-        contentAlignment = Alignment.Center
-    ) {
-        Card(
-            shape = RoundedCornerShape(24.dp),
-            colors = CardDefaults.cardColors(
-                containerColor = MaterialTheme.colorScheme.primaryContainer
-            )
-        ) {
-            Column(
-                modifier = Modifier.padding(32.dp),
-                horizontalAlignment = Alignment.CenterHorizontally
-            ) {
-                Icon(
-                    Icons.Default.PictureAsPdf,
-                    null,
-                    modifier = Modifier.size(64.dp),
-                    tint = MaterialTheme.colorScheme.primary
-                )
+    Box(modifier = Modifier.fillMaxSize().padding(32.dp), contentAlignment = Alignment.Center) {
+        Card(shape = RoundedCornerShape(24.dp),
+            colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.primaryContainer)) {
+            Column(modifier = Modifier.padding(32.dp), horizontalAlignment = Alignment.CenterHorizontally) {
+                Icon(Icons.Default.PictureAsPdf, null, modifier = Modifier.size(64.dp), tint = MaterialTheme.colorScheme.primary)
                 Spacer(modifier = Modifier.height(16.dp))
-                Text(
-                    "Build your offline workspace",
-                    style = MaterialTheme.typography.titleMedium
-                )
-                Text(
-                    "Open PDFs with scoped storage access. Files stay on this device.",
-                    style = MaterialTheme.typography.bodyMedium,
-                    color = MaterialTheme.colorScheme.onPrimaryContainer,
-                    modifier = Modifier.padding(top = 8.dp)
-                )
+                Text("Build your offline workspace", style = MaterialTheme.typography.titleMedium)
+                Text("Open PDFs with scoped storage access. Files stay on this device.",
+                    style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onPrimaryContainer,
+                    modifier = Modifier.padding(top = 8.dp))
                 Spacer(modifier = Modifier.height(24.dp))
-                ExtendedFloatingActionButton(
-                    onClick = onOpenPdf,
-                    icon = { Icon(Icons.Default.Add, null) },
-                    text = { Text("Open PDF") }
-                )
+                ExtendedFloatingActionButton(onClick = onOpenPdf, icon = { Icon(Icons.Default.Add, null) }, text = { Text("Open PDF") })
             }
         }
     }
