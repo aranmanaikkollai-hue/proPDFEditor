@@ -2,12 +2,11 @@ package com.propdf.editor.ui.home
 
 import androidx.compose.animation.AnimatedContent
 import androidx.compose.animation.ExperimentalAnimationApi
-import androidx.compose.animation.core.tween
+nimport androidx.compose.animation.core.tween
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
 import androidx.compose.animation.with
 import androidx.compose.foundation.background
-import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -57,7 +56,6 @@ import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
-import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -70,7 +68,6 @@ import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.navigation.NavController
-import com.propdf.core.domain.model.RecentFile
 import com.propdf.editor.ui.components.HomeSkeletonLoader
 import com.propdf.editor.ui.main.MainViewModel
 import com.propdf.editor.ui.theme.pdf_amber
@@ -80,8 +77,6 @@ import com.propdf.editor.ui.theme.pdf_orange
 import com.propdf.editor.ui.theme.pdf_purple
 import com.propdf.editor.ui.theme.pdf_red
 import com.propdf.editor.ui.theme.pdf_teal
-
-// ===================== LOCAL UI MODELS =====================
 
 data class StorageStats(
     val totalDocuments: Int = 0,
@@ -99,28 +94,17 @@ data class Folder(
 )
 
 enum class DocumentCategory(val displayName: String) {
-    WORK("Work"),
-    PERSONAL("Personal"),
-    EDUCATION("Education"),
-    FINANCE("Finance"),
-    HEALTH("Health"),
-    UNCATEGORIZED("Uncategorized")
+    WORK("Work"), PERSONAL("Personal"), EDUCATION("Education"),
+    FINANCE("Finance"), HEALTH("Health"), UNCATEGORIZED("Uncategorized")
 }
 
 data class PdfDocument(
-    val id: Long = 0,
-    val uri: String = "",
-    val displayName: String = "",
-    val fileSize: Long = 0,
-    val pageCount: Int = 0,
-    val lastOpenedAt: Long = 0,
-    val isFavorite: Boolean = false,
-    val isDeleted: Boolean = false,
+    val id: Long = 0, val uri: String = "", val displayName: String = "",
+    val fileSize: Long = 0, val pageCount: Int = 0, val lastOpenedAt: Long = 0,
+    val isFavorite: Boolean = false, val isDeleted: Boolean = false,
     val category: DocumentCategory = DocumentCategory.UNCATEGORIZED,
     val cloudProvider: String? = null
 )
-
-// ===================== HOME SCREEN =====================
 
 @OptIn(ExperimentalMaterial3Api::class, ExperimentalAnimationApi::class)
 @Composable
@@ -137,86 +121,53 @@ fun HomeScreen(
             TopAppBar(
                 title = {
                     Column {
-                        Text(
-                            "ProPDF Editor",
-                            style = MaterialTheme.typography.titleLarge
-                        )
-                        Text(
-                            "Your offline workspace",
-                            style = MaterialTheme.typography.labelSmall,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant
-                        )
+                        Text("ProPDF Editor", style = MaterialTheme.typography.titleLarge)
+                        Text("Your offline workspace", style = MaterialTheme.typography.labelSmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant)
                     }
                 },
                 actions = {
-                    IconButton(
-                        onClick = { navController.navigate("files") },
-                        modifier = Modifier.semantics {
-                            contentDescription = "Search files"
-                        }
-                    ) {
+                    IconButton(onClick = { navController.navigate("files") },
+                        modifier = Modifier.semantics { contentDescription = "Search files" }) {
                         Icon(Icons.Default.Search, contentDescription = null)
                     }
-                    IconButton(
-                        onClick = { navController.navigate("settings") },
-                        modifier = Modifier.semantics {
-                            contentDescription = "Settings"
-                        }
-                    ) {
+                    IconButton(onClick = { navController.navigate("settings") },
+                        modifier = Modifier.semantics { contentDescription = "Settings" }) {
                         Icon(Icons.Default.Settings, contentDescription = null)
                     }
                 },
-                colors = TopAppBarDefaults.topAppBarColors(
-                    containerColor = MaterialTheme.colorScheme.surface
-                )
+                colors = TopAppBarDefaults.topAppBarColors(containerColor = MaterialTheme.colorScheme.surface)
             )
         },
         floatingActionButton = {
-            Column(
-                horizontalAlignment = Alignment.End,
-                verticalArrangement = Arrangement.spacedBy(8.dp)
-            ) {
+            Column(horizontalAlignment = Alignment.End, verticalArrangement = Arrangement.spacedBy(8.dp)) {
                 SmallFloatingActionButton(
                     onClick = { navController.navigate("scanner") },
                     containerColor = MaterialTheme.colorScheme.secondaryContainer,
-                    modifier = Modifier.semantics {
-                        contentDescription = "Open scanner"
-                    }
-                ) {
-                    Icon(Icons.Default.CameraAlt, contentDescription = null)
-                }
+                    modifier = Modifier.semantics { contentDescription = "Open scanner" }
+                ) { Icon(Icons.Default.CameraAlt, contentDescription = null) }
                 FloatingActionButton(
                     onClick = onOpenPdf,
                     containerColor = MaterialTheme.colorScheme.primaryContainer,
                     contentColor = MaterialTheme.colorScheme.onPrimaryContainer,
-                    modifier = Modifier.semantics {
-                        contentDescription = "Open PDF file"
-                    }
-                ) {
-                    Icon(Icons.Default.Add, contentDescription = null)
-                }
+                    modifier = Modifier.semantics { contentDescription = "Open PDF file" }
+                ) { Icon(Icons.Default.Add, contentDescription = null) }
             }
         }
     ) { padding ->
         AnimatedContent(
             targetState = uiState.isLoading,
-            transitionSpec = {
-                fadeIn(animationSpec = tween(300)) with
-                fadeOut(animationSpec = tween(300))
-            },
+            transitionSpec = { fadeIn(tween(300)) with fadeOut(tween(300)) },
             label = "home_content"
         ) { isLoading ->
             if (isLoading) {
                 HomeSkeletonLoader()
             } else {
                 LazyColumn(
-                    modifier = Modifier
-                        .fillMaxSize()
-                        .padding(padding),
+                    modifier = Modifier.fillMaxSize().padding(padding),
                     contentPadding = PaddingValues(16.dp),
                     verticalArrangement = Arrangement.spacedBy(16.dp)
                 ) {
-                    // Continue Reading Section
                     val lastRead = uiState.recentFiles.firstOrNull()
                     if (lastRead != null) {
                         item {
@@ -226,30 +177,12 @@ fun HomeScreen(
                             )
                         }
                     }
-
-                    // Storage Overview
-                    item {
-                        StorageOverviewCard(
-                            stats = uiState.storageStats,
-                            onClick = { navController.navigate("files") }
-                        )
-                    }
-
-                    // Quick Actions
+                    item { StorageOverviewCard(stats = uiState.storageStats, onClick = { navController.navigate("files") }) }
                     item { QuickActionsRow(navController) }
-
-                    // Recent Scans
                     if (uiState.recentScans.isNotEmpty()) {
                         item { SectionTitle("Recent Scans") }
-                        item {
-                            RecentScansRow(
-                                scans = uiState.recentScans,
-                                onScanClick = { mainViewModel.openPdfString(it.uri) }
-                            )
-                        }
+                        item { RecentScansRow(scans = uiState.recentScans, onScanClick = { mainViewModel.openPdfString(it.uri) }) }
                     }
-
-                    // Favorites
                     val favorites = uiState.recentFiles.filter { it.isFavorite }
                     if (favorites.isNotEmpty()) {
                         item { SectionTitle("Favorites") }
@@ -261,17 +194,8 @@ fun HomeScreen(
                             )
                         }
                     }
-
-                    // Folders
                     item { SectionTitle("Folders") }
-                    item {
-                        FoldersRow(
-                            folders = uiState.folders,
-                            navController = navController
-                        )
-                    }
-
-                    // Recent Files
+                    item { FoldersRow(folders = uiState.folders, navController = navController) }
                     item { SectionTitle("Recent Files") }
                     items(uiState.recentFiles.take(5)) { doc ->
                         DocumentListItem(
@@ -280,8 +204,6 @@ fun HomeScreen(
                             onFavoriteClick = { viewModel.toggleFavorite(doc.id, doc.isFavorite) }
                         )
                     }
-
-                    // Categories
                     item { SectionTitle("Categories") }
                     item { CategoriesGrid(navController) }
                 }
@@ -290,254 +212,114 @@ fun HomeScreen(
     }
 }
 
-// ===================== NEW PREMIUM COMPONENTS =====================
-
 @Composable
-fun ContinueReadingCard(
-    document: PdfDocument,
-    onClick: () -> Unit,
-    modifier: Modifier = Modifier
-) {
+fun ContinueReadingCard(document: PdfDocument, onClick: () -> Unit, modifier: Modifier = Modifier) {
     Card(
-        onClick = onClick,
-        modifier = modifier.fillMaxWidth(),
+        onClick = onClick, modifier = modifier.fillMaxWidth(),
         shape = RoundedCornerShape(20.dp),
-        colors = CardDefaults.cardColors(
-            containerColor = MaterialTheme.colorScheme.primaryContainer
-        ),
+        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.primaryContainer),
         elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
     ) {
-        Row(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(20.dp),
-            verticalAlignment = Alignment.CenterVertically
-        ) {
-            Box(
-                modifier = Modifier
-                    .size(56.dp)
-                    .clip(RoundedCornerShape(16.dp))
-                    .background(MaterialTheme.colorScheme.primary.copy(alpha = 0.2f)),
-                contentAlignment = Alignment.Center
-            ) {
-                Icon(
-                    imageVector = Icons.Default.PlayArrow,
-                    contentDescription = null,
-                    tint = MaterialTheme.colorScheme.primary,
-                    modifier = Modifier.size(28.dp)
-                )
+        Row(modifier = Modifier.fillMaxWidth().padding(20.dp), verticalAlignment = Alignment.CenterVertically) {
+            Box(modifier = Modifier.size(56.dp).clip(RoundedCornerShape(16.dp))
+                .background(MaterialTheme.colorScheme.primary.copy(alpha = 0.2f)),
+                contentAlignment = Alignment.Center) {
+                Icon(Icons.Default.PlayArrow, null, tint = MaterialTheme.colorScheme.primary, modifier = Modifier.size(28.dp))
             }
             Spacer(modifier = Modifier.width(16.dp))
             Column(modifier = Modifier.weight(1f)) {
-                Text(
-                    "Continue Reading",
-                    style = MaterialTheme.typography.labelMedium,
-                    color = MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.7f)
-                )
-                Text(
-                    document.displayName,
-                    style = MaterialTheme.typography.titleMedium,
-                    maxLines = 1,
-                    overflow = TextOverflow.Ellipsis,
-                    color = MaterialTheme.colorScheme.onPrimaryContainer
-                )
-                Text(
-                    "Page 1 of ${document.pageCount}",
-                    style = MaterialTheme.typography.labelSmall,
-                    color = MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.6f)
-                )
+                Text("Continue Reading", style = MaterialTheme.typography.labelMedium,
+                    color = MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.7f))
+                Text(document.displayName, style = MaterialTheme.typography.titleMedium,
+                    maxLines = 1, overflow = TextOverflow.Ellipsis,
+                    color = MaterialTheme.colorScheme.onPrimaryContainer)
+                Text("Page 1 of ${document.pageCount}", style = MaterialTheme.typography.labelSmall,
+                    color = MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.6f))
             }
-            Icon(
-                imageVector = Icons.AutoMirrored.Filled.ArrowForward,
-                contentDescription = null,
-                tint = MaterialTheme.colorScheme.primary
-            )
+            Icon(Icons.AutoMirrored.Filled.ArrowForward, null, tint = MaterialTheme.colorScheme.primary)
         }
     }
 }
 
 @Composable
-fun RecentScansRow(
-    scans: List<PdfDocument>,
-    onScanClick: (PdfDocument) -> Unit,
-    modifier: Modifier = Modifier
-) {
-    LazyRow(
-        horizontalArrangement = Arrangement.spacedBy(12.dp),
-        modifier = modifier
-    ) {
+fun RecentScansRow(scans: List<PdfDocument>, onScanClick: (PdfDocument) -> Unit, modifier: Modifier = Modifier) {
+    LazyRow(horizontalArrangement = Arrangement.spacedBy(12.dp), modifier = modifier) {
         items(scans) { scan ->
-            ScanThumbnailCard(
-                document = scan,
-                onClick = { onScanClick(scan) }
-            )
+            ScanThumbnailCard(document = scan, onClick = { onScanClick(scan) })
         }
     }
 }
 
 @Composable
-fun ScanThumbnailCard(
-    document: PdfDocument,
-    onClick: () -> Unit,
-    modifier: Modifier = Modifier
-) {
+fun ScanThumbnailCard(document: PdfDocument, onClick: () -> Unit, modifier: Modifier = Modifier) {
     Card(
-        onClick = onClick,
-        modifier = modifier.width(120.dp),
+        onClick = onClick, modifier = modifier.width(120.dp),
         shape = RoundedCornerShape(16.dp),
-        colors = CardDefaults.cardColors(
-            containerColor = MaterialTheme.colorScheme.surfaceVariant
-        )
+        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant)
     ) {
-        Column(
-            modifier = Modifier.padding(12.dp),
-            horizontalAlignment = Alignment.CenterHorizontally
-        ) {
-            Box(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .aspectRatio(0.75f)
-                    .clip(RoundedCornerShape(12.dp))
-                    .background(pdf_teal.copy(alpha = 0.15f)),
-                contentAlignment = Alignment.Center
-            ) {
-                Icon(
-                    imageVector = Icons.Default.PhotoCamera,
-                    contentDescription = null,
-                    tint = pdf_teal,
-                    modifier = Modifier.size(32.dp)
-                )
+        Column(modifier = Modifier.padding(12.dp), horizontalAlignment = Alignment.CenterHorizontally) {
+            Box(modifier = Modifier.fillMaxWidth().aspectRatio(0.75f).clip(RoundedCornerShape(12.dp))
+                .background(pdf_teal.copy(alpha = 0.15f)), contentAlignment = Alignment.Center) {
+                Icon(Icons.Default.PhotoCamera, null, tint = pdf_teal, modifier = Modifier.size(32.dp))
             }
             Spacer(modifier = Modifier.height(8.dp))
-            Text(
-                text = document.displayName,
-                style = MaterialTheme.typography.labelSmall,
-                maxLines = 1,
-                overflow = TextOverflow.Ellipsis
-            )
-            Text(
-                text = formatFileSize(document.fileSize),
-                style = MaterialTheme.typography.labelSmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant
-            )
+            Text(document.displayName, style = MaterialTheme.typography.labelSmall, maxLines = 1, overflow = TextOverflow.Ellipsis)
+            Text(formatFileSize(document.fileSize), style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
         }
     }
 }
 
 @Composable
-fun CompactDocumentItem(
-    document: PdfDocument,
-    onClick: () -> Unit,
-    onFavoriteClick: () -> Unit,
-    modifier: Modifier = Modifier
-) {
+fun CompactDocumentItem(document: PdfDocument, onClick: () -> Unit, onFavoriteClick: () -> Unit, modifier: Modifier = Modifier) {
     Card(
-        onClick = onClick,
-        modifier = modifier.fillMaxWidth(),
-        shape = RoundedCornerShape(16.dp),
-        colors = CardDefaults.cardColors(
-            containerColor = MaterialTheme.colorScheme.surface
-        ),
+        onClick = onClick, modifier = modifier.fillMaxWidth(), shape = RoundedCornerShape(16.dp),
+        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
         elevation = CardDefaults.cardElevation(defaultElevation = 1.dp)
     ) {
-        Row(
-            modifier = Modifier.padding(12.dp),
-            verticalAlignment = Alignment.CenterVertically
-        ) {
-            Box(
-                modifier = Modifier
-                    .size(40.dp)
-                    .clip(RoundedCornerShape(10.dp))
-                    .background(pdf_amber.copy(alpha = 0.15f)),
-                contentAlignment = Alignment.Center
-            ) {
-                Icon(
-                    imageVector = Icons.Default.Star,
-                    contentDescription = null,
-                    tint = pdf_amber,
-                    modifier = Modifier.size(20.dp)
-                )
+        Row(modifier = Modifier.padding(12.dp), verticalAlignment = Alignment.CenterVertically) {
+            Box(modifier = Modifier.size(40.dp).clip(RoundedCornerShape(10.dp))
+                .background(pdf_amber.copy(alpha = 0.15f)), contentAlignment = Alignment.Center) {
+                Icon(Icons.Default.Star, null, tint = pdf_amber, modifier = Modifier.size(20.dp))
             }
             Spacer(modifier = Modifier.width(12.dp))
             Column(modifier = Modifier.weight(1f)) {
-                Text(
-                    document.displayName,
-                    style = MaterialTheme.typography.labelLarge,
-                    maxLines = 1,
-                    overflow = TextOverflow.Ellipsis
-                )
-                Text(
-                    "${formatFileSize(document.fileSize)} · ${document.pageCount} pages",
-                    style = MaterialTheme.typography.labelSmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant
-                )
+                Text(document.displayName, style = MaterialTheme.typography.labelLarge, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                Text("${formatFileSize(document.fileSize)} · ${document.pageCount} pages",
+                    style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
             }
             IconButton(onClick = onFavoriteClick) {
-                Icon(
-                    imageVector = Icons.Default.Star,
-                    contentDescription = "Remove from favorites",
-                    tint = pdf_amber
-                )
+                Icon(Icons.Default.Star, "Remove from favorites", tint = pdf_amber)
             }
         }
     }
 }
 
-// ===================== ENHANCED EXISTING COMPONENTS =====================
-
 @Composable
-fun StorageOverviewCard(
-    stats: StorageStats,
-    onClick: () -> Unit,
-    modifier: Modifier = Modifier
-) {
+fun StorageOverviewCard(stats: StorageStats, onClick: () -> Unit, modifier: Modifier = Modifier) {
     Card(
-        onClick = onClick,
-        modifier = modifier.fillMaxWidth(),
-        shape = RoundedCornerShape(20.dp),
-        colors = CardDefaults.cardColors(
-            containerColor = MaterialTheme.colorScheme.primaryContainer
-        ),
+        onClick = onClick, modifier = modifier.fillMaxWidth(), shape = RoundedCornerShape(20.dp),
+        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.primaryContainer),
         elevation = CardDefaults.cardElevation(defaultElevation = 0.dp)
     ) {
         Column(modifier = Modifier.padding(20.dp)) {
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.SpaceBetween,
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                Text(
-                    "Storage Overview",
-                    style = MaterialTheme.typography.titleSmall,
-                    color = MaterialTheme.colorScheme.onPrimaryContainer
-                )
-                TextButton(onClick = onClick) {
-                    Text("View All", style = MaterialTheme.typography.labelMedium)
-                }
+            Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically) {
+                Text("Storage Overview", style = MaterialTheme.typography.titleSmall,
+                    color = MaterialTheme.colorScheme.onPrimaryContainer)
+                TextButton(onClick = onClick) { Text("View All", style = MaterialTheme.typography.labelMedium) }
             }
             Spacer(modifier = Modifier.height(12.dp))
-
             LinearProgressIndicator(
                 progress = { stats.storageUsedPercent.coerceIn(0f, 1f) },
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .height(6.dp)
-                    .clip(RoundedCornerShape(3.dp)),
+                modifier = Modifier.fillMaxWidth().height(6.dp).clip(RoundedCornerShape(3.dp)),
                 color = MaterialTheme.colorScheme.primary,
                 trackColor = MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.1f)
             )
             Spacer(modifier = Modifier.height(4.dp))
-            Text(
-                "${(stats.storageUsedPercent * 100).toInt()}% used",
-                style = MaterialTheme.typography.labelSmall,
-                color = MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.6f)
-            )
-
+            Text("${(stats.storageUsedPercent * 100).toInt()}% used", style = MaterialTheme.typography.labelSmall,
+                color = MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.6f))
             Spacer(modifier = Modifier.height(16.dp))
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.SpaceEvenly
-            ) {
+            Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceEvenly) {
                 StatItem("${stats.totalDocuments}", "Documents", pdf_blue)
                 StatItem(formatFileSize(stats.totalSize), "Total Size", pdf_green)
                 StatItem("${stats.favoriteCount}", "Favorites", pdf_orange)
@@ -550,16 +332,9 @@ fun StorageOverviewCard(
 @Composable
 fun StatItem(value: String, label: String, color: Color) {
     Column(horizontalAlignment = Alignment.CenterHorizontally) {
-        Text(
-            value,
-            style = MaterialTheme.typography.titleMedium,
-            color = color
-        )
-        Text(
-            label,
-            style = MaterialTheme.typography.labelSmall,
-            color = MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.7f)
-        )
+        Text(value, style = MaterialTheme.typography.titleMedium, color = color)
+        Text(label, style = MaterialTheme.typography.labelSmall,
+            color = MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.7f))
     }
 }
 
@@ -571,39 +346,20 @@ fun QuickActionsRow(navController: NavController, modifier: Modifier = Modifier)
         QuickAction("Scanner", Icons.Default.CameraAlt, pdf_teal, "scanner"),
         QuickAction("Tools", Icons.Default.Description, pdf_red, "tools")
     )
-    LazyRow(
-        horizontalArrangement = Arrangement.spacedBy(12.dp),
-        modifier = modifier
-    ) {
+    LazyRow(horizontalArrangement = Arrangement.spacedBy(12.dp), modifier = modifier) {
         items(actions) { action ->
             Card(
                 onClick = { navController.navigate(action.route) },
-                modifier = Modifier
-                    .width(85.dp)
-                    .aspectRatio(1f),
+                modifier = Modifier.width(85.dp).aspectRatio(1f),
                 shape = RoundedCornerShape(16.dp),
-                colors = CardDefaults.cardColors(
-                    containerColor = action.color.copy(alpha = 0.1f)
-                ),
+                colors = CardDefaults.cardColors(containerColor = action.color.copy(alpha = 0.1f)),
                 elevation = CardDefaults.cardElevation(defaultElevation = 0.dp)
             ) {
-                Column(
-                    modifier = Modifier.fillMaxSize(),
-                    horizontalAlignment = Alignment.CenterHorizontally,
-                    verticalArrangement = Arrangement.Center
-                ) {
-                    Icon(
-                        imageVector = action.icon,
-                        contentDescription = action.label,
-                        tint = action.color,
-                        modifier = Modifier.size(28.dp)
-                    )
+                Column(modifier = Modifier.fillMaxSize(), horizontalAlignment = Alignment.CenterHorizontally,
+                    verticalArrangement = Arrangement.Center) {
+                    Icon(action.icon, action.label, tint = action.color, modifier = Modifier.size(28.dp))
                     Spacer(modifier = Modifier.height(6.dp))
-                    Text(
-                        text = action.label,
-                        style = MaterialTheme.typography.labelSmall,
-                        color = action.color
-                    )
+                    Text(action.label, style = MaterialTheme.typography.labelSmall, color = action.color)
                 }
             }
         }
@@ -613,51 +369,23 @@ fun QuickActionsRow(navController: NavController, modifier: Modifier = Modifier)
 data class QuickAction(val label: String, val icon: ImageVector, val color: Color, val route: String)
 
 @Composable
-fun FoldersRow(
-    folders: List<Folder>,
-    navController: NavController,
-    modifier: Modifier = Modifier
-) {
+fun FoldersRow(folders: List<Folder>, navController: NavController, modifier: Modifier = Modifier) {
     if (folders.isEmpty()) {
-        EmptyStateMini(
-            icon = Icons.Default.FolderOpen,
-            title = "No folders yet",
-            subtitle = "Create folders to organize your PDFs"
-        )
+        EmptyStateMini(Icons.Default.FolderOpen, "No folders yet", "Create folders to organize your PDFs")
     } else {
-        LazyRow(
-            horizontalArrangement = Arrangement.spacedBy(12.dp),
-            modifier = modifier
-        ) {
+        LazyRow(horizontalArrangement = Arrangement.spacedBy(12.dp), modifier = modifier) {
             items(folders) { folder ->
                 Card(
                     onClick = { navController.navigate("folder/${folder.id}") },
-                    modifier = Modifier.width(140.dp),
-                    shape = RoundedCornerShape(16.dp),
-                    colors = CardDefaults.cardColors(
-                        containerColor = Color(folder.color).copy(alpha = 0.15f)
-                    ),
+                    modifier = Modifier.width(140.dp), shape = RoundedCornerShape(16.dp),
+                    colors = CardDefaults.cardColors(containerColor = Color(folder.color).copy(alpha = 0.15f)),
                     elevation = CardDefaults.cardElevation(defaultElevation = 1.dp)
                 ) {
                     Column(modifier = Modifier.padding(12.dp)) {
-                        Icon(
-                            imageVector = Icons.Default.FolderOpen,
-                            contentDescription = null,
-                            tint = Color(folder.color),
-                            modifier = Modifier.size(32.dp)
-                        )
+                        Icon(Icons.Default.FolderOpen, null, tint = Color(folder.color), modifier = Modifier.size(32.dp))
                         Spacer(modifier = Modifier.height(8.dp))
-                        Text(
-                            folder.name,
-                            style = MaterialTheme.typography.labelLarge,
-                            maxLines = 1,
-                            overflow = TextOverflow.Ellipsis
-                        )
-                        Text(
-                            "${folder.documentCount} files",
-                            style = MaterialTheme.typography.labelSmall,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant
-                        )
+                        Text(folder.name, style = MaterialTheme.typography.labelLarge, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                        Text("${folder.documentCount} files", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
                     }
                 }
             }
@@ -669,25 +397,12 @@ fun FoldersRow(
 fun CategoriesGrid(navController: NavController, modifier: Modifier = Modifier) {
     val categories = DocumentCategory.values().filter { it != DocumentCategory.UNCATEGORIZED }
     val colors = listOf(pdf_blue, pdf_green, pdf_orange, pdf_purple, pdf_teal, pdf_red, pdf_amber)
-
-    Column(
-        verticalArrangement = Arrangement.spacedBy(8.dp),
-        modifier = modifier
-    ) {
+    Column(verticalArrangement = Arrangement.spacedBy(8.dp), modifier = modifier) {
         categories.chunked(2).forEachIndexed { rowIndex, rowCats ->
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.spacedBy(8.dp)
-            ) {
+            Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                 rowCats.forEachIndexed { index, cat ->
                     val color = colors[(rowIndex * 2 + index) % colors.size]
-                    CategoryChip(
-                        name = cat.displayName,
-                        color = color,
-                        modifier = Modifier.weight(1f)
-                    ) {
-                        navController.navigate("category/${cat.name}")
-                    }
+                    CategoryChip(cat.displayName, color, Modifier.weight(1f)) { navController.navigate("category/${cat.name}") }
                 }
             }
         }
@@ -695,107 +410,44 @@ fun CategoriesGrid(navController: NavController, modifier: Modifier = Modifier) 
 }
 
 @Composable
-fun CategoryChip(
-    name: String,
-    color: Color,
-    modifier: Modifier = Modifier,
-    onClick: () -> Unit
-) {
-    Surface(
-        onClick = onClick,
-        modifier = modifier,
-        shape = RoundedCornerShape(12.dp),
-        color = color.copy(alpha = 0.1f)
-    ) {
-        Row(
-            modifier = Modifier.padding(horizontal = 16.dp, vertical = 12.dp),
-            verticalAlignment = Alignment.CenterVertically
-        ) {
-            Box(
-                modifier = Modifier
-                    .size(8.dp)
-                    .clip(CircleShape)
-                    .background(color)
-            )
+fun CategoryChip(name: String, color: Color, modifier: Modifier = Modifier, onClick: () -> Unit) {
+    Surface(onClick = onClick, modifier = modifier, shape = RoundedCornerShape(12.dp), color = color.copy(alpha = 0.1f)) {
+        Row(modifier = Modifier.padding(horizontal = 16.dp, vertical = 12.dp), verticalAlignment = Alignment.CenterVertically) {
+            Box(modifier = Modifier.size(8.dp).clip(CircleShape).background(color))
             Spacer(modifier = Modifier.width(8.dp))
-            Text(
-                name,
-                style = MaterialTheme.typography.labelMedium,
-                color = color
-            )
+            Text(name, style = MaterialTheme.typography.labelMedium, color = color)
         }
     }
 }
 
 @Composable
-fun DocumentListItem(
-    document: PdfDocument,
-    onClick: () -> Unit,
-    onFavoriteClick: () -> Unit,
-    modifier: Modifier = Modifier
-) {
-    val color = when {
-        document.isDeleted -> pdf_red
-        document.isFavorite -> pdf_amber
-        else -> pdf_blue
-    }
-
+fun DocumentListItem(document: PdfDocument, onClick: () -> Unit, onFavoriteClick: () -> Unit, modifier: Modifier = Modifier) {
+    val color = when { document.isDeleted -> pdf_red; document.isFavorite -> pdf_amber; else -> pdf_blue }
     Card(
-        onClick = onClick,
-        modifier = modifier.fillMaxWidth(),
-        shape = RoundedCornerShape(16.dp),
-        colors = CardDefaults.cardColors(
-            containerColor = MaterialTheme.colorScheme.surface
-        ),
+        onClick = onClick, modifier = modifier.fillMaxWidth(), shape = RoundedCornerShape(16.dp),
+        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
         elevation = CardDefaults.cardElevation(defaultElevation = 1.dp)
     ) {
-        Row(
-            modifier = Modifier.padding(16.dp),
-            verticalAlignment = Alignment.CenterVertically
-        ) {
-            Box(
-                modifier = Modifier
-                    .size(48.dp)
-                    .clip(RoundedCornerShape(12.dp))
-                    .background(color.copy(alpha = 0.15f)),
-                contentAlignment = Alignment.Center
-            ) {
-                Icon(
-                    imageVector = if (document.isDeleted) Icons.Default.Bookmark else Icons.Default.Description,
-                    contentDescription = null,
-                    tint = color,
-                    modifier = Modifier.size(24.dp)
-                )
+        Row(modifier = Modifier.padding(16.dp), verticalAlignment = Alignment.CenterVertically) {
+            Box(modifier = Modifier.size(48.dp).clip(RoundedCornerShape(12.dp))
+                .background(color.copy(alpha = 0.15f)), contentAlignment = Alignment.Center) {
+                Icon(if (document.isDeleted) Icons.Default.Bookmark else Icons.Default.Description,
+                    null, tint = color, modifier = Modifier.size(24.dp))
             }
             Spacer(modifier = Modifier.width(16.dp))
             Column(modifier = Modifier.weight(1f)) {
-                Text(
-                    text = document.displayName,
-                    style = MaterialTheme.typography.labelLarge,
-                    maxLines = 1,
-                    overflow = TextOverflow.Ellipsis
-                )
-                Text(
-                    text = "${formatFileSize(document.fileSize)} · ${document.category.displayName}",
-                    style = MaterialTheme.typography.labelSmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant
-                )
+                Text(document.displayName, style = MaterialTheme.typography.labelLarge, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                Text("${formatFileSize(document.fileSize)} · ${document.category.displayName}",
+                    style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
             }
             if (document.cloudProvider != null) {
-                Icon(
-                    imageVector = Icons.Default.Schedule,
-                    contentDescription = "Cloud",
-                    tint = pdf_teal,
-                    modifier = Modifier.size(18.dp)
-                )
+                Icon(Icons.Default.Schedule, "Cloud", tint = pdf_teal, modifier = Modifier.size(18.dp))
                 Spacer(modifier = Modifier.width(8.dp))
             }
             IconButton(onClick = onFavoriteClick) {
-                Icon(
-                    imageVector = if (document.isFavorite) Icons.Default.Star else Icons.Default.StarBorder,
-                    contentDescription = if (document.isFavorite) "Remove favorite" else "Add favorite",
-                    tint = if (document.isFavorite) pdf_amber else MaterialTheme.colorScheme.onSurfaceVariant
-                )
+                Icon(if (document.isFavorite) Icons.Default.Star else Icons.Default.StarBorder,
+                    if (document.isFavorite) "Remove favorite" else "Add favorite",
+                    tint = if (document.isFavorite) pdf_amber else MaterialTheme.colorScheme.onSurfaceVariant)
             }
         }
     }
@@ -803,44 +455,17 @@ fun DocumentListItem(
 
 @Composable
 fun SectionTitle(title: String, modifier: Modifier = Modifier) {
-    Text(
-        text = title,
-        style = MaterialTheme.typography.titleMedium,
-        color = MaterialTheme.colorScheme.onSurface,
-        modifier = modifier.padding(vertical = 8.dp)
-    )
+    Text(title, style = MaterialTheme.typography.titleMedium, color = MaterialTheme.colorScheme.onSurface,
+        modifier = modifier.padding(vertical = 8.dp))
 }
 
 @Composable
-fun EmptyStateMini(
-    icon: ImageVector,
-    title: String,
-    subtitle: String,
-    modifier: Modifier = Modifier
-) {
-    Column(
-        modifier = modifier
-            .fillMaxWidth()
-            .padding(32.dp),
-        horizontalAlignment = Alignment.CenterHorizontally
-    ) {
-        Icon(
-            icon,
-            null,
-            modifier = Modifier.size(48.dp),
-            tint = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.5f)
-        )
+fun EmptyStateMini(icon: ImageVector, title: String, subtitle: String, modifier: Modifier = Modifier) {
+    Column(modifier = modifier.fillMaxWidth().padding(32.dp), horizontalAlignment = Alignment.CenterHorizontally) {
+        Icon(icon, null, modifier = Modifier.size(48.dp), tint = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.5f))
         Spacer(modifier = Modifier.height(8.dp))
-        Text(
-            title,
-            style = MaterialTheme.typography.labelLarge,
-            color = MaterialTheme.colorScheme.onSurfaceVariant
-        )
-        Text(
-            subtitle,
-            style = MaterialTheme.typography.labelSmall,
-            color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f)
-        )
+        Text(title, style = MaterialTheme.typography.labelLarge, color = MaterialTheme.colorScheme.onSurfaceVariant)
+        Text(subtitle, style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f))
     }
 }
 
