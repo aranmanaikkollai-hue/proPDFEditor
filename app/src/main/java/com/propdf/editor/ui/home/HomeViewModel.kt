@@ -9,11 +9,6 @@ import kotlinx.coroutines.flow.*
 import kotlinx.coroutines.launch
 import javax.inject.Inject
 
-/**
- * HomeViewModel — premium dashboard state management.
- * Maps core domain models to local UI models for the home screen.
- * Fixed: uses correct com.propdf.core.domain.model.* package.
- */
 @HiltViewModel
 class HomeViewModel @Inject constructor(
     private val recentFilesRepo: RecentFilesRepository
@@ -22,14 +17,11 @@ class HomeViewModel @Inject constructor(
     private val _uiState = MutableStateFlow(HomeUiState())
     val uiState: StateFlow<HomeUiState> = _uiState.asStateFlow()
 
-    init {
-        loadData()
-    }
+    init { loadData() }
 
     private fun loadData() {
         viewModelScope.launch {
             _uiState.update { it.copy(isLoading = true) }
-
             recentFilesRepo.observeAll().collectLatest { files ->
                 val mappedFiles = files.map { it.toPdfDocument() }
                 val stats = calculateStats(files)
@@ -37,14 +29,11 @@ class HomeViewModel @Inject constructor(
                     it.displayName.contains("Scan", ignoreCase = true) ||
                     it.displayName.contains("Camera", ignoreCase = true)
                 }
-
                 _uiState.update {
                     HomeUiState(
-                        recentFiles = mappedFiles,
-                        recentScans = scans,
+                        recentFiles = mappedFiles, recentScans = scans,
                         folders = generateSampleFolders(mappedFiles),
-                        storageStats = stats,
-                        isLoading = false
+                        storageStats = stats, isLoading = false
                     )
                 }
             }
@@ -53,24 +42,19 @@ class HomeViewModel @Inject constructor(
 
     fun toggleFavorite(id: Long, currentState: Boolean) {
         viewModelScope.launch {
-            // Implementation depends on RecentFilesRepository API
             // recentFilesRepo.setFavourite(uri, !currentState)
         }
     }
 
-    fun refresh() {
-        loadData()
-    }
+    fun refresh() { loadData() }
 
     private fun calculateStats(files: List<RecentFile>): StorageStats {
         val totalSize = files.sumOf { it.fileSizeBytes }
         val favorites = files.count { it.isFavourite }
-        val maxStorage = 1024L * 1024L * 1024L // 1GB placeholder
+        val maxStorage = 1024L * 1024L * 1024L
         return StorageStats(
-            totalDocuments = files.size,
-            totalSize = totalSize,
-            favoriteCount = favorites,
-            deletedCount = 0,
+            totalDocuments = files.size, totalSize = totalSize,
+            favoriteCount = favorites, deletedCount = 0,
             storageUsedPercent = (totalSize.toFloat() / maxStorage).coerceIn(0f, 1f)
         )
     }
@@ -86,16 +70,10 @@ class HomeViewModel @Inject constructor(
 
     private fun RecentFile.toPdfDocument(): PdfDocument {
         return PdfDocument(
-            id = uri.hashCode().toLong(),
-            uri = uri,
-            displayName = displayName,
-            fileSize = fileSizeBytes,
-            pageCount = pageCount,
-            lastOpenedAt = lastOpenedAt,
-            isFavorite = isFavourite,
-            isDeleted = false,
-            category = DocumentCategory.UNCATEGORIZED,
-            cloudProvider = null
+            id = uri.hashCode().toLong(), uri = uri, displayName = displayName,
+            fileSize = fileSizeBytes, pageCount = pageCount, lastOpenedAt = lastOpenedAt,
+            isFavorite = isFavourite, isDeleted = false,
+            category = DocumentCategory.UNCATEGORIZED, cloudProvider = null
         )
     }
 }
