@@ -14,7 +14,6 @@ import androidx.compose.animation.core.tween
 import androidx.compose.animation.slideIntoContainer
 import androidx.compose.animation.slideOutOfContainer
 import androidx.compose.foundation.layout.Box
-import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
@@ -42,7 +41,6 @@ import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
-import androidx.compose.ui.unit.dp
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.lifecycleScope
 import androidx.lifecycle.repeatOnLifecycle
@@ -52,7 +50,6 @@ import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.currentBackStackEntryAsState
 import androidx.navigation.compose.rememberNavController
-import com.propdf.core.domain.result.AppResult
 import com.propdf.core.saf.SafEngine
 import com.propdf.editor.data.local.SettingsDataStore
 import com.propdf.editor.ui.files.FilesScreen
@@ -60,7 +57,6 @@ import com.propdf.editor.ui.home.HomeScreen
 import com.propdf.editor.ui.scanner.ModernScannerActivity
 import com.propdf.editor.ui.settings.SettingsScreen
 import com.propdf.editor.ui.theme.ProPDFThemeWithSettings
-import com.propdf.editor.ui.tools.LaunchCardScreen
 import com.propdf.editor.ui.tools.ToolsActivity
 import com.propdf.editor.ui.tools.ToolsScreen
 import com.propdf.viewer.presentation.PremiumViewerActivity
@@ -96,21 +92,15 @@ class MainActivity : ComponentActivity() {
                         is MainViewModel.Event.OpenPdf -> launchViewer(event.uri)
                         is MainViewModel.Event.OpenScanner -> launchScanner()
                         is MainViewModel.Event.OpenTools -> launchTools()
-                        is MainViewModel.Event.Error -> {
-                            // Show snackbar or toast
-                        }
+                        is MainViewModel.Event.Error -> {}
                     }
                 }
             }
         }
 
         setContent {
-            // Use DataStore-aware theme for persistent settings
             ProPDFThemeWithSettings(settingsDataStore = settingsDataStore) {
-                Surface(
-                    modifier = Modifier.fillMaxSize(),
-                    color = MaterialTheme.colorScheme.background
-                ) {
+                Surface(modifier = Modifier.fillMaxSize(), color = MaterialTheme.colorScheme.background) {
                     MainScreen(viewModel = viewModel)
                 }
             }
@@ -118,11 +108,9 @@ class MainActivity : ComponentActivity() {
     }
 
     private fun launchViewer(uri: Uri) {
-        val intent = Intent(this, PremiumViewerActivity::class.java).apply {
-            data = uri
-            flags = Intent.FLAG_GRANT_READ_URI_PERMISSION
-        }
-        startActivity(intent)
+        startActivity(Intent(this, PremiumViewerActivity::class.java).apply {
+            data = uri; flags = Intent.FLAG_GRANT_READ_URI_PERMISSION
+        })
     }
 
     private fun launchScanner() {
@@ -143,70 +131,23 @@ fun MainScreen(viewModel: MainViewModel) {
 
     val launcher = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.OpenDocument()
-    ) { uri ->
-        uri?.let { viewModel.openPdf(it) }
-    }
+    ) { uri -> uri?.let { viewModel.openPdf(it) } }
 
     val onOpenPdf = remember { { launcher.launch(arrayOf("application/pdf")) } }
 
-    Scaffold(
-        bottomBar = {
-            if (!isWideScreen) {
-                BottomNavBar(navController)
-            }
-        }
-    ) { padding ->
+    Scaffold(bottomBar = { if (!isWideScreen) BottomNavBar(navController) }) { padding ->
         Row(modifier = Modifier.fillMaxSize()) {
-            if (isWideScreen) {
-                SideNavRail(navController)
-            }
-            Box(
-                modifier = Modifier
-                    .fillMaxSize()
-                    .padding(padding)
-            ) {
-                NavHost(
-                    navController = navController,
-                    startDestination = Screen.Home.route,
-                    modifier = Modifier.fillMaxSize()
-                ) {
-                    composable(Screen.Home.route) {
-                        HomeScreen(
-                            navController = navController,
-                            mainViewModel = viewModel,
-                            onOpenPdf = onOpenPdf
-                        )
-                    }
-                    composable(Screen.Files.route) {
-                        FilesScreen(viewModel = viewModel, onOpenPdf = onOpenPdf)
-                    }
-                    composable(Screen.Scanner.route) {
-                        // Scanner is handled by bottom nav click
-                        HomeScreen(
-                            navController = navController,
-                            mainViewModel = viewModel,
-                            onOpenPdf = onOpenPdf
-                        )
-                    }
-                    composable(Screen.Tools.route) {
-                        ToolsScreen(navController)
-                    }
+            if (isWideScreen) SideNavRail(navController)
+            Box(modifier = Modifier.fillMaxSize().padding(padding)) {
+                NavHost(navController = navController, startDestination = Screen.Home.route, modifier = Modifier.fillMaxSize()) {
+                    composable(Screen.Home.route) { HomeScreen(navController, viewModel, onOpenPdf) }
+                    composable(Screen.Files.route) { FilesScreen(viewModel, onOpenPdf) }
+                    composable(Screen.Scanner.route) { HomeScreen(navController, viewModel, onOpenPdf) }
+                    composable(Screen.Tools.route) { ToolsScreen(navController) }
                     composable(Screen.Settings.route,
-                        enterTransition = {
-                            slideIntoContainer(
-                                AnimatedContentTransitionScope.SlideDirection.Left,
-                                animationSpec = tween(300)
-                            )
-                        },
-                        exitTransition = {
-                            slideOutOfContainer(
-                                AnimatedContentTransitionScope.SlideDirection.Right,
-                                animationSpec = tween(300)
-                            )
-                        }
-                    ) {
-                        SettingsScreen(navController)
-                    }
+                        enterTransition = { slideIntoContainer(AnimatedContentTransitionScope.SlideDirection.Left, tween(300)) },
+                        exitTransition = { slideOutOfContainer(AnimatedContentTransitionScope.SlideDirection.Right, tween(300)) }
+                    ) { SettingsScreen(navController) }
                 }
             }
         }
@@ -224,21 +165,13 @@ fun BottomNavBar(navController: androidx.navigation.NavController) {
                 label = { Text(screen.title) },
                 selected = currentDestination?.hierarchy?.any { it.route == screen.route } == true,
                 onClick = {
-                    if (screen.route == "scanner") {
-                        // Launch scanner activity
-                        return@NavigationBarItem
-                    }
+                    if (screen.route == "scanner") return@NavigationBarItem
                     navController.navigate(screen.route) {
-                        popUpTo(navController.graph.findStartDestination().id) {
-                            saveState = true
-                        }
-                        launchSingleTop = true
-                        restoreState = true
+                        popUpTo(navController.graph.findStartDestination().id) { saveState = true }
+                        launchSingleTop = true; restoreState = true
                     }
                 },
-                modifier = Modifier.semantics {
-                    contentDescription = "${screen.title} tab"
-                }
+                modifier = Modifier.semantics { contentDescription = "${screen.title} tab" }
             )
         }
     }
@@ -255,18 +188,14 @@ fun SideNavRail(navController: androidx.navigation.NavController) {
                 label = { Text(screen.title) },
                 selected = currentDestination?.hierarchy?.any { it.route == screen.route } == true,
                 onClick = {
-                    if (screen.route == "scanner") {
-                        return@NavigationRailItem
-                    }
+                    if (screen.route == "scanner") return@NavigationRailItem
                     navController.navigate(screen.route) {
-                        popUpTo(navController.graph.findStartDestination().id) {
-                            saveState = true
-                        }
-                        launchSingleTop = true
-                        restoreState = true
+                        popUpTo(navController.graph.findStartDestination().id) { saveState = true }
+                        launchSingleTop = true; restoreState = true
                     }
                 }
             )
         }
     }
 }
+.
