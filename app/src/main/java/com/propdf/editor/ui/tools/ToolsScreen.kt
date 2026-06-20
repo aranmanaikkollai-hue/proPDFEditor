@@ -3,7 +3,6 @@ package com.propdf.editor.ui.tools
 import androidx.compose.animation.core.Spring
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.spring
-import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -64,10 +63,6 @@ import com.propdf.editor.ui.theme.pdf_purple
 import com.propdf.editor.ui.theme.pdf_red
 import com.propdf.editor.ui.theme.pdf_teal
 
-/**
- * Premium Tools Screen with categorized tool cards,
- * animated expansion, and gesture feedback.
- */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun ToolsScreen(navController: NavController) {
@@ -96,49 +91,30 @@ fun ToolsScreen(navController: NavController) {
                 title = {
                     Column {
                         Text("Tools")
-                        Text(
-                            "${tools.size} offline tools available",
-                            style = MaterialTheme.typography.labelSmall,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant
-                        )
+                        Text("${tools.size} offline tools available", style = MaterialTheme.typography.labelSmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant)
                     }
                 },
-                colors = TopAppBarDefaults.topAppBarColors(
-                    containerColor = MaterialTheme.colorScheme.surface
-                )
+                colors = TopAppBarDefaults.topAppBarColors(containerColor = MaterialTheme.colorScheme.surface)
             )
         }
     ) { padding ->
         LazyColumn(
-            modifier = Modifier
-                .fillMaxSize()
-                .padding(padding),
+            modifier = Modifier.fillMaxSize().padding(padding),
             contentPadding = PaddingValues(16.dp),
             verticalArrangement = Arrangement.spacedBy(12.dp)
         ) {
-            // Category filter chips
             item {
-                CategoryFilterRow(
-                    categories = categories,
-                    selectedCategory = selectedCategory,
-                    onCategorySelected = { selectedCategory = it }
-                )
+                CategoryFilterRow(categories, selectedCategory) { selectedCategory = it }
             }
-
-            // Filtered tools
-            val filteredTools = if (selectedCategory != null) {
-                tools.filter { it.category == selectedCategory }
-            } else {
-                tools
-            }
-
-            items(filteredTools, key = { it.name }) { tool ->
+            val filtered = if (selectedCategory != null) tools.filter { it.category == selectedCategory } else tools
+            items(filtered, key = { it.name }) { tool ->
                 ToolCard(tool = tool, onClick = {
                     when (tool.name) {
                         "OCR" -> navController.navigate("ocr")
                         "Merge PDFs" -> navController.navigate("merge")
                         "Split PDF" -> navController.navigate("split")
-                        else -> { /* Show coming soon or launch */ }
+                        else -> {}
                     }
                 })
             }
@@ -147,70 +123,28 @@ fun ToolsScreen(navController: NavController) {
 }
 
 enum class ToolCategory(val displayName: String) {
-    ALL("All"),
-    EDIT("Edit"),
-    ORGANIZE("Organize"),
-    OPTIMIZE("Optimize"),
-    SECURITY("Security"),
-    EXPORT("Export")
+    ALL("All"), EDIT("Edit"), ORGANIZE("Organize"),
+    OPTIMIZE("Optimize"), SECURITY("Security"), EXPORT("Export")
 }
 
-data class Tool(
-    val name: String,
-    val description: String,
-    val icon: ImageVector,
-    val color: Color,
-    val category: ToolCategory
-)
+data class Tool(val name: String, val description: String, val icon: ImageVector, val color: Color, val category: ToolCategory)
 
 @Composable
-fun CategoryFilterRow(
-    categories: List<ToolCategory>,
-    selectedCategory: ToolCategory?,
-    onCategorySelected: (ToolCategory?) -> Unit
-) {
-    Row(
-        modifier = Modifier
-            .fillMaxWidth()
-            .padding(vertical = 8.dp),
-        horizontalArrangement = Arrangement.spacedBy(8.dp)
-    ) {
-        // All chip
-        CategoryChip(
-            name = "All",
-            isSelected = selectedCategory == null,
-            onClick = { onCategorySelected(null) },
-            modifier = Modifier.weight(1f)
-        )
-        // Category chips
-        categories.filter { it != ToolCategory.ALL }.forEach { category ->
-            CategoryChip(
-                name = category.displayName,
-                isSelected = selectedCategory == category,
-                onClick = { onCategorySelected(category) },
-                modifier = Modifier.weight(1f)
-            )
+fun CategoryFilterRow(categories: List<ToolCategory>, selectedCategory: ToolCategory?, onCategorySelected: (ToolCategory?) -> Unit) {
+    Row(modifier = Modifier.fillMaxWidth().padding(vertical = 8.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+        CategoryChip("All", selectedCategory == null, Modifier.weight(1f)) { onCategorySelected(null) }
+        categories.filter { it != ToolCategory.ALL }.forEach { cat ->
+            CategoryChip(cat.displayName, selectedCategory == cat, Modifier.weight(1f)) { onCategorySelected(cat) }
         }
     }
 }
 
 @Composable
-fun CategoryChip(
-    name: String,
-    isSelected: Boolean,
-    onClick: () -> Unit,
-    modifier: Modifier = Modifier
-) {
-    val backgroundColor = if (isSelected) {
-        MaterialTheme.colorScheme.primaryContainer
-    } else {
-        MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f)
-    }
-    val contentColor = if (isSelected) {
-        MaterialTheme.colorScheme.onPrimaryContainer
-    } else {
-        MaterialTheme.colorScheme.onSurfaceVariant
-    }
+fun CategoryChip(name: String, isSelected: Boolean, modifier: Modifier = Modifier, onClick: () -> Unit) {
+    val backgroundColor = if (isSelected) MaterialTheme.colorScheme.primaryContainer
+    else MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f)
+    val contentColor = if (isSelected) MaterialTheme.colorScheme.onPrimaryContainer
+    else MaterialTheme.colorScheme.onSurfaceVariant
 
     val scale by animateFloatAsState(
         targetValue = if (isSelected) 1.05f else 1f,
@@ -219,86 +153,34 @@ fun CategoryChip(
     )
 
     Card(
-        onClick = onClick,
-        modifier = modifier.scale(scale),
-        shape = RoundedCornerShape(12.dp),
-        colors = CardDefaults.cardColors(
-            containerColor = backgroundColor,
-            contentColor = contentColor
-        ),
-        elevation = CardDefaults.cardElevation(
-            defaultElevation = if (isSelected) 2.dp else 0.dp
-        )
+        onClick = onClick, modifier = modifier.scale(scale), shape = RoundedCornerShape(12.dp),
+        colors = CardDefaults.cardColors(containerColor = backgroundColor, contentColor = contentColor),
+        elevation = CardDefaults.cardElevation(defaultElevation = if (isSelected) 2.dp else 0.dp)
     ) {
-        Box(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(vertical = 10.dp, horizontal = 8.dp),
-            contentAlignment = Alignment.Center
-        ) {
-            Text(
-                name,
-                style = MaterialTheme.typography.labelMedium
-            )
+        Box(modifier = Modifier.fillMaxWidth().padding(vertical = 10.dp, horizontal = 8.dp), contentAlignment = Alignment.Center) {
+            Text(name, style = MaterialTheme.typography.labelMedium)
         }
     }
 }
 
 @Composable
-fun ToolCard(
-    tool: Tool,
-    onClick: () -> Unit,
-    modifier: Modifier = Modifier
-) {
+fun ToolCard(tool: Tool, onClick: () -> Unit, modifier: Modifier = Modifier) {
     Card(
-        onClick = onClick,
-        modifier = modifier.fillMaxWidth(),
-        shape = RoundedCornerShape(16.dp),
-        colors = CardDefaults.cardColors(
-            containerColor = MaterialTheme.colorScheme.surface
-        ),
+        onClick = onClick, modifier = modifier.fillMaxWidth(), shape = RoundedCornerShape(16.dp),
+        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
         elevation = CardDefaults.cardElevation(defaultElevation = 1.dp)
     ) {
-        Row(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(16.dp),
-            verticalAlignment = Alignment.CenterVertically
-        ) {
-            Box(
-                modifier = Modifier
-                    .size(48.dp)
-                    .clip(RoundedCornerShape(12.dp))
-                    .background(tool.color.copy(alpha = 0.15f)),
-                contentAlignment = Alignment.Center
-            ) {
-                Icon(
-                    imageVector = tool.icon,
-                    contentDescription = null,
-                    tint = tool.color,
-                    modifier = Modifier.size(24.dp)
-                )
+        Row(modifier = Modifier.fillMaxWidth().padding(16.dp), verticalAlignment = Alignment.CenterVertically) {
+            Box(modifier = Modifier.size(48.dp).clip(RoundedCornerShape(12.dp))
+                .background(tool.color.copy(alpha = 0.15f)), contentAlignment = Alignment.Center) {
+                Icon(tool.icon, null, tint = tool.color, modifier = Modifier.size(24.dp))
             }
             Spacer(modifier = Modifier.width(16.dp))
             Column(modifier = Modifier.weight(1f)) {
-                Text(
-                    tool.name,
-                    style = MaterialTheme.typography.labelLarge,
-                    maxLines = 1,
-                    overflow = TextOverflow.Ellipsis
-                )
-                Text(
-                    tool.description,
-                    style = MaterialTheme.typography.labelSmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant
-                )
+                Text(tool.name, style = MaterialTheme.typography.labelLarge, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                Text(tool.description, style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
             }
-            Icon(
-                imageVector = Icons.AutoMirrored.Filled.ArrowForward,
-                contentDescription = null,
-                tint = MaterialTheme.colorScheme.onSurfaceVariant,
-                modifier = Modifier.size(20.dp)
-            )
+            Icon(Icons.AutoMirrored.Filled.ArrowForward, null, tint = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.size(20.dp))
         }
     }
 }
