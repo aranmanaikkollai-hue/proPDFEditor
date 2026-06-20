@@ -19,19 +19,9 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.style.TextAlign
 import com.propdf.editor.ui.components.SkeletonBox
 
-/**
- * PDF Viewer Compose shell.
- * Native rendering surface is injected below this Compose layer.
- * This screen provides the Material3 chrome (app bar, controls) while
- * the actual PDF rendering uses the native PdfRenderView.
- */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun PdfViewerScreen(
-    uri: String,
-    onBack: () -> Unit,
-    isLoading: Boolean = false
-) {
+fun PdfViewerScreen(uri: String, onBack: () -> Unit, isLoading: Boolean = false) {
     Scaffold(
         topBar = {
             TopAppBar(
@@ -41,30 +31,18 @@ fun PdfViewerScreen(
                         Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back")
                     }
                 },
-                colors = TopAppBarDefaults.topAppBarColors(
-                    containerColor = MaterialTheme.colorScheme.surface
-                )
+                colors = TopAppBarDefaults.topAppBarColors(containerColor = MaterialTheme.colorScheme.surface)
             )
         }
     ) { padding ->
-        Box(
-            modifier = Modifier
-                .fillMaxSize()
-                .padding(padding),
-            contentAlignment = Alignment.Center
-        ) {
+        Box(modifier = Modifier.fillMaxSize().padding(padding), contentAlignment = Alignment.Center) {
             if (isLoading) {
-                SkeletonBox(
-                    modifier = Modifier.fillMaxSize(0.9f),
-                    shape = MaterialTheme.shapes.large
-                )
+                SkeletonBox(modifier = Modifier.fillMaxSize(0.9f), shape = MaterialTheme.shapes.large)
             } else {
-                Text(
-                    "Native PDF rendering surface (Compose hosts native PdfRenderView)",
-                    textAlign = TextAlign.Center,
-                    style = MaterialTheme.typography.bodyLarge,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant
-                )
+                Text("Native PDF rendering surface
+(Compose hosts native PdfRenderView)",
+                    textAlign = TextAlign.Center, style = MaterialTheme.typography.bodyLarge,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant)
             }
         }
     }
