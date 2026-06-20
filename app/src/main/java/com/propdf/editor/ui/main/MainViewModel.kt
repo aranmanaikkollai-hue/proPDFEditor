@@ -35,14 +35,8 @@ class MainViewModel @Inject constructor(
     init {
         viewModelScope.launch {
             recentFilesRepo.observeAll()
-                .catch { e ->
-                    _uiState.update { it.copy(error = e.message, isLoading = false) }
-                }
-                .collect { files ->
-                    _uiState.update {
-                        it.copy(files = files, isLoading = false)
-                    }
-                }
+                .catch { e -> _uiState.update { it.copy(error = e.message, isLoading = false) } }
+                .collect { files -> _uiState.update { it.copy(files = files, isLoading = false) } }
         }
     }
 
@@ -63,19 +57,13 @@ class MainViewModel @Inject constructor(
         }
     }
 
-    fun openPdfString(uriString: String) {
-        openPdf(Uri.parse(uriString))
-    }
+    fun openPdfString(uriString: String) { openPdf(Uri.parse(uriString)) }
 
     fun toggleFavourite(uri: String) {
-        viewModelScope.launch {
-            recentFilesRepo.toggleFavourite(uri)
-        }
+        viewModelScope.launch { recentFilesRepo.toggleFavourite(uri) }
     }
 
-    fun setSearchQuery(query: String) {
-        _uiState.update { it.copy(searchQuery = query) }
-    }
+    fun setSearchQuery(query: String) { _uiState.update { it.copy(searchQuery = query) } }
 
     sealed class Event {
         data class OpenPdf(val uri: Uri) : Event()
