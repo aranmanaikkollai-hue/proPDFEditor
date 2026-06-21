@@ -1,0 +1,17 @@
+<?xml version="1.0" encoding="utf-8"?>
+<paths>
+    <!-- Original captured images -->
+    <files-path
+        name="scanner_original"
+        path="scanner/original/" />
+
+    <!-- Processed output images -->
+    <files-path
+        name="scanner_processed"
+        path="scanner/processed/" />
+
+    <!-- Thumbnail previews -->
+    <files-path
+        name="scanner_thumbnails"
+        path="scanner/thumbnails/" />
+</paths>
