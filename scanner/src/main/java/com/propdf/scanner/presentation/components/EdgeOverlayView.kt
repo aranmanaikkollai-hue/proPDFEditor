@@ -1,0 +1,159 @@
+package com.propdfeditor.scanner.presentation.components
+
+import android.content.Context
+import android.graphics.Canvas
+import android.graphics.DashPathEffect
+import android.graphics.Paint
+import android.graphics.Path
+import android.util.AttributeSet
+import android.view.View
+import com.propdfeditor.scanner.domain.model.EdgeDetectionResult
+import com.propdfeditor.scanner.domain.model.PointF
+
+/**
+ * Custom view that draws detected document edges over camera preview.
+ * Lightweight - only draws lines, no bitmap processing.
+ *
+ * Features:
+ * - Real-time edge polygon with corner markers
+ * - Color-coded confidence (green > 70%, orange < 70%)
+ * - Document guide overlay (dashed rectangle)
+ * - Smooth animation support via invalidate()
+ */
+class EdgeOverlayView @JvmOverloads constructor(
+    context: Context,
+    attrs: AttributeSet? = null,
+    defStyleAttr: Int = 0
+) : View(context, attrs, defStyleAttr) {
+
+    private var currentResult: EdgeDetectionResult? = null
+    private val path = Path()
+
+    private val edgePaint = Paint()
+    private val cornerPaint = Paint()
+    private val cornerInnerPaint = Paint()
+    private val guidePaint = Paint()
+    private val lowConfidencePaint = Paint()
+    private val lowConfidenceCornerPaint = Paint()
+    private val labelPaint = Paint()
+
+    init {
+        edgePaint.color = 0xFF00FF00.toInt() // Green
+        edgePaint.strokeWidth = 5f
+        edgePaint.style = Paint.Style.STROKE
+        edgePaint.isAntiAlias = true
+        edgePaint.strokeJoin = Paint.Join.ROUND
+
+        cornerPaint.color = 0xFF00FF00.toInt()
+        cornerPaint.style = Paint.Style.FILL
+        cornerPaint.isAntiAlias = true
+
+        cornerInnerPaint.color = 0xFF000000.toInt()
+        cornerInnerPaint.style = Paint.Style.FILL
+        cornerInnerPaint.isAntiAlias = true
+
+        guidePaint.color = 0x66FFFFFF.toInt()
+        guidePaint.strokeWidth = 2f
+        guidePaint.style = Paint.Style.STROKE
+        guidePaint.pathEffect = DashPathEffect(floatArrayOf(20f, 10f), 0f)
+
+        lowConfidencePaint.color = 0xFFFFA500.toInt() // Orange for low confidence
+        lowConfidencePaint.strokeWidth = 5f
+        lowConfidencePaint.style = Paint.Style.STROKE
+        lowConfidencePaint.isAntiAlias = true
+        lowConfidencePaint.strokeJoin = Paint.Join.ROUND
+
+        lowConfidenceCornerPaint.color = 0xFFFFA500.toInt()
+        lowConfidenceCornerPaint.style = Paint.Style.FILL
+        lowConfidenceCornerPaint.isAntiAlias = true
+
+        labelPaint.color = 0xFFFFFFFF.toInt()
+        labelPaint.textSize = 36f
+        labelPaint.isAntiAlias = true
+        labelPaint.textAlign = Paint.Align.CENTER
+    }
+
+    /**
+     * Update edge detection result and trigger redraw.
+     */
+    fun updateEdgeResult(result: EdgeDetectionResult) {
+        currentResult = result
+        invalidate()
+    }
+
+    /**
+     * Clear edges from view.
+     */
+    fun clearEdges() {
+        currentResult = null
+        invalidate()
+    }
+
+    override fun onDraw(canvas: Canvas) {
+        super.onDraw(canvas)
+
+        // Draw document guide (dashed rectangle in center)
+        drawDocumentGuide(canvas)
+
+        val result = currentResult ?: return
+        if (result.corners.size != 4) return
+
+        val isHighConfidence = result.confidence > 70f
+        val linePaint = if (isHighConfidence) edgePaint else lowConfidencePaint
+        val dotPaint = if (isHighConfidence) cornerPaint else lowConfidenceCornerPaint
+
+        // Draw polygon connecting corners
+        path.reset()
+        val first = scalePoint(result.corners[0])
+        path.moveTo(first.x, first.y)
+
+        for (i in 1 until result.corners.size) {
+            val pt = scalePoint(result.corners[i])
+            path.lineTo(pt.x, pt.y)
+        }
+        path.close()
+        canvas.drawPath(path, linePaint)
+
+        // Draw corner markers with inner dot
+        for (corner in result.corners) {
+            val pt = scalePoint(corner)
+            // Outer circle
+            canvas.drawCircle(pt.x, pt.y, 14f, dotPaint)
+            // Inner black dot
+            canvas.drawCircle(pt.x, pt.y, 8f, cornerInnerPaint)
+        }
+
+        // Draw confidence label if low
+        if (!isHighConfidence && result.confidence > 0) {
+            canvas.drawText(
+                "Move closer",
+                width / 2f,
+                height * 0.85f,
+                labelPaint
+            )
+        }
+    }
+
+    private fun drawDocumentGuide(canvas: Canvas) {
+        val marginX = width * 0.08f
+        val marginY = height * 0.12f
+        canvas.drawRect(
+            marginX,
+            marginY,
+            width - marginX,
+            height - marginY,
+            guidePaint
+        )
+    }
+
+    /**
+     * Scale normalized points (0-1) to view coordinates.
+     * Points are stored as ratios of image dimensions.
+     */
+    private fun scalePoint(point: PointF): android.graphics.PointF {
+        return android.graphics.PointF(
+            point.x * width,
+            point.y * height
+        )
+    }
+}
