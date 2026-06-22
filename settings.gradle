@@ -41,3 +41,8 @@ include ':security'
 include ':ads'
 include ':ocr'
 include ':annotations'
+include ':storage'   // SAF abstraction layer
+include ':backup'    // Backup/restore feature
+include ':sync'      // Folder watch, auto-import
+include ':share'     // WiFi Direct, Nearby, QR, LAN
+include ':nas'       // WebDAV, SMB
