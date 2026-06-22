@@ -53,6 +53,7 @@ android {
 dependencies {
     implementation "org.jetbrains.kotlin:kotlin-stdlib:1.9.20"
 
+    // Existing modules
     implementation project(':core')
     implementation project(':viewer')
     implementation project(':editor')
@@ -61,6 +62,13 @@ dependencies {
     implementation project(':ads')
     implementation project(':ocr')
     implementation project(':annotations')
+
+    // NEW: Phase 5 modules
+    implementation project(':storage')
+    implementation project(':backup')
+    implementation project(':sync')
+    implementation project(':share')
+    implementation project(':nas')
 
     implementation "androidx.core:core-ktx:1.12.0"
     implementation "androidx.appcompat:appcompat:1.6.1"
@@ -113,14 +121,12 @@ dependencies {
     // PDFBox-Android
     implementation "com.tom-roush:pdfbox-android:2.0.25.0"
 
+    // NEW: Phase 5 dependencies (also declared in feature modules, but app needs navigation)
+    implementation "androidx.documentfile:documentfile:1.0.1"
+    implementation "androidx.security:security-crypto:1.1.0-alpha06"
+
     testImplementation "junit:junit:4.13.2"
     androidTestImplementation "androidx.test.ext:junit:1.1.5"
     androidTestImplementation "androidx.test.espresso:espresso-core:3.5.1"
     androidTestImplementation "androidx.compose.ui:ui-test-junit4:1.6.0"
-    // Add to existing dependencies block:
-implementation project(':storage')
-implementation project(':backup')
-implementation project(':sync')
-implementation project(':share')
-implementation project(':nas')
 }
