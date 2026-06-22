@@ -1,38 +1,36 @@
-# ProPDF Editor ProGuard Rules
--keep public class com.propdf.** { *; }
--keepclassmembers class com.propdf.** { *; }
+# Keep WorkManager
+-keep class androidx.work.** { *; }
+-keep class androidx.hilt.work.** { *; }
 
-# iText7
--keep class com.itextpdf.** { *; }
--dontwarn com.itextpdf.**
+# Keep Room entities
+-keep class com.propdf.storage.data.local.entity.** { *; }
+-keep class com.propdf.backup.data.local.entity.** { *; }
+-keep class com.propdf.sync.data.local.entity.** { *; }
+-keep class com.propdf.nas.data.local.entity.** { *; }
 
-# PDFBox
--keep class com.tom_roush.pdfbox.** { *; }
--dontwarn com.tom_roush.pdfbox.**
+# Keep NanoHTTPD
+-keep class fi.iki.elonen.** { *; }
 
-# BouncyCastle
--keep class org.bouncycastle.** { *; }
--dontwarn org.bouncycastle.**
+# Keep SMBJ
+-keep class com.hierynomus.smbj.** { *; }
+-keep class com.hierynomus.mssmb2.** { *; }
+-keep class com.hierynomus.msfscc.** { *; }
+-dontwarn com.hierynomus.**
 
-# ML Kit
--keep class com.google.mlkit.** { *; }
--dontwarn com.google.mlkit.**
+# Keep Sardine
+-keep class com.thegrizzlylabs.sardineandroid.** { *; }
+-dontwarn com.thegrizzlylabs.sardineandroid.**
 
-# Room
--keep class * extends androidx.room.RoomDatabase
--keep @androidx.room.Entity class * { @androidx.room.PrimaryKey <fields>; }
+# Keep ZXing
+-keep class com.google.zxing.** { *; }
 
-# Hilt
--keep class * extends dagger.hilt.internal.GeneratedComponent
--keep class * extends dagger.hilt.android.internal.managers.ActivityComponentManager
--keep class dagger.hilt.** { *; }
--dontwarn dagger.hilt.**
+# Keep Nearby Connections
+-keep class com.google.android.gms.nearby.** { *; }
 
-# Coroutines
--keepnames class kotlinx.coroutines.internal.MainDispatcherFactory {}
--keepnames class kotlinx.coroutines.CoroutineExceptionHandler {}
--keepclassmembers class kotlinx.coroutines.** { volatile <fields>; }
+# Keep Gson
+-keep class com.google.gson.** { *; }
+-keepattributes Signature
+-keepattributes *Annotation*
 
-# Parcelize
--keep class * implements android.os.Parcelable { *; }
--keep class * extends android.os.Parcelable$Creator { *; }
+# Keep Security Crypto
+-keep class androidx.security.crypto.** { *; }
