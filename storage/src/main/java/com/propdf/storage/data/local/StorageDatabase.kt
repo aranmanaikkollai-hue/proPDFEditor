@@ -9,11 +9,8 @@ import com.propdf.storage.data.local.entity.PersistedUriEntity
 @Database(
     entities = [PersistedUriEntity::class],
     version = 1,
-    exportSchema = false  // ADD THIS
+    exportSchema = false
 )
-abstract class StorageDatabase : RoomDatabase() {
-    // ...
-}
 abstract class StorageDatabase : RoomDatabase() {
     abstract fun persistedUriDao(): PersistedUriDao
 
