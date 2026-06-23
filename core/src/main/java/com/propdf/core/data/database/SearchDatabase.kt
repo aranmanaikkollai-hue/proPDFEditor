@@ -21,6 +21,14 @@ import com.propdf.core.data.entity.SearchIndexEntity
     version = 1,
     exportSchema = false
 )
+@Database(
+    entities = [SearchIndexEntity::class, SearchIndexContent::class, RecentSearchEntity::class],
+    version = 1,
+    exportSchema = false  // ADD THIS
+)
+abstract class SearchDatabase : RoomDatabase() {
+    // ...
+}
 abstract class SearchDatabase : RoomDatabase() {
     abstract fun searchDao(): SearchDao
 
