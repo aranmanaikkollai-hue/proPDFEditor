@@ -8,8 +8,14 @@ import android.view.ViewGroup
  */
 class AdsManager {
     fun initialize() { /* no-op */ }
-    fun showBanner(container: ViewGroup) { /* no-op */ }
+    fun showBanner(container: ViewGroup) { 
+        // container is intentionally unused in no-op implementation
+        /* no-op */ 
+    }
     fun showInterstitial(onComplete: () -> Unit) { onComplete() }
-    fun showRewarded(onReward: () -> Unit, onDismiss: () -> Unit) { onDismiss() }
+    fun showRewarded(onReward: () -> Unit, onDismiss: () -> Unit) { 
+        // onReward is intentionally unused in no-op implementation
+        onDismiss() 
+    }
     fun destroy() { /* no-op */ }
 }
