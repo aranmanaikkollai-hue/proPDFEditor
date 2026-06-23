@@ -94,7 +94,7 @@ class WatermarkEngine(private val context: Context) {
             val byteArrayOutput = java.io.ByteArrayOutputStream()
             imageBitmap.compress(Bitmap.CompressFormat.PNG, 100, byteArrayOutput)
             val imageData = com.itextpdf.io.image.ImageDataFactory.create(byteArrayOutput.toByteArray())
-            val image = com.itextpdf.layout.element.Image(imageData)
+            @Suppress("UNUSED_VARIABLE") val image = com.itextpdf.layout.element.Image(imageData)
 
             val opacity = options.opacity
             val scale = options.scale
