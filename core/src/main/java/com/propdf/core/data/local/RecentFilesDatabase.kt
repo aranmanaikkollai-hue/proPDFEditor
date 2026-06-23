@@ -61,3 +61,11 @@ interface RecentFilesDao {
 abstract class RecentFilesDatabase : RoomDatabase() {
     abstract fun recentFilesDao(): RecentFilesDao
 }
+@Database(
+    entities = [RecentFileEntity::class],
+    version = 1,
+    exportSchema = false  // ADD THIS
+)
+abstract class RecentFilesDatabase : RoomDatabase() {
+    // ...
+}
