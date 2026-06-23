@@ -430,10 +430,12 @@ class PdfOperationsRepositoryImpl @Inject constructor(
 
     // ===================== PRIVATE HELPERS =====================
     private fun embedTextAsBitmap(
-        canvas: PdfCanvas, doc: IPdfDocument, page: com.itextpdf.kernel.pdf.PdfPage,
-        text: String, fontSizePt: Float, ps: com.itextpdf.kernel.geom.Rectangle,
-        alignment: String, isHeader: Boolean
-    ) {
+    canvas: PdfCanvas, 
+    @Suppress("UNUSED_PARAMETER") doc: IPdfDocument, 
+    @Suppress("UNUSED_PARAMETER") page: com.itextpdf.kernel.pdf.PdfPage,
+    text: String, fontSizePt: Float, ps: com.itextpdf.kernel.geom.Rectangle,
+    alignment: String, isHeader: Boolean
+)  {
         try {
             val paint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
                 textSize = fontSizePt * 2.5f
@@ -510,14 +512,14 @@ class PdfOperationsRepositoryImpl @Inject constructor(
         return baos.toByteArray()
     }
 
-    private fun PdfCanvas.addXObjectWithTransformationMatrix(
-        xobj: com.itextpdf.kernel.pdf.xobject.PdfXObject,
-        a: Float, b: Float, c: Float, d: Float, e: Float, f: Float
-    ): PdfCanvas {
-        saveState()
-        concatMatrix(a.toDouble(), b.toDouble(), c.toDouble(), d.toDouble(), e.toDouble(), f.toDouble())
-        addXObjectAt(xobj, 0f, 0f)
-        restoreState()
-        return this
+    private fun PdfCanvas.applyXObjectTransform(
+    xobj: com.itextpdf.kernel.pdf.xobject.PdfXObject,
+    a: Float, b: Float, c: Float, d: Float, e: Float, f: Float
+): PdfCanvas {
+    saveState()
+    concatMatrix(a.toDouble(), b.toDouble(), c.toDouble(), d.toDouble(), e.toDouble(), f.toDouble())
+    addXObjectAt(xobj, 0f, 0f)
+    restoreState()
+    return this
     }
 }
