@@ -111,7 +111,7 @@ class SafRepositoryImpl @Inject constructor(
         mimeTypeFilter: String?
     ): AppResult<List<SafDocument>> = withContext(dispatcherProvider.io) {
         try {
-            val treeDoc = DocumentFile.fromTreeUri(context, treeUri)
+            @Suppress("UNUSED_VARIABLE") val treeDoc = DocumentFile.fromTreeUri(context, treeUri)
                 ?: return@withContext AppResult.Error(AppException.IOError("Invalid tree URI"))
 
             val documents = mutableListOf<SafDocument>()
