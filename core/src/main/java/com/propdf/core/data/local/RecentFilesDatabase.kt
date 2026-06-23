@@ -57,15 +57,29 @@ interface RecentFilesDao {
     suspend fun getByUri(uri: String): RecentFileEntity?
 }
 
-@Database(entities = [RecentFileEntity::class], version = 1, exportSchema = false)
-abstract class RecentFilesDatabase : RoomDatabase() {
-    abstract fun recentFilesDao(): RecentFilesDao
-}
 @Database(
     entities = [RecentFileEntity::class],
     version = 1,
-    exportSchema = false  // ADD THIS
+    exportSchema = false
 )
 abstract class RecentFilesDatabase : RoomDatabase() {
-    // ...
+    abstract fun recentFilesDao(): RecentFilesDao
+
+    companion object {
+        @Volatile
+        private var INSTANCE: RecentFilesDatabase? = null
+
+        fun getInstance(context: Context): RecentFilesDatabase {
+            return INSTANCE ?: synchronized(this) {
+                INSTANCE ?: Room.databaseBuilder(
+                    context.applicationContext,
+                    RecentFilesDatabase::class.java,
+                    "recent_files.db"
+                )
+                .fallbackToDestructiveMigration()
+                .build()
+                .also { INSTANCE = it }
+            }
+        }
+    }
 }
