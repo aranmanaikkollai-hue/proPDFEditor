@@ -131,4 +131,14 @@ dependencies {
     androidTestImplementation "androidx.test.ext:junit:1.1.5"
     androidTestImplementation "androidx.test.espresso:espresso-core:3.5.1"
     androidTestImplementation "androidx.compose.ui:ui-test-junit4:1.6.0"
+    // Phase 6: Smart File Management
+implementation 'androidx.work:work-runtime-ktx:2.9.0'
+implementation 'org.jetbrains.kotlinx:kotlinx-serialization-json:1.6.2'
+
+// For WorkManager Hilt integration (already in storage module, ensure app has it too)
+implementation 'androidx.hilt:hilt-work:1.1.0'
+kapt 'androidx.hilt:hilt-compiler:1.1.0'
+
+// Startup initializer for background workers
+implementation 'androidx.startup:startup-runtime:1.1.1'
 }
