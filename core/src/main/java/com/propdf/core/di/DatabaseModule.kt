@@ -2,6 +2,8 @@ package com.propdf.core.di
 
 import android.content.Context
 import androidx.room.Room
+import com.propdf.core.data.database.SearchDao
+import com.propdf.core.data.database.SearchDatabase
 import com.propdf.core.data.local.RecentFilesDao
 import com.propdf.core.data.local.RecentFilesDatabase
 import dagger.Module
@@ -17,18 +19,27 @@ object DatabaseModule {
 
     @Provides
     @Singleton
-    fun provideRecentFilesDatabase(
+    fun provideSearchDatabase(
         @ApplicationContext context: Context
-    ): RecentFilesDatabase =
-        Room.databaseBuilder(
-            context,
-            RecentFilesDatabase::class.java,
-            "propdf_recent_files.db"
-        )
-            .fallbackToDestructiveMigration()
-            .build()
+    ): SearchDatabase = Room.databaseBuilder(
+        context,
+        SearchDatabase::class.java,
+        "search_database"
+    ).build()
+
+    @Provides
+    fun provideSearchDao(database: SearchDatabase): SearchDao = database.searchDao()
 
     @Provides
     @Singleton
-    fun provideRecentFilesDao(db: RecentFilesDatabase): RecentFilesDao = db.recentFilesDao()
+    fun provideRecentFilesDatabase(
+        @ApplicationContext context: Context
+    ): RecentFilesDatabase = Room.databaseBuilder(
+        context,
+        RecentFilesDatabase::class.java,
+        "recent_files_database"
+    ).build()
+
+    @Provides
+    fun provideRecentFilesDao(database: RecentFilesDatabase): RecentFilesDao = database.recentFilesDao()
 }
