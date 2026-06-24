@@ -1,24 +1,33 @@
 package com.propdf.core.di
 
+import android.content.Context
 import com.propdf.core.domain.dispatcher.DefaultDispatcherProvider
 import com.propdf.core.domain.dispatcher.DispatcherProvider
 import com.propdf.core.domain.logger.AppLogger
 import com.propdf.core.domain.logger.DefaultAppLogger
-import dagger.Binds
+import com.propdf.core.saf.SafEngine
 import dagger.Module
+import dagger.Provides
 import dagger.hilt.InstallIn
+import dagger.hilt.android.qualifiers.ApplicationContext
 import dagger.hilt.components.SingletonComponent
 import javax.inject.Singleton
 
 @Module
 @InstallIn(SingletonComponent::class)
-abstract class CoreModule {
+object CoreModule {
 
-    @Binds
+    @Provides
     @Singleton
-    abstract fun bindDispatcherProvider(impl: DefaultDispatcherProvider): DispatcherProvider
+    fun provideDispatcherProvider(): DispatcherProvider = DefaultDispatcherProvider()
 
-    @Binds
+    @Provides
     @Singleton
-    abstract fun bindLogger(impl: DefaultAppLogger): AppLogger
+    fun provideAppLogger(): AppLogger = DefaultAppLogger()
+
+    @Provides
+    @Singleton
+    fun provideSafEngine(
+        @ApplicationContext context: Context
+    ): SafEngine = SafEngine(context)
 }
