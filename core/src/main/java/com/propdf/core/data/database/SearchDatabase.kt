@@ -1,44 +1,22 @@
 package com.propdf.core.data.database
 
-import android.content.Context
 import androidx.room.Database
-import androidx.room.Room
 import androidx.room.RoomDatabase
+import androidx.room.TypeConverters
 import com.propdf.core.data.entity.RecentSearchEntity
-import com.propdf.core.data.entity.SearchIndexContent
 import com.propdf.core.data.entity.SearchIndexEntity
+import com.propdf.core.data.entity.SearchIndexContent
 
-/**
- * Room database for PDF search indexing.
- * Uses FTS4 for full-text search capabilities.
- */
 @Database(
     entities = [
+        RecentSearchEntity::class,
         SearchIndexEntity::class,
-        SearchIndexContent::class,
-        RecentSearchEntity::class
+        SearchIndexContent::class
     ],
     version = 1,
     exportSchema = false
 )
+@TypeConverters(SearchConverters::class)
 abstract class SearchDatabase : RoomDatabase() {
     abstract fun searchDao(): SearchDao
-
-    companion object {
-        @Volatile
-        private var INSTANCE: SearchDatabase? = null
-
-        fun getInstance(context: Context): SearchDatabase {
-            return INSTANCE ?: synchronized(this) {
-                INSTANCE ?: Room.databaseBuilder(
-                    context.applicationContext,
-                    SearchDatabase::class.java,
-                    "pdf_search.db"
-                )
-                .fallbackToDestructiveMigration()
-                .build()
-                .also { INSTANCE = it }
-            }
-        }
-    }
 }
