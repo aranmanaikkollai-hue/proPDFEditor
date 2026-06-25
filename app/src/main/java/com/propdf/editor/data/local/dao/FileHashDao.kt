@@ -1,7 +1,6 @@
 package com.propdf.editor.data.local.dao
 
 import androidx.room.*
-import androidx.room.MapColumn
 import com.propdf.editor.data.local.entity.FileHashEntity
 import kotlinx.coroutines.flow.Flow
 
@@ -59,7 +58,7 @@ interface FileHashDao {
         WHERE fh.duplicateGroupId IS NOT NULL
         ORDER BY fh.duplicateGroupId, fh.fileSize DESC
     """)
-    fun getAllDuplicateGroups(): Flow<@MapColumn(columnName = "duplicateGroupId") Map<String, List<DuplicateGroupItem>>>
+    fun getAllDuplicateGroupItems(): Flow<List<DuplicateGroupItem>>
 
     data class DuplicateHash(val strongHash: String?, val count: Int)
 
