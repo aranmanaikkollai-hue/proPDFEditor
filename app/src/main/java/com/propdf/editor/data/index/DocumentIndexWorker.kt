@@ -7,109 +7,89 @@ import com.propdf.core.domain.logger.AppLogger
 import com.propdf.editor.data.local.dao.PdfDocumentDao
 import com.propdf.editor.data.local.dao.SearchIndexDao
 import com.propdf.editor.data.local.entity.IndexingStatus
+import com.propdf.editor.data.local.entity.SearchIndexEntity
 import dagger.assisted.Assisted
 import dagger.assisted.AssistedInject
+import java.io.File
 import java.util.concurrent.TimeUnit
 
 @HiltWorker
 class DocumentIndexWorker @AssistedInject constructor(
     @Assisted context: Context,
     @Assisted params: WorkerParameters,
-    private val ocrIndexingEngine: OcrIndexingEngine,
-    private val searchIndexDao: SearchIndexDao,
     private val pdfDocumentDao: PdfDocumentDao,
+    private val searchIndexDao: SearchIndexDao,
+    private val documentIndexEngine: DocumentIndexEngine,
     private val logger: AppLogger
 ) : CoroutineWorker(context, params) {
 
     override suspend fun doWork(): Result {
         return try {
-            val pendingDocs = searchIndexDao.getPendingForProcessing(limit = 5)
-            if (pendingDocs.isEmpty()) return Result.success()
+            // Get documents that haven't been indexed yet
+            val pending = searchIndexDao.getPendingForProcessing()
+            var indexed = 0
 
-            var successCount = 0
-            var failureCount = 0
-
-            for (doc in pendingDocs) {
+            for (entity in pending) {
+                val doc = pdfDocumentDao.getByIdString(entity.documentId) ?: continue
                 try {
-                    searchIndexDao.updateStatus(doc.documentId, IndexingStatus.PROCESSING)
-                    val pdfDoc = pdfDocumentDao.getById(doc.documentId) ?: continue
+                    val uri = android.net.Uri.parse(doc.uri)
+                    val file = when (uri.scheme) {
+                        "file" -> File(uri.path ?: continue)
+                        else -> continue // can only index file:// URIs
+                    }
+                    if (!file.exists()) continue
 
-                    val result = ocrIndexingEngine.indexDocument(
-                        documentUri = android.net.Uri.parse(pdfDoc.uri),
-                        documentId = doc.documentId,
-                        pageCount = pdfDoc.pageCount
-                    )
-
-                    result.fold(
-                        onSuccess = { ocrText ->
-                            searchIndexDao.updateOcrResult(
-                                documentId = doc.documentId,
-                                ocrText = ocrText,
-                                status = if (ocrText.isBlank()) IndexingStatus.PARTIAL else IndexingStatus.COMPLETED
-                            )
-                            successCount++
-                        },
-                        onFailure = { error ->
-                            searchIndexDao.updateStatus(doc.documentId, IndexingStatus.FAILED)
-                            logger.e(TAG, "OCR failed for ${doc.documentId}", error)
-                            failureCount++
-                        }
-                    )
+                    val success = documentIndexEngine.indexDocument(doc.id.toString(), file)
+                    if (success) indexed++
                 } catch (e: Exception) {
-                    searchIndexDao.updateStatus(doc.documentId, IndexingStatus.FAILED)
-                    logger.e(TAG, "Unexpected error indexing ${doc.documentId}", e)
-                    failureCount++
+                    logger.e("DocumentIndexWorker", "Failed to index ${doc.id}", e)
                 }
             }
 
-            if (failureCount > 0 && runAttemptCount < MAX_RETRIES) {
-                Result.retry()
-            } else {
-                Result.success(workDataOf(
-                    KEY_SUCCESS_COUNT to successCount,
-                    KEY_FAILURE_COUNT to failureCount
-                ))
+            // Also create pending entries for docs that have no index entry yet
+            val allDocs = pdfDocumentDao.getAllDocuments()
+            for (doc in allDocs) {
+                val existing = searchIndexDao.getByDocumentId(doc.id.toString())
+                if (existing == null) {
+                    searchIndexDao.insertOrUpdate(
+                        SearchIndexEntity(
+                            documentId = doc.id.toString(),
+                            fileName = doc.fileName,
+                            contentText = null,
+                            pageCount = doc.pageCount,
+                            indexingStatus = IndexingStatus.PENDING
+                        )
+                    )
+                }
             }
+
+            Result.success(workDataOf("indexed" to indexed))
         } catch (e: Exception) {
-            logger.e(TAG, "Worker failed", e)
-            if (runAttemptCount < MAX_RETRIES) Result.retry() else Result.failure()
+            logger.e("DocumentIndexWorker", "Worker failed", e)
+            if (runAttemptCount < 3) Result.retry() else Result.failure()
         }
     }
 
     companion object {
-        private const val TAG = "DocumentIndexWorker"
-        private const val MAX_RETRIES = 3
-        const val WORK_NAME = "ocr_indexing_work"
-        const val KEY_SUCCESS_COUNT = "success_count"
-        const val KEY_FAILURE_COUNT = "failure_count"
+        const val WORK_NAME = "document_index_work"
 
         fun schedule(context: Context) {
-            val constraints = Constraints.Builder()
-                .setRequiresCharging(true)
-                .setRequiresBatteryNotLow(true)
-                .build()
-
-            val request = PeriodicWorkRequestBuilder<DocumentIndexWorker>(15, TimeUnit.MINUTES)
-                .setConstraints(constraints)
-                .setBackoffCriteria(
-                    BackoffPolicy.EXPONENTIAL,
-                    WorkRequest.MIN_BACKOFF_MILLIS,
-                    TimeUnit.MILLISECONDS
+            val request = PeriodicWorkRequestBuilder<DocumentIndexWorker>(1, TimeUnit.HOURS)
+                .setConstraints(
+                    Constraints.Builder()
+                        .setRequiresBatteryNotLow(true)
+                        .build()
                 )
                 .build()
-
             WorkManager.getInstance(context).enqueueUniquePeriodicWork(
-                WORK_NAME,
-                ExistingPeriodicWorkPolicy.KEEP,
-                request
+                WORK_NAME, ExistingPeriodicWorkPolicy.KEEP, request
             )
         }
 
         fun enqueueImmediate(context: Context) {
-            val request = OneTimeWorkRequestBuilder<DocumentIndexWorker>()
-                .setConstraints(Constraints.Builder().setRequiresBatteryNotLow(true).build())
-                .build()
-            WorkManager.getInstance(context).enqueue(request)
+            WorkManager.getInstance(context).enqueue(
+                OneTimeWorkRequestBuilder<DocumentIndexWorker>().build()
+            )
         }
     }
 }
