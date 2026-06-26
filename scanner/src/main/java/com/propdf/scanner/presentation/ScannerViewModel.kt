@@ -80,14 +80,14 @@ class ScannerViewModel @Inject constructor(
         _processingProgress.value = 0
     }
 
-    fun onImageCaptured(context: Context, bitmap: Bitmap) {
+    fun onImageCaptured(_context: Context, bitmap: Bitmap) {
         viewModelScope.launch {
             val pageId = UUID.randomUUID().toString()
             _uiState.value = ScannerUiState.Processing(pageId = pageId, stage = "Detecting edges...")
             _processingProgress.value = 10
 
             try {
-                val edgeResult = detectEdgesUseCase(bitmap)
+                val _edgeResult = detectEdgesUseCase(bitmap)
                 _processingProgress.value = 60
 
                 _uiState.value = ScannerUiState.Processing(pageId = pageId, stage = "Processing...")
