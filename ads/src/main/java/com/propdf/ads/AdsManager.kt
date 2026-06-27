@@ -1,33 +1,27 @@
 package com.propdf.ads
 
 import android.content.Context
-import android.view.ViewGroup
 import javax.inject.Inject
 import javax.inject.Singleton
 
 @Singleton
 class AdsManager @Inject constructor() {
 
-    fun initialize(_context: Context) {
-        // Initialize ads SDK
+    fun initialize(context: Context) {
+        // Use context or suppress if truly not needed
     }
 
-    fun loadBanner(container: ViewGroup) {
-        // Banner implementation - container used
-        container.removeAllViews()
-        // Add banner view to container
+    fun loadBanner(context: Context) {
+        // Use context or suppress if truly not needed
     }
 
-    fun loadInterstitial(_context: Context) {
-        // Interstitial implementation
+    fun loadInterstitial(context: Context) {
+        // Use context or suppress if truly not needed
     }
 
-    fun showRewardedAd(_context: Context, onReward: (Boolean) -> Unit) {
-        // Rewarded ad implementation - onReward used
-        onReward(true)
+    fun showInterstitial() {
+        // TODO: Implement
     }
 
-    fun dispose() {
-        // Cleanup
-    }
+    fun isInterstitialLoaded(): Boolean = false
 }
