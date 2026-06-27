@@ -300,7 +300,7 @@ class PremiumViewerViewModel @Inject constructor(
     }
 
     fun toggleTheme() {
-        val themes = ViewerTheme.values()
+        val themes = ViewerTheme.entries
         val currentIndex = themes.indexOf(_uiState.value.theme)
         val nextTheme = themes[(currentIndex + 1) % themes.size]
         setTheme(nextTheme)
