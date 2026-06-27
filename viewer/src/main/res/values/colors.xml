@@ -43,4 +43,10 @@
     <color name="sepia_background">#F4ECD8</color>
     <color name="high_contrast_background">#000000</color>
     <color name="high_contrast_text">#FFFFFF</color>
+    
+    <color name="night_background">#1a1a2e</color>
+    <color name="sepia_background">#f4ecd8</color>
+    <color name="toolbar_light">#f5f5f5</color>
+    <color name="toolbar_dark">#2d2d2d</color>
+
 </resources>
