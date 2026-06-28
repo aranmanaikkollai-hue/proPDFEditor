@@ -56,7 +56,7 @@ class EncryptedBackupEngine(
             AppResult.Success(bytesWritten)
         } catch (e: Exception) {
             AppResult.Error(
-                AppException.CryptoError("Backup creation failed: ${e.message}")
+                AppException.SecurityError("Backup creation failed: ${e.message}")
             )
         }
     }
@@ -84,10 +84,10 @@ class EncryptedBackupEngine(
 
             AppResult.Success(restoredFiles)
         } catch (e: javax.crypto.AEADBadTagException) {
-            AppResult.Error(AppException.CryptoError("Invalid password or corrupted backup"))
+            AppResult.Error(AppException.SecurityError("Invalid password or corrupted backup"))
         } catch (e: Exception) {
             AppResult.Error(
-                AppException.CryptoError("Backup restoration failed: ${e.message}")
+                AppException.SecurityError("Backup restoration failed: ${e.message}")
             )
         }
     }
