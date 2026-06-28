@@ -1,6 +1,5 @@
 package com.propdf.editor.di
 
-import android.net.Uri
 import com.propdf.core.domain.model.RecentFile
 import com.propdf.core.domain.repository.PdfViewerRepository
 import com.propdf.core.domain.repository.RecentFilesRepository
