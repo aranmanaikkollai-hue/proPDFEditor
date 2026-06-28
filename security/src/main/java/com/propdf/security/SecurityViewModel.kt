@@ -348,6 +348,6 @@ class SecurityViewModel @Inject constructor(
 
     override fun onCleared() {
         super.onCleared()
-        sessionManager.shutdown()
+        sessionManager.destroy()
     }
 }
