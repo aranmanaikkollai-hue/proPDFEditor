@@ -62,7 +62,7 @@ class BiometricAuthManager(private val context: Context) {
             else -> { /* proceed */ }
         }
 
-        suspendCancellableCoroutine { continuation ->
+        suspendCancellableCoroutine<AppResult<Unit>> { continuation ->
             val executor = ContextCompat.getMainExecutor(activity)
 
             val promptInfoBuilder = BiometricPrompt.PromptInfo.Builder()
@@ -124,7 +124,7 @@ class BiometricAuthManager(private val context: Context) {
         title: String = "Authenticate",
         subtitle: String = "Verify your identity"
     ): AppResult<Unit> = withContext(Dispatchers.Main) {
-        suspendCancellableCoroutine { continuation ->
+        suspendCancellableCoroutine<AppResult<Unit>> { continuation ->
             val executor = ContextCompat.getMainExecutor(activity)
 
             val promptInfo = BiometricPrompt.PromptInfo.Builder()
