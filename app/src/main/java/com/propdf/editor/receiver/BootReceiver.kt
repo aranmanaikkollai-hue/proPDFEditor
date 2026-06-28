@@ -4,7 +4,7 @@ import android.content.BroadcastReceiver
 import android.content.Context
 import android.content.Intent
 import com.propdf.backup.data.scheduler.BackupWorker
-import com.propdf.backup.domain.model.BackupConfig
+import com.propdf.backup.domain.model.BackupFrequency
 import com.propdf.backup.domain.repository.BackupRepository
 import com.propdf.sync.data.worker.FolderWatchWorker
 import dagger.hilt.android.AndroidEntryPoint
@@ -22,6 +22,7 @@ import javax.inject.Inject
 class BootReceiver : BroadcastReceiver() {
 
     @Inject
+    @JvmField
     var backupRepository: BackupRepository? = null
 
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
@@ -33,7 +34,7 @@ class BootReceiver : BroadcastReceiver() {
                 backupRepository?.let { repo ->
                     try {
                         val config = repo.getConfig().first()
-                        if (config.isEnabled && config.scheduleFrequency != com.propdf.backup.domain.model.BackupFrequency.MANUAL) {
+                        if (config.isEnabled && config.scheduleFrequency != BackupFrequency.MANUAL) {
                             BackupWorker.schedule(context, config)
                         }
                     } catch (_: Exception) {
