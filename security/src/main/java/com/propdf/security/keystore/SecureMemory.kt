@@ -9,8 +9,8 @@ import java.util.concurrent.atomic.AtomicBoolean
  * Secure memory container for sensitive data (passwords, keys).
  * Unlike [String], the backing char array can be explicitly zeroed.
  */
-class SecureMemory private constructor(private val data: CharArray) {
-    private val cleared = AtomicBoolean(false)
+class SecureMemory private constructor(internal val data: CharArray) {
+    internal val cleared = AtomicBoolean(false)
 
     companion object {
         fun fromString(source: String): SecureMemory {
