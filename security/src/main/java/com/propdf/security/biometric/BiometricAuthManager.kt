@@ -54,11 +54,11 @@ class BiometricAuthManager(private val context: Context) {
     ): AppResult<Unit> = withContext(Dispatchers.Main) {
         when (val status = checkStatus()) {
             BiometricStatus.NOT_AVAILABLE ->
-                return@withContext AppResult.Error(AppException.BiometricError("Biometric hardware not available"))
+                return@withContext AppResult.Error(AppException.SecurityError("Biometric hardware not available"))
             BiometricStatus.NOT_ENROLLED ->
-                return@withContext AppResult.Error(AppException.BiometricError("No biometric credentials enrolled"))
+                return@withContext AppResult.Error(AppException.SecurityError("No biometric credentials enrolled"))
             BiometricStatus.UNSUPPORTED ->
-                return@withContext AppResult.Error(AppException.BiometricError("Biometric authentication not supported"))
+                return@withContext AppResult.Error(AppException.SecurityError("Biometric authentication not supported"))
             else -> { /* proceed */ }
         }
 
@@ -90,16 +90,16 @@ class BiometricAuthManager(private val context: Context) {
                         val error = when (errorCode) {
                             BiometricPrompt.ERROR_USER_CANCELED,
                             BiometricPrompt.ERROR_NEGATIVE_BUTTON ->
-                                AppException.BiometricError("Authentication cancelled")
+                                AppException.SecurityError("Authentication cancelled")
                             BiometricPrompt.ERROR_LOCKOUT,
                             BiometricPrompt.ERROR_LOCKOUT_PERMANENT ->
-                                AppException.BiometricError("Too many failed attempts. Try again later.")
+                                AppException.SecurityError("Too many failed attempts. Try again later.")
                             BiometricPrompt.ERROR_NO_BIOMETRICS ->
-                                AppException.BiometricError("No biometric credentials enrolled")
+                                AppException.SecurityError("No biometric credentials enrolled")
                             BiometricPrompt.ERROR_HW_NOT_PRESENT,
                             BiometricPrompt.ERROR_HW_UNAVAILABLE ->
-                                AppException.BiometricError("Biometric hardware unavailable")
-                            else -> AppException.BiometricError(errString.toString())
+                                AppException.SecurityError("Biometric hardware unavailable")
+                            else -> AppException.SecurityError(errString.toString())
                         }
                         continuation.resume(AppResult.Error(exception = error))
                     }
@@ -146,7 +146,7 @@ class BiometricAuthManager(private val context: Context) {
                 override fun onAuthenticationError(errorCode: Int, errString: CharSequence) {
                     if (continuation.isActive) {
                         continuation.resume(AppResult.Error(exception =
-                            AppException.BiometricError(errString.toString())
+                            AppException.SecurityError(errString.toString())
                         ))
                     }
                 }
