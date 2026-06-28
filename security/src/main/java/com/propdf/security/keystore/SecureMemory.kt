@@ -27,7 +27,7 @@ class SecureMemory private constructor(internal val data: CharArray) {
         }
     }
 
-    inline fun <R> use(block: (CharArray) -> R): R {
+    internal inline fun <R> use(block: (CharArray) -> R): R {
         check(!cleared.get()) { "SecureMemory has already been cleared" }
         return try {
             block(data)
