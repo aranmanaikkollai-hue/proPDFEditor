@@ -2,7 +2,8 @@ package com.propdf.editor.di
 
 import android.content.Context
 import androidx.room.Room
-import com.propdf.editor.data.local.db.AppDatabase
+import com.propdf.core.data.local.RecentFilesDatabase
+import com.propdf.core.data.local.RecentFilesDao
 import dagger.Module
 import dagger.Provides
 import dagger.hilt.InstallIn
@@ -16,34 +17,16 @@ object DatabaseModule {
 
     @Provides
     @Singleton
-    fun provideDatabase(@ApplicationContext context: Context): AppDatabase {
+    fun provideRecentFilesDatabase(@ApplicationContext context: Context): RecentFilesDatabase {
         return Room.databaseBuilder(
             context,
-            AppDatabase::class.java,
-            "propdf_database"
+            RecentFilesDatabase::class.java,
+            "propdf_recent_files.db"
         )
             .fallbackToDestructiveMigration()
             .build()
     }
 
     @Provides
-    fun providePdfDocumentDao(db: AppDatabase) = db.pdfDocumentDao()
-
-    @Provides
-    fun provideFolderDao(db: AppDatabase) = db.folderDao()
-
-    @Provides
-    fun provideCloudAccountDao(db: AppDatabase) = db.cloudAccountDao()
-
-    @Provides
-    fun provideSearchIndexDao(db: AppDatabase) = db.searchIndexDao()
-
-    @Provides
-    fun provideCollectionDao(db: AppDatabase) = db.collectionDao()
-
-    @Provides
-    fun provideTagDao(db: AppDatabase) = db.tagDao()
-
-    @Provides
-    fun provideFileHashDao(db: AppDatabase) = db.fileHashDao()
+    fun provideRecentFilesDao(db: RecentFilesDatabase): RecentFilesDao = db.recentFilesDao()
 }
