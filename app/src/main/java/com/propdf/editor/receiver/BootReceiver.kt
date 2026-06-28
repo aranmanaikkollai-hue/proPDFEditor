@@ -22,21 +22,31 @@ import javax.inject.Inject
 class BootReceiver : BroadcastReceiver() {
 
     @Inject
-    lateinit var backupRepository: BackupRepository
+    var backupRepository: BackupRepository? = null
 
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
 
     override fun onReceive(context: Context, intent: Intent) {
         if (intent.action == Intent.ACTION_BOOT_COMPLETED) {
             scope.launch {
-                // Re-schedule backup if enabled
-                val config = backupRepository.getConfig().first()
-                if (config.isEnabled && config.scheduleFrequency != com.propdf.backup.domain.model.BackupFrequency.MANUAL) {
-                    BackupWorker.schedule(context, config)
+                // Re-schedule backup if enabled and repository is available
+                backupRepository?.let { repo ->
+                    try {
+                        val config = repo.getConfig().first()
+                        if (config.isEnabled && config.scheduleFrequency != com.propdf.backup.domain.model.BackupFrequency.MANUAL) {
+                            BackupWorker.schedule(context, config)
+                        }
+                    } catch (_: Exception) {
+                        // Backup repository not fully wired — skip silently
+                    }
                 }
 
                 // Re-schedule folder watch
-                FolderWatchWorker.schedule(context)
+                try {
+                    FolderWatchWorker.schedule(context)
+                } catch (_: Exception) {
+                    // Folder watch not fully wired — skip silently
+                }
             }
         }
     }
