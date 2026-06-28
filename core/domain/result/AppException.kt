@@ -14,13 +14,10 @@ sealed class AppException : Exception() {
     data class OutOfMemory(override val message: String = "Out of memory") : AppException()
     data class RenderingError(override val message: String) : AppException()
     data class AnnotationError(override val message: String) : AppException()
-
-    // Phase 8: Security Hardening
     data class BiometricError(override val message: String) : AppException()
     data class CryptoError(override val message: String) : AppException()
     data class VaultError(override val message: String) : AppException()
     data class SessionExpired(override val message: String = "Session expired. Please authenticate.") : AppException()
-
     data class Unknown(override val message: String = "Unknown error") : AppException()
 }
 
@@ -30,8 +27,8 @@ fun Throwable.toAppException(): AppException = when (this) {
     is OutOfMemoryError -> AppException.OutOfMemory()
     is java.io.FileNotFoundException -> AppException.FileNotFound(message ?: "File not found")
     is java.io.IOException -> AppException.IOError(message ?: "IO error")
-    is javax.crypto.AEADBadTagException -> AppException.CryptoError("Authentication failed  data may be corrupted or tampered with")
-    is javax.crypto.BadPaddingException -> AppException.CryptoError("Decryption failed  invalid key or corrupted data")
+    is javax.crypto.AEADBadTagException -> AppException.CryptoError("Authentication failed - data may be corrupted or tampered with")
+    is javax.crypto.BadPaddingException -> AppException.CryptoError("Decryption failed - invalid key or corrupted data")
     is android.security.keystore.KeyPermanentlyInvalidatedException -> AppException.BiometricError("Biometric credentials changed. Please re-enroll.")
     else -> AppException.Unknown(message ?: "Unknown error")
 }
