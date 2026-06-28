@@ -73,7 +73,7 @@ class VaultEncryptionEngine(
             AppResult.Success(entry)
         } catch (e: Exception) {
             AppResult.Error(
-                AppException.VaultError("Failed to encrypt to vault: ${e.message}")
+                AppException.SecurityError("Failed to encrypt to vault: ${e.message}")
             )
         }
     }
@@ -94,7 +94,7 @@ class VaultEncryptionEngine(
 
             if (!encryptedFile.exists()) {
                 return@withContext AppResult.Error(
-                    AppException.VaultError("Encrypted file not found: ${entry.encryptedFilePath}")
+                    AppException.SecurityError("Encrypted file not found: ${entry.encryptedFilePath}")
                 )
             }
 
@@ -102,7 +102,7 @@ class VaultEncryptionEngine(
             AppResult.Success(tempFile)
         } catch (e: Exception) {
             AppResult.Error(
-                AppException.VaultError("Failed to decrypt from vault: ${e.message}")
+                AppException.SecurityError("Failed to decrypt from vault: ${e.message}")
             )
         }
     }
@@ -116,7 +116,7 @@ class VaultEncryptionEngine(
             AppResult.Success(Unit)
         } catch (e: Exception) {
             AppResult.Error(
-                AppException.VaultError("Failed to delete vault entry: ${e.message}")
+                AppException.SecurityError("Failed to delete vault entry: ${e.message}")
             )
         }
     }
@@ -136,7 +136,7 @@ class VaultEncryptionEngine(
             val encryptedFile = File(entry.encryptedFilePath)
             if (!encryptedFile.exists()) {
                 return@withContext AppResult.Error(
-                    AppException.VaultError("Encrypted file not found")
+                    AppException.SecurityError("Encrypted file not found")
                 )
             }
 
@@ -144,7 +144,7 @@ class VaultEncryptionEngine(
             AppResult.Success(Unit)
         } catch (e: Exception) {
             AppResult.Error(
-                AppException.VaultError("Failed to export from vault: ${e.message}")
+                AppException.SecurityError("Failed to export from vault: ${e.message}")
             )
         }
     }
@@ -191,7 +191,7 @@ class VaultEncryptionEngine(
     ): AppResult<Bitmap> = withContext(Dispatchers.IO) {
         try {
             val thumbPath = entry.thumbnailPath
-                ?: return@withContext AppResult.Error(AppException.VaultError("No thumbnail available"))
+                ?: return@withContext AppResult.Error(AppException.SecurityError("No thumbnail available"))
 
             val key = if (useBiometricKey) {
                 keystoreManager.getOrCreateBiometricKey()
@@ -202,11 +202,11 @@ class VaultEncryptionEngine(
             val encryptedData = File(thumbPath).readText()
             val jpegBytes = keystoreManager.decrypt(encryptedData, key)
             val bitmap = BitmapFactory.decodeByteArray(jpegBytes, 0, jpegBytes.size)
-                ?: return@withContext AppResult.Error(AppException.VaultError("Failed to decode thumbnail"))
+                ?: return@withContext AppResult.Error(AppException.SecurityError("Failed to decode thumbnail"))
 
             AppResult.Success(bitmap)
         } catch (e: Exception) {
-            AppResult.Error(AppException.VaultError("Failed to decrypt thumbnail: ${e.message}"))
+            AppResult.Error(AppException.SecurityError("Failed to decrypt thumbnail: ${e.message}"))
         }
     }
 
