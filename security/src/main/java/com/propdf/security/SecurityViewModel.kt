@@ -34,7 +34,7 @@ import java.io.File
 import javax.inject.Inject
 
 /**
- * Enhanced SecurityViewModel for Phase 8 — Security Hardening.
+ * Enhanced SecurityViewModel for Phase 8  Security Hardening.
  *
  * Extends existing functionality with:
  * - Biometric authentication state
@@ -72,7 +72,7 @@ class SecurityViewModel @Inject constructor(
     private val setSessionTimeoutUseCase: SetSessionTimeoutUseCase
 ) : ViewModel() {
 
-    // ── UI State ───────────────────────────────────────────────────────────
+    //  UI State 
 
     private val _isProcessing = MutableStateFlow(false)
     val isProcessing: StateFlow<Boolean> = _isProcessing.asStateFlow()
@@ -89,20 +89,20 @@ class SecurityViewModel @Inject constructor(
         val isVaultLoading: Boolean = false
     )
 
-    // ── Session State Observation ──────────────────────────────────────────
+    //  Session State Observation 
 
     val sessionState: StateFlow<SessionState> = sessionManager.sessionState
 
     init {
         viewModelScope.launch {
-            sessionManager.sessionState.collect { state ->
+            sessionManager.sessionState.collect { state: SessionState ->
                 _uiState.value = _uiState.value.copy(sessionState = state)
             }
         }
         checkBiometricStatus()
     }
 
-    // ── Biometric Authentication ───────────────────────────────────────────
+    //  Biometric Authentication 
 
     fun checkBiometricStatus() {
         val status = biometricAuthManager.checkStatus()
@@ -113,7 +113,7 @@ class SecurityViewModel @Inject constructor(
 
     fun isBiometricReady(): Boolean = biometricAuthManager.isBiometricReady()
 
-    // ── Session Management ─────────────────────────────────────────────────
+    //  Session Management 
 
     fun unlockSession() {
         viewModelScope.launch {
@@ -144,7 +144,7 @@ class SecurityViewModel @Inject constructor(
         sessionManager.onUserActivity()
     }
 
-    // ── Vault Operations ───────────────────────────────────────────────────
+    //  Vault Operations 
 
     fun encryptToVault(sourceFile: File, useBiometric: Boolean = false) {
         viewModelScope.launch {
@@ -168,9 +168,14 @@ class SecurityViewModel @Inject constructor(
             _isProcessing.value = true
             _uiState.value = _uiState.value.copy(error = null)
             try {
-                val tempFile = decryptFromVaultUseCase(
+                val result = decryptFromVaultUseCase(
                     DecryptFromVaultUseCase.Params(entry, useBiometric)
                 )
+                val tempFile = when (result) {
+                    is AppResult.Success -> result.data
+                    is AppResult.Error -> throw result.exception
+                    else -> throw Exception("Vault decryption failed")
+                }
                 _uiState.value = _uiState.value.copy(lastOutputFile = tempFile)
             } catch (e: Exception) {
                 _uiState.value = _uiState.value.copy(error = e.message ?: "Vault decryption failed")
@@ -215,7 +220,7 @@ class SecurityViewModel @Inject constructor(
         // Placeholder for integration with storage module
     }
 
-    // ── Encrypted Backups ──────────────────────────────────────────────────
+    //  Encrypted Backups 
 
     fun createEncryptedBackup(sources: List<File>, outputUri: Uri, password: CharArray) {
         viewModelScope.launch {
@@ -252,7 +257,7 @@ class SecurityViewModel @Inject constructor(
         }
     }
 
-    // ── Existing: Signature Operations ─────────────────────────────────────
+    //  Existing: Signature Operations 
 
     private val _signatures = MutableStateFlow<List<SignatureEntry>>(emptyList())
     val signatures: StateFlow<List<SignatureEntry>> = _signatures.asStateFlow()
@@ -298,7 +303,7 @@ class SecurityViewModel @Inject constructor(
         _signatures.value = signatureManager.loadSignatures()
     }
 
-    // ── Existing: PDF Encryption ───────────────────────────────────────────
+    //  Existing: PDF Encryption 
 
     fun passwordProtectPdf(inputFile: File, outputFile: File, password: String) {
         viewModelScope.launch {
@@ -324,7 +329,7 @@ class SecurityViewModel @Inject constructor(
         }
     }
 
-    // ── Existing: Watermark ────────────────────────────────────────────────
+    //  Existing: Watermark 
 
     fun addTextWatermark(inputFile: File, outputFile: File, text: String) {
         viewModelScope.launch {
