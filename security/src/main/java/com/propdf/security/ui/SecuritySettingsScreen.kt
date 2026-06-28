@@ -10,11 +10,11 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Backup
-import androidx.compose.material.icons.filled.Fingerprint
+import androidx.compose.material.icons.filled.CloudUpload
 import androidx.compose.material.icons.filled.Lock
-import androidx.compose.material.icons.filled.Schedule
-import androidx.compose.material.icons.filled.Security
+import androidx.compose.material.icons.filled.Lock
+import androidx.compose.material.icons.filled.Timer
+import androidx.compose.material.icons.filled.Shield
 import androidx.compose.material3.Card
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
@@ -62,7 +62,7 @@ fun SecuritySettingsScreen(
 
         // Biometric Status
         SecurityCard(
-            icon = Icons.Default.Fingerprint,
+            icon = Icons.Default.Lock,
             title = "Biometric Authentication",
             description = when (uiState.biometricStatus) {
                 com.propdf.security.biometric.BiometricAuthManager.BiometricStatus.AVAILABLE ->
@@ -77,7 +77,7 @@ fun SecuritySettingsScreen(
 
         // Vault Mode
         SecurityCard(
-            icon = Icons.Default.Security,
+            icon = Icons.Default.Shield,
             title = "Vault Mode",
             description = "Encrypt sensitive documents with AES-256-GCM"
         ) {
@@ -90,7 +90,7 @@ fun SecuritySettingsScreen(
 
         // Auto-Lock
         SecurityCard(
-            icon = Icons.Default.Schedule,
+            icon = Icons.Default.Timer,
             title = "Auto-Lock",
             description = "Automatically lock after period of inactivity"
         ) {
@@ -113,7 +113,7 @@ fun SecuritySettingsScreen(
 
         // Encrypted Backups
         SecurityCard(
-            icon = Icons.Default.Backup,
+            icon = Icons.Default.CloudUpload,
             title = "Encrypted Backups",
             description = "Export encrypted archives with password protection"
         ) {
