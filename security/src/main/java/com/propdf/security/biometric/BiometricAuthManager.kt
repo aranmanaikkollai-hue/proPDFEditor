@@ -101,7 +101,7 @@ class BiometricAuthManager(private val context: Context) {
                                 AppException.BiometricError("Biometric hardware unavailable")
                             else -> AppException.BiometricError(errString.toString())
                         }
-                        continuation.resume(AppResult.Error(error))
+                        continuation.resume(AppResult.Error(exception = error))
                     }
                 }
 
@@ -145,7 +145,7 @@ class BiometricAuthManager(private val context: Context) {
 
                 override fun onAuthenticationError(errorCode: Int, errString: CharSequence) {
                     if (continuation.isActive) {
-                        continuation.resume(AppResult.Error(
+                        continuation.resume(AppResult.Error(exception =
                             AppException.BiometricError(errString.toString())
                         ))
                     }
