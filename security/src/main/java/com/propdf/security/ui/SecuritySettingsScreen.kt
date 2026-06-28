@@ -10,9 +10,9 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.SaveAlt
+import androidx.compose.material.icons.filled.Info
 import androidx.compose.material.icons.filled.Lock
-import androidx.compose.material.icons.filled.AccessTime
+import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material3.Card
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
@@ -88,7 +88,7 @@ fun SecuritySettingsScreen(
 
         // Auto-Lock
         SecurityCard(
-            icon = Icons.Default.AccessTime,
+            icon = Icons.Default.Settings,
             title = "Auto-Lock",
             description = "Automatically lock after period of inactivity"
         ) {
@@ -111,7 +111,7 @@ fun SecuritySettingsScreen(
 
         // Encrypted Backups
         SecurityCard(
-            icon = Icons.Default.SaveAlt,
+            icon = Icons.Default.Info,
             title = "Encrypted Backups",
             description = "Export encrypted archives with password protection"
         ) {
