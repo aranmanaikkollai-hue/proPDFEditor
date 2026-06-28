@@ -10,11 +10,9 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.CloudUpload
+import androidx.compose.material.icons.filled.SaveAlt
 import androidx.compose.material.icons.filled.Lock
-import androidx.compose.material.icons.filled.Lock
-import androidx.compose.material.icons.filled.Timer
-import androidx.compose.material.icons.filled.Shield
+import androidx.compose.material.icons.filled.AccessTime
 import androidx.compose.material3.Card
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
@@ -77,7 +75,7 @@ fun SecuritySettingsScreen(
 
         // Vault Mode
         SecurityCard(
-            icon = Icons.Default.Shield,
+            icon = Icons.Default.Lock,
             title = "Vault Mode",
             description = "Encrypt sensitive documents with AES-256-GCM"
         ) {
@@ -90,7 +88,7 @@ fun SecuritySettingsScreen(
 
         // Auto-Lock
         SecurityCard(
-            icon = Icons.Default.Timer,
+            icon = Icons.Default.AccessTime,
             title = "Auto-Lock",
             description = "Automatically lock after period of inactivity"
         ) {
@@ -113,7 +111,7 @@ fun SecuritySettingsScreen(
 
         // Encrypted Backups
         SecurityCard(
-            icon = Icons.Default.CloudUpload,
+            icon = Icons.Default.SaveAlt,
             title = "Encrypted Backups",
             description = "Export encrypted archives with password protection"
         ) {
