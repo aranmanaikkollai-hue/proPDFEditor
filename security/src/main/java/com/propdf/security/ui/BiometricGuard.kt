@@ -9,7 +9,6 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Fingerprint
 import androidx.compose.material.icons.filled.Lock
 import androidx.compose.material3.Button
 import androidx.compose.material3.Icon
@@ -127,7 +126,7 @@ private fun LockedScreen(
                 }
             ) {
                 Icon(
-                    imageVector = Icons.Default.Fingerprint,
+                    imageVector = Icons.Default.Lock,
                     contentDescription = null,
                     modifier = Modifier.size(20.dp)
                 )
