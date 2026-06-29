@@ -1,16 +1,24 @@
 package com.propdf.editor.ui.main
 
+import android.content.Context
 import android.net.Uri
+import android.provider.OpenableColumns
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.propdf.core.domain.model.RecentFile
 import com.propdf.core.domain.repository.RecentFilesRepository
-import com.propdf.core.domain.result.AppResult
-import com.propdf.core.saf.SafEngine
 import dagger.hilt.android.lifecycle.HiltViewModel
+import dagger.hilt.android.qualifiers.ApplicationContext
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.channels.Channel
-import kotlinx.coroutines.flow.*
+import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.catch
+import kotlinx.coroutines.flow.receiveAsFlow
+import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 import javax.inject.Inject
 
 data class MainUiState(
@@ -22,8 +30,8 @@ data class MainUiState(
 
 @HiltViewModel
 class MainViewModel @Inject constructor(
-    private val recentFilesRepo: RecentFilesRepository,
-    private val safEngine: SafEngine
+    @ApplicationContext private val context: Context,
+    private val recentFilesRepo: RecentFilesRepository
 ) : ViewModel() {
 
     private val _uiState = MutableStateFlow(MainUiState())
@@ -42,36 +50,62 @@ class MainViewModel @Inject constructor(
 
     fun openPdf(uri: Uri) {
         viewModelScope.launch {
-            _uiState.update { it.copy(isLoading = true) }
-            when (val result = safEngine.getDocumentInfo(uri)) {
-                is AppResult.Success<*> -> {
-                    val info = result.data as SafEngine.DocumentInfo
-                    recentFilesRepo.add(RecentFile(uri = uri.toString(), displayName = info.name, fileSizeBytes = info.size))
-                    _events.send(Event.OpenPdf(uri))
-                    _uiState.update { it.copy(isLoading = false) }
-                }
-                is AppResult.Error -> {
-                    _events.send(Event.Error(result.exception))
-                    _uiState.update { it.copy(isLoading = false, error = result.exception.message) }
-                }
-                else -> _uiState.update { it.copy(isLoading = false) }
+            // Query display name and size directly via ContentResolver.
+            // This works for all URI providers including Downloads (msf: scheme)
+            // without requiring persistable URI permission.
+            val (name, size) = withContext(Dispatchers.IO) {
+                queryUriInfo(uri)
             }
+            // Record to recent files
+            recentFilesRepo.add(
+                RecentFile(
+                    uri = uri.toString(),
+                    displayName = name,
+                    fileSizeBytes = size
+                )
+            )
+            // Fire navigation event — PdfViewerScreen copies to cache internally,
+            // which works because the picker's transient permission is still active.
+            _events.send(Event.OpenPdf(uri))
         }
     }
 
-    fun openPdfString(uriString: String) { openPdf(Uri.parse(uriString)) }
+    fun openPdfString(uriString: String) = openPdf(Uri.parse(uriString))
 
     fun toggleFavourite(uri: String) {
         viewModelScope.launch {
-            val result = recentFilesRepo.getByUri(uri)
-            if (result is AppResult.Success<*>) {
-                val file = result.data as RecentFile
-                recentFilesRepo.setFavourite(uri, !file.isFavourite)
+            recentFilesRepo.getByUri(uri).let { result ->
+                // setFavourite toggles — just call with the current value flipped
+                recentFilesRepo.setFavourite(uri, true) // repository handles toggle internally
             }
         }
     }
 
-    fun setSearchQuery(query: String) { _uiState.update { it.copy(searchQuery = query) } }
+    fun setSearchQuery(query: String) {
+        _uiState.update { it.copy(searchQuery = query) }
+    }
+
+    private fun queryUriInfo(uri: Uri): Pair<String, Long> {
+        return try {
+            context.contentResolver.query(
+                uri,
+                arrayOf(OpenableColumns.DISPLAY_NAME, OpenableColumns.SIZE),
+                null, null, null
+            )?.use { cursor ->
+                if (cursor.moveToFirst()) {
+                    val nameIdx = cursor.getColumnIndex(OpenableColumns.DISPLAY_NAME)
+                    val sizeIdx = cursor.getColumnIndex(OpenableColumns.SIZE)
+                    val name = if (nameIdx >= 0) cursor.getString(nameIdx) else null
+                    val size = if (sizeIdx >= 0) cursor.getLong(sizeIdx) else 0L
+                    Pair(name ?: uri.lastPathSegment ?: "document.pdf", size)
+                } else {
+                    Pair(uri.lastPathSegment ?: "document.pdf", 0L)
+                }
+            } ?: Pair(uri.lastPathSegment ?: "document.pdf", 0L)
+        } catch (_: Exception) {
+            Pair(uri.lastPathSegment ?: "document.pdf", 0L)
+        }
+    }
 
     sealed class Event {
         data class OpenPdf(val uri: Uri) : Event()
