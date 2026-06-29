@@ -2,20 +2,20 @@ package com.propdf.editor.ui.recent
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
-import com.propdf.editor.domain.model.*
-import com.propdf.editor.domain.usecase.GetRecentFilesUseCase
-import com.propdf.editor.domain.usecase.ToggleFavoriteUseCase
-import com.propdf.editor.domain.usecase.MoveToRecycleBinUseCase
+import com.propdf.core.domain.model.RecentFile
+import com.propdf.core.domain.repository.RecentFilesRepository
 import dagger.hilt.android.lifecycle.HiltViewModel
-import kotlinx.coroutines.flow.*
+import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.catch
+import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import javax.inject.Inject
 
 @HiltViewModel
 class RecentFilesViewModel @Inject constructor(
-    private val getRecentFiles: GetRecentFilesUseCase,
-    private val toggleFavorite: ToggleFavoriteUseCase,
-    private val moveToRecycleBin: MoveToRecycleBinUseCase
+    private val repository: RecentFilesRepository
 ) : ViewModel() {
 
     private val _uiState = MutableStateFlow(RecentFilesUiState())
@@ -26,31 +26,46 @@ class RecentFilesViewModel @Inject constructor(
 
     init {
         viewModelScope.launch {
-            getRecentFiles().collect { files ->
-                _uiState.update { it.copy(files = files, isLoading = false) }
-            }
+            repository.observeAll()
+                .catch { e -> _uiState.update { it.copy(isLoading = false, error = e.message) } }
+                .collect { files ->
+                    _uiState.update { it.copy(files = files, isLoading = false) }
+                }
         }
     }
 
     fun onSearchQueryChange(query: String) {
         _searchQuery.value = query
-    }
-
-    fun toggleFavorite(id: Long, currentState: Boolean) {
-        viewModelScope.launch {
-            toggleFavorite(id, currentState)
+        if (query.isBlank()) {
+            viewModelScope.launch {
+                repository.observeAll()
+                    .catch { }
+                    .collect { files -> _uiState.update { it.copy(files = files) } }
+            }
+        } else {
+            viewModelScope.launch {
+                repository.search(query)
+                    .catch { }
+                    .collect { files -> _uiState.update { it.copy(files = files) } }
+            }
         }
     }
 
-    fun deleteFile(id: Long) {
+    fun toggleFavourite(uri: String, current: Boolean) {
         viewModelScope.launch {
-            moveToRecycleBin(id)
+            repository.setFavourite(uri, !current)
+        }
+    }
+
+    fun removeFile(uri: String) {
+        viewModelScope.launch {
+            repository.remove(uri)
         }
     }
 }
 
 data class RecentFilesUiState(
-    val files: List<PdfDocument> = emptyList(),
+    val files: List<RecentFile> = emptyList(),
     val isLoading: Boolean = true,
     val error: String? = null
 )
