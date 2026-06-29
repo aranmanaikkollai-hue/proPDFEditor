@@ -23,8 +23,8 @@ import javax.inject.Inject
 @HiltViewModel
 class AnnotationViewModel @Inject constructor(
     private val repository: AnnotationRepository,
-    private val layerManager: LayerManager,
-    private val historyManager: HistoryManager,
+    val layerManager: LayerManager,
+    val historyManager: HistoryManager,
     private val transformer: AnnotationTransformer
 ) : ViewModel() {
 
