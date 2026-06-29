@@ -3,6 +3,11 @@ package com.propdf.viewer.presentation
 import android.app.ActivityManager
 import android.content.Context
 import android.graphics.Bitmap
+import android.graphics.PointF
+import android.graphics.Rect
+import android.net.Uri
+import android.os.ParcelFileDescriptor
+import android.provider.OpenableColumns
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.propdf.core.domain.dispatcher.DispatcherProvider
@@ -12,14 +17,19 @@ import com.propdf.core.domain.result.AppResult
 import com.propdf.core.domain.result.onError
 import com.propdf.core.domain.result.onSuccess
 import com.propdf.viewer.cache.PageCacheManager
+import com.propdf.viewer.model.Bookmark
+import com.propdf.viewer.model.PageHistoryEntry
 import com.propdf.viewer.model.PdfTab
 import com.propdf.viewer.model.RenderPriority
+import com.propdf.viewer.model.SearchResult
+import com.propdf.viewer.model.ThumbnailPage
 import com.propdf.viewer.model.ViewMode
 import com.propdf.viewer.model.ViewerTheme
 import com.propdf.viewer.model.ZoomMode
-import com.propdf.viewer.rendering.AsyncPageRenderer
+import com.propdf.viewer.render.AsyncPageRenderer
 import dagger.hilt.android.lifecycle.HiltViewModel
 import dagger.hilt.android.qualifiers.ApplicationContext
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableSharedFlow
@@ -28,11 +38,14 @@ import kotlinx.coroutines.flow.SharedFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asSharedFlow
 import kotlinx.coroutines.flow.asStateFlow
-import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.sync.Mutex
+import kotlinx.coroutines.sync.withLock
+import kotlinx.coroutines.withContext
 import java.io.File
+import java.io.FileOutputStream
 import javax.inject.Inject
 
 @HiltViewModel
@@ -52,6 +65,9 @@ class PremiumViewerViewModel @Inject constructor(
         private const val MAX_TABS = 5
         private const val MAX_ZOOM = 10.0f
         private const val MIN_ZOOM = 0.1f
+        private const val DOUBLE_TAP_ZOOM_IN = 2.5f
+        private const val DOUBLE_TAP_ZOOM_OUT = 1.0f
+        private const val PAGE_HISTORY_MAX = 50
     }
 
     private val _uiState = MutableStateFlow(PremiumViewerUiState())
@@ -62,12 +78,15 @@ class PremiumViewerViewModel @Inject constructor(
 
     private val lowRamMode = (context.getSystemService(Context.ACTIVITY_SERVICE) as? ActivityManager)
         ?.isLowRamDevice == true
+
     private val cacheManager = PageCacheManager(
         context = context,
         maxMemoryMB = if (lowRamMode) 48 else 128,
         lowRamMode = lowRamMode
     )
+
     private var renderer: AsyncPageRenderer? = null
+    private var currentPfd: ParcelFileDescriptor? = null
 
     private val tabs = mutableListOf<PdfTab>()
     private var activeTabIndex = 0
@@ -75,13 +94,26 @@ class PremiumViewerViewModel @Inject constructor(
     private var preloadJob: Job? = null
     private var thumbnailJob: Job? = null
     private var renderStateJob: Job? = null
+    private var searchJob: Job? = null
 
     private var currentFile: File? = null
     private var totalPages = 0
+    private var pageSizes = mutableListOf<Pair<Int, Int>>()
+
+    private val pageHistory = ArrayDeque<PageHistoryEntry>()
+    private var historyIndex = -1
+
+    private val bookmarksMutex = Mutex()
+    private val bookmarks = mutableListOf<Bookmark>()
+
+    private val recentPagesMutex = Mutex()
+    private val recentPages = LinkedHashSet<Int>()
+
+    private var currentSearchQuery = ""
 
     init {
         viewModelScope.launch {
-            while (true) {
+            while (isActive) {
                 delay(5000)
                 val cacheSize = cacheManager.getCacheSize()
                 val maxSize = cacheManager.getMaxCacheSize()
@@ -93,61 +125,158 @@ class PremiumViewerViewModel @Inject constructor(
         }
     }
 
+    // ==================== Document Loading ====================
+
     fun loadDocument(file: File) {
         viewModelScope.launch(dispatchers.io) {
-            _uiState.update { it.copy(isLoading = true, error = null) }
+            try {
+                _uiState.update { it.copy(isLoading = true, error = null) }
+                closeCurrentDocument()
 
-            closeCurrentDocument()
-            currentFile = file
+                currentFile = file
 
-            val openedRenderer = AsyncPageRenderer(
-                context = context,
-                cacheManager = cacheManager
-            )
-            totalPages = openedRenderer.openDocument(file)
-            renderer = openedRenderer
-            observeRenderer(openedRenderer)
+                val pfd = ParcelFileDescriptor.open(file, ParcelFileDescriptor.MODE_READ_ONLY)
+                currentPfd = pfd
 
-            val tab = PdfTab(
-                id = System.currentTimeMillis().toString(),
-                documentUri = file.absolutePath,
-                documentName = file.name,
-                currentPage = 0
-            )
-            addTab(tab)
-
-            _uiState.update {
-                it.copy(
-                    isLoading = false,
-                    totalPages = totalPages,
-                    currentPage = 0,
-                    documentName = file.name,
-                    tabs = tabs.toList()
+                val openedRenderer = AsyncPageRenderer(
+                    context = context,
+                    cacheManager = cacheManager
                 )
-            }
+                totalPages = openedRenderer.openDocument(file)
+                renderer = openedRenderer
+                observeRenderer(openedRenderer)
 
-            preloadPages(0)
-            generateThumbnails(centerPage = 0)
+                pageSizes = openedRenderer.getPageSizes()
+
+                val tab = PdfTab(
+                    id = System.currentTimeMillis().toString(),
+                    documentUri = file.absolutePath,
+                    documentName = file.name,
+                    currentPage = 0
+                )
+                addTab(tab)
+
+                _uiState.update {
+                    it.copy(
+                        isLoading = false,
+                        totalPages = totalPages,
+                        currentPage = 0,
+                        documentName = file.name,
+                        tabs = tabs.toList(),
+                        pageCount = totalPages,
+                        pageSizes = pageSizes
+                    )
+                }
+
+                preloadPages(0)
+                generateThumbnails(centerPage = 0)
+                loadBookmarksForDocument(file.absolutePath)
+
+            } catch (e: Exception) {
+                logger.e(TAG, "Failed to load document", e)
+                _uiState.update {
+                    it.copy(isLoading = false, error = "Failed to load: ${e.localizedMessage}")
+                }
+            }
         }
     }
+
+    fun loadDocumentFromUri(uri: Uri) {
+        viewModelScope.launch(dispatchers.io) {
+            try {
+                _uiState.update { it.copy(isLoading = true, error = null) }
+                closeCurrentDocument()
+
+                val tempFile = copyUriToTempFile(context, uri)
+                if (tempFile == null) {
+                    _uiState.update { it.copy(isLoading = false, error = "Cannot access file") }
+                    return@launch
+                }
+
+                loadDocument(tempFile)
+
+            } catch (e: Exception) {
+                logger.e(TAG, "Failed to load from URI", e)
+                _uiState.update {
+                    it.copy(isLoading = false, error = "Failed to load: ${e.localizedMessage}")
+                }
+            }
+        }
+    }
+
+    // ==================== Document Closing ====================
 
     fun closeCurrentDocument() {
         renderStateJob?.cancel()
         renderStateJob = null
-        renderer?.release()
+        preloadJob?.cancel()
+        preloadJob = null
+        thumbnailJob?.cancel()
+        thumbnailJob = null
+        searchJob?.cancel()
+        searchJob = null
+
+        renderer?.closeDocument()
         renderer = null
+
+        currentPfd?.close()
+        currentPfd = null
+
         cacheManager.clearAll()
         currentFile = null
         totalPages = 0
+        pageSizes.clear()
+        pageHistory.clear()
+        historyIndex = -1
+
+        viewModelScope.launch {
+            bookmarksMutex.withLock { bookmarks.clear() }
+            recentPagesMutex.withLock { recentPages.clear() }
+        }
+
+        _uiState.update {
+            it.copy(
+                isLoading = false,
+                totalPages = 0,
+                currentPage = 0,
+                documentName = "",
+                pages = emptyMap(),
+                thumbnails = emptyList(),
+                searchResults = emptyList(),
+                bookmarks = emptyList(),
+                recentPages = emptyList(),
+                pageHistory = emptyList()
+            )
+        }
     }
 
-    fun goToPage(pageIndex: Int, smooth: Boolean = true) {
+    // ==================== Page Navigation ====================
+
+    fun goToPage(pageIndex: Int, smooth: Boolean = true, recordHistory: Boolean = true) {
         if (pageIndex < 0 || pageIndex >= totalPages) return
+
+        val oldPage = _uiState.value.currentPage
+
+        if (recordHistory && oldPage != pageIndex) {
+            addToHistory(oldPage)
+        }
+
+        viewModelScope.launch {
+            recentPagesMutex.withLock {
+                recentPages.remove(pageIndex)
+                recentPages.add(pageIndex)
+                while (recentPages.size > 20) {
+                    recentPages.remove(recentPages.first())
+                }
+            }
+            _uiState.update { it.copy(recentPages = recentPages.toList().reversed()) }
+        }
 
         _uiState.update {
             it.copy(
                 currentPage = pageIndex,
-                isRendering = true
+                isRendering = true,
+                scrollOffset = 0f
             )
         }
 
@@ -171,9 +300,47 @@ class PremiumViewerViewModel @Inject constructor(
     fun nextPage() = goToPage(_uiState.value.currentPage + 1)
     fun prevPage() = goToPage(_uiState.value.currentPage - 1)
 
-    fun fastJumpToPage(pageIndex: Int) {
-        viewModelScope.launch {
-            _events.emit(ViewerEvent.ShowPageScrubber(pageIndex.coerceIn(0, totalPages - 1), totalPages))
+    fun goBackInHistory() {
+        if (historyIndex < 0) return
+        val entry = pageHistory[historyIndex]
+        historyIndex--
+        goToPage(entry.pageIndex, smooth = true, recordHistory = false)
+        _uiState.update {
+            it.copy(
+                canGoBack = historyIndex >= 0,
+                canGoForward = historyIndex < pageHistory.size - 1
+            )
+        }
+    }
+
+    fun goForwardInHistory() {
+        if (historyIndex >= pageHistory.size - 1) return
+        historyIndex++
+        val entry = pageHistory[historyIndex]
+        goToPage(entry.pageIndex, smooth = true, recordHistory = false)
+        _uiState.update {
+            it.copy(
+                canGoBack = historyIndex >= 0,
+                canGoForward = historyIndex < pageHistory.size - 1
+            )
+        }
+    }
+
+    private fun addToHistory(pageIndex: Int) {
+        while (historyIndex < pageHistory.size - 1) {
+            pageHistory.removeLast()
+        }
+        pageHistory.addLast(PageHistoryEntry(pageIndex, System.currentTimeMillis()))
+        while (pageHistory.size > PAGE_HISTORY_MAX) {
+            pageHistory.removeFirst()
+        }
+        historyIndex = pageHistory.size - 1
+        _uiState.update {
+            it.copy(
+                canGoBack = historyIndex >= 0,
+                canGoForward = false,
+                pageHistory = pageHistory.toList()
+            )
         }
     }
 
@@ -185,6 +352,14 @@ class PremiumViewerViewModel @Inject constructor(
             updateActiveTab { copy(currentPage = pageIndex, scrollPosition = scrollOffset.toInt()) }
         }
     }
+
+    fun fastJumpToPage(pageIndex: Int) {
+        viewModelScope.launch {
+            _events.emit(ViewerEvent.ShowPageScrubber(pageIndex.coerceIn(0, totalPages - 1), totalPages))
+        }
+    }
+
+    // ==================== Zoom ====================
 
     fun setZoom(zoom: Float, focalX: Float = 0.5f, focalY: Float = 0.5f) {
         val clampedZoom = zoom.coerceIn(MIN_ZOOM, MAX_ZOOM)
@@ -225,6 +400,15 @@ class PremiumViewerViewModel @Inject constructor(
         }
     }
 
+    fun onDoubleTap(x: Float, y: Float) {
+        val currentZoom = _uiState.value.zoom
+        val targetZoom = if (currentZoom > 1.5f) DOUBLE_TAP_ZOOM_OUT else DOUBLE_TAP_ZOOM_IN
+        setZoom(targetZoom, x, y)
+        viewModelScope.launch {
+            _events.emit(ViewerEvent.AnimateZoom(targetZoom, x, y))
+        }
+    }
+
     private fun invalidateVisiblePages() {
         cacheManager.clearPages()
         val currentPage = _uiState.value.currentPage
@@ -237,6 +421,8 @@ class PremiumViewerViewModel @Inject constructor(
             )
         )
     }
+
+    // ==================== View Modes ====================
 
     fun setViewerMode(mode: ViewMode) {
         _uiState.update { it.copy(viewerMode = mode) }
@@ -290,311 +476,456 @@ class PremiumViewerViewModel @Inject constructor(
         setViewerMode(newMode)
     }
 
+    // ==================== Themes ====================
+
     fun setTheme(theme: ViewerTheme) {
-        _uiState.update { it.copy(theme = theme) }
+        _uiState.update { it.copy(viewerTheme = theme) }
         renderer?.setTheme(theme)
-        updateActiveTab { copy(theme = theme.name) }
+        updateActiveTab { copy(viewerTheme = theme.name) }
         viewModelScope.launch {
             _events.emit(ViewerEvent.ThemeChanged(theme))
         }
     }
 
     fun toggleTheme() {
-        val themes = ViewerTheme.entries
-        val currentIndex = themes.indexOf(_uiState.value.theme)
-        val nextTheme = themes[(currentIndex + 1) % themes.size]
-        setTheme(nextTheme)
+        val newTheme = when (_uiState.value.viewerTheme) {
+            ViewerTheme.LIGHT -> ViewerTheme.DARK
+            ViewerTheme.DARK -> ViewerTheme.LIGHT
+            else -> ViewerTheme.LIGHT
+        }
+        setTheme(newTheme)
     }
 
     fun toggleNightMode() {
-        val current = _uiState.value.theme
+        val current = _uiState.value.viewerTheme
         setTheme(if (current == ViewerTheme.NIGHT) ViewerTheme.LIGHT else ViewerTheme.NIGHT)
     }
 
-    fun toggleDarkMode() {
-        val current = _uiState.value.theme
-        setTheme(if (current == ViewerTheme.DARK) ViewerTheme.LIGHT else ViewerTheme.DARK)
-    }
-
     fun toggleSepiaMode() {
-        val current = _uiState.value.theme
+        val current = _uiState.value.viewerTheme
         setTheme(if (current == ViewerTheme.SEPIA) ViewerTheme.LIGHT else ViewerTheme.SEPIA)
     }
 
-    fun addTab(tab: PdfTab) {
-        if (tabs.size >= MAX_TABS) {
-            tabs.removeAt(0)
-        }
-        tabs.add(tab)
-        activeTabIndex = tabs.size - 1
-        _uiState.update { it.copy(tabs = tabs.toList(), activeTabIndex = activeTabIndex) }
+    fun toggleHighContrast() {
+        val current = _uiState.value.viewerTheme
+        setTheme(if (current == ViewerTheme.HIGH_CONTRAST) ViewerTheme.LIGHT else ViewerTheme.HIGH_CONTRAST)
     }
 
-    fun switchTab(index: Int) {
-        if (index < 0 || index >= tabs.size) return
-        activeTabIndex = index
-        val tab = tabs[index]
-        _uiState.update {
-            it.copy(
-                activeTabIndex = index,
-                currentPage = tab.currentPage,
-                zoom = tab.zoomLevel
-            )
+    // ==================== Screen Settings ====================
+
+    fun toggleKeepScreenOn() {
+        val newState = !_uiState.value.keepScreenOn
+        _uiState.update { it.copy(keepScreenOn = newState) }
+        viewModelScope.launch {
+            _events.emit(ViewerEvent.KeepScreenOnChanged(newState))
         }
     }
 
-    fun closeTab(index: Int) {
-        if (tabs.size <= 1) return
-        tabs.removeAt(index)
-        if (activeTabIndex >= tabs.size) activeTabIndex = tabs.size - 1
-        _uiState.update { it.copy(tabs = tabs.toList(), activeTabIndex = activeTabIndex) }
-    }
-
-    fun openNewTab(file: File) {
-        loadDocument(file)
-    }
-
-    private fun updateActiveTab(transform: PdfTab.() -> PdfTab) {
-        if (activeTabIndex in tabs.indices) {
-            tabs[activeTabIndex] = tabs[activeTabIndex].transform()
-            _uiState.update { it.copy(tabs = tabs.toList()) }
+    fun toggleAutoBrightness() {
+        val newState = !_uiState.value.autoBrightness
+        _uiState.update { it.copy(autoBrightness = newState) }
+        viewModelScope.launch {
+            _events.emit(ViewerEvent.AutoBrightnessChanged(newState))
         }
     }
 
-    private fun preloadPages(centerPage: Int) {
-        preloadJob?.cancel()
-        preloadJob = viewModelScope.launch(dispatchers.io) {
-            val range = -PRELOAD_RANGE..PRELOAD_RANGE
-            for (offset in range) {
-                val pageIndex = centerPage + offset
-                if (pageIndex in 0 until totalPages) {
-                    if (cacheManager.getPage(pageIndex) == null &&
-                        !cacheManager.isInPreloadQueue(pageIndex)
-                    ) {
-                        cacheManager.addToPreloadQueue(pageIndex)
-                        renderer?.requestRender(
-                            AsyncPageRenderer.RenderRequest(
-                                pageIndex = pageIndex,
-                                width = _uiState.value.screenWidth,
-                                height = (_uiState.value.screenWidth * 1.414f).toInt(),
-                                priority = when {
-                                    offset == 0 -> RenderPriority.CRITICAL
-                                    kotlin.math.abs(offset) <= 1 -> RenderPriority.HIGH
-                                    else -> RenderPriority.LOW
-                                }
-                            )
-                        )
-                    }
-                }
-            }
+    // ==================== Fullscreen ====================
+
+    fun toggleFullscreen() {
+        val newState = !_uiState.value.isFullscreen
+        _uiState.update { it.copy(isFullscreen = newState) }
+        viewModelScope.launch {
+            _events.emit(ViewerEvent.FullscreenChanged(newState))
         }
     }
 
-    private fun generateThumbnails(
-        centerPage: Int = _uiState.value.currentPage,
-        radius: Int = THUMBNAIL_NEARBY_RANGE
-    ) {
-        thumbnailJob?.cancel()
-        thumbnailJob = viewModelScope.launch(dispatchers.io) {
-            val start = (centerPage - radius).coerceAtLeast(0)
-            val end = (centerPage + radius).coerceAtMost(totalPages - 1)
-            for (i in start..end) {
-                if (!isActive) break
-                val cached = cacheManager.getThumbnail(i)
-                if (cached != null) {
-                    _events.emit(ViewerEvent.ThumbnailRendered(i, cached))
-                } else {
-                    renderer?.requestRender(
-                        AsyncPageRenderer.RenderRequest(
-                            pageIndex = i,
-                            width = THUMBNAIL_WIDTH,
-                            height = (THUMBNAIL_WIDTH * 1.414f).toInt(),
-                            priority = if (kotlin.math.abs(i - centerPage) <= 2) RenderPriority.NORMAL else RenderPriority.LOW,
-                            isThumbnail = true
-                        )
-                    )
-                }
-            }
-        }
-    }
-
-    private fun observeRenderer(renderer: AsyncPageRenderer) {
-        renderStateJob?.cancel()
-        renderStateJob = viewModelScope.launch {
-            renderer.renderState.collectLatest { state ->
-                when (state) {
-                    is AsyncPageRenderer.RenderState.Complete -> {
-                        cacheManager.removeFromPreloadQueue(state.pageIndex)
-                        _uiState.update { it.copy(isRendering = false) }
-                        if (state.isThumbnail) {
-                            _events.emit(ViewerEvent.ThumbnailRendered(state.pageIndex, state.bitmap))
-                        } else {
-                            _events.emit(ViewerEvent.PageRendered(state.pageIndex, state.bitmap))
-                        }
-                    }
-                    is AsyncPageRenderer.RenderState.Error -> {
-                        cacheManager.removeFromPreloadQueue(state.pageIndex)
-                        _uiState.update { it.copy(isRendering = false, error = state.throwable.message) }
-                        _events.emit(ViewerEvent.ShowError(state.throwable.message ?: "Unable to render page"))
-                    }
-                    AsyncPageRenderer.RenderState.Idle -> Unit
-                    is AsyncPageRenderer.RenderState.Rendering -> Unit
-                }
-            }
-        }
-    }
+    // ==================== Search ====================
 
     fun search(query: String) {
-        val file = currentFile ?: return
         if (query.isBlank()) {
             clearSearch()
             return
         }
 
-        viewModelScope.launch(dispatchers.io) {
-            _uiState.update {
-                it.copy(isSearching = true, searchQuery = query, searchResults = emptyList())
-            }
-            val results = mutableListOf<SearchResult>()
+        searchJob?.cancel()
+        currentSearchQuery = query
 
-            for (i in 0 until totalPages) {
-                val textResult = viewerRepo.getPageText(file, i)
-                if (textResult is AppResult.Success) {
-                    val text = textResult.data
-                    var index = text.indexOf(query, ignoreCase = true)
-                    while (index >= 0) {
-                        results.add(SearchResult(pageIndex = i, charIndex = index, query = query))
-                        index = text.indexOf(query, index + 1, ignoreCase = true)
+        searchJob = viewModelScope.launch(dispatchers.io) {
+            try {
+                _uiState.update { it.copy(isSearching = true, searchQuery = query) }
+
+                val results = mutableListOf<SearchResult>()
+                val file = currentFile ?: return@launch
+
+                for (i in 0 until totalPages) {
+                    if (!isActive) break
+
+                    val textResult = viewerRepo.getPageText(file, i)
+                    if (textResult is AppResult.Success) {
+                        val text = textResult.data
+                        val lowerText = text.lowercase()
+                        val lowerQuery = query.lowercase()
+
+                        var index = 0
+                        val matches = mutableListOf<Int>()
+                        while (index < lowerText.length) {
+                            val found = lowerText.indexOf(lowerQuery, index)
+                            if (found == -1) break
+                            matches.add(found)
+                            index = found + 1
+                        }
+
+                        if (matches.isNotEmpty()) {
+                            val firstMatch = matches.first()
+                            val snippetStart = (firstMatch - 40).coerceAtLeast(0)
+                            val snippetEnd = (firstMatch + query.length + 40).coerceAtMost(text.length)
+                            val snippet = text.substring(snippetStart, snippetEnd)
+
+                            results.add(
+                                SearchResult(
+                                    pageIndex = i,
+                                    query = query,
+                                    matchCount = matches.size,
+                                    textSnippet = snippet,
+                                    matchPositions = matches
+                                )
+                            )
+                        }
                     }
                 }
+
+                _uiState.update {
+                    it.copy(
+                        isSearching = false,
+                        searchResults = results,
+                        currentSearchResultIndex = if (results.isNotEmpty()) 0 else -1
+                    )
+                }
+
+                if (results.isNotEmpty()) {
+                    goToPage(results.first().pageIndex)
+                }
+
+            } catch (e: CancellationException) {
+                throw e
+            } catch (e: Exception) {
+                logger.e(TAG, "Search failed", e)
+                _uiState.update { it.copy(isSearching = false, error = "Search failed: ${e.message}") }
             }
-
-            _uiState.update {
-                it.copy(
-                    isSearching = false,
-                    searchResults = results,
-                    currentSearchIndex = if (results.isNotEmpty()) 0 else -1
-                )
-            }
-
-            if (results.isNotEmpty()) {
-                goToPage(results[0].pageIndex)
-            }
-        }
-    }
-
-    fun nextSearchResult() {
-        val results = _uiState.value.searchResults
-        val currentIndex = _uiState.value.currentSearchIndex
-        if (results.isNotEmpty() && currentIndex < results.size - 1) {
-            val nextIndex = currentIndex + 1
-            _uiState.update { it.copy(currentSearchIndex = nextIndex) }
-            goToPage(results[nextIndex].pageIndex)
-        }
-    }
-
-    fun prevSearchResult() {
-        val results = _uiState.value.searchResults
-        val currentIndex = _uiState.value.currentSearchIndex
-        if (results.isNotEmpty() && currentIndex > 0) {
-            val prevIndex = currentIndex - 1
-            _uiState.update { it.copy(currentSearchIndex = prevIndex) }
-            goToPage(results[prevIndex].pageIndex)
         }
     }
 
     fun clearSearch() {
+        searchJob?.cancel()
+        currentSearchQuery = ""
         _uiState.update {
             it.copy(
                 searchResults = emptyList(),
                 searchQuery = "",
-                currentSearchIndex = -1
+                isSearching = false,
+                currentSearchResultIndex = -1
             )
         }
     }
 
-    fun toggleToolbar() {
-        _uiState.update { it.copy(isToolbarVisible = !it.isToolbarVisible) }
+    fun goToNextSearchResult() {
+        val results = _uiState.value.searchResults
+        if (results.isEmpty()) return
+        val nextIndex = (_uiState.value.currentSearchResultIndex + 1).coerceAtMost(results.size - 1)
+        _uiState.update { it.copy(currentSearchResultIndex = nextIndex) }
+        goToPage(results[nextIndex].pageIndex)
     }
 
-    fun toggleThumbnailSidebar() {
-        val willShow = !_uiState.value.isThumbnailSidebarVisible
-        _uiState.update { it.copy(isThumbnailSidebarVisible = willShow) }
-        if (willShow) {
-            generateThumbnails(centerPage = _uiState.value.currentPage, radius = THUMBNAIL_VIEWPORT_RANGE)
-        }
+    fun goToPreviousSearchResult() {
+        val results = _uiState.value.searchResults
+        if (results.isEmpty()) return
+        val prevIndex = (_uiState.value.currentSearchResultIndex - 1).coerceAtLeast(0)
+        _uiState.update { it.copy(currentSearchResultIndex = prevIndex) }
+        goToPage(results[prevIndex].pageIndex)
     }
 
-    fun toggleBottomSheet() {
-        _uiState.update { it.copy(isBottomSheetVisible = !it.isBottomSheetVisible) }
-    }
+    // ==================== Bookmarks ====================
 
-    fun showPagePreview(pageIndex: Int) {
+    fun toggleBookmark(pageIndex: Int) {
         viewModelScope.launch {
-            _events.emit(ViewerEvent.ShowPagePreview(pageIndex))
+            bookmarksMutex.withLock {
+                val existing = bookmarks.find { it.pageIndex == pageIndex }
+                if (existing != null) {
+                    bookmarks.remove(existing)
+                } else {
+                    bookmarks.add(
+                        Bookmark(
+                            pageIndex = pageIndex,
+                            timestamp = System.currentTimeMillis(),
+                            label = "Page ${pageIndex + 1}"
+                        )
+                    )
+                }
+                bookmarks.sortBy { it.pageIndex }
+                _uiState.update { it.copy(bookmarks = bookmarks.toList()) }
+            }
+            saveBookmarksForDocument()
         }
     }
+
+    fun isPageBookmarked(pageIndex: Int): Boolean {
+        return bookmarks.any { it.pageIndex == pageIndex }
+    }
+
+    fun goToBookmark(bookmark: Bookmark) {
+        goToPage(bookmark.pageIndex)
+    }
+
+    fun deleteBookmark(pageIndex: Int) {
+        viewModelScope.launch {
+            bookmarksMutex.withLock {
+                bookmarks.removeAll { it.pageIndex == pageIndex }
+                _uiState.update { it.copy(bookmarks = bookmarks.toList()) }
+            }
+            saveBookmarksForDocument()
+        }
+    }
+
+    private suspend fun loadBookmarksForDocument(documentPath: String) {
+        // Load from persistent storage
+    }
+
+    private suspend fun saveBookmarksForDocument() {
+        // Save to persistent storage
+    }
+
+    // ==================== Thumbnails ====================
+
+    private fun generateThumbnails(centerPage: Int) {
+        thumbnailJob?.cancel()
+
+        thumbnailJob = viewModelScope.launch(dispatchers.io) {
+            try {
+                val range = (centerPage - THUMBNAIL_VIEWPORT_RANGE)..(centerPage + THUMBNAIL_VIEWPORT_RANGE)
+                val validRange = range.coerceIn(0, totalPages - 1)
+
+                val thumbnails = mutableListOf<ThumbnailPage>()
+                for (i in validRange) {
+                    if (!isActive) break
+
+                    val bitmap = renderer?.renderThumbnail(i, THUMBNAIL_WIDTH)
+                    if (bitmap != null) {
+                        thumbnails.add(ThumbnailPage(i, bitmap))
+                    }
+                }
+
+                _uiState.update { it.copy(thumbnails = thumbnails) }
+
+                val nearbyRange = (centerPage - THUMBNAIL_NEARBY_RANGE)..(centerPage + THUMBNAIL_NEARBY_RANGE)
+                for (i in nearbyRange.coerceIn(0, totalPages - 1)) {
+                    if (!isActive) break
+                    if (thumbnails.none { it.pageIndex == i }) {
+                        renderer?.renderThumbnail(i, THUMBNAIL_WIDTH)
+                    }
+                }
+
+            } catch (e: CancellationException) {
+                throw e
+            } catch (e: Exception) {
+                logger.e(TAG, "Thumbnail generation failed", e)
+            }
+        }
+    }
+
+    // ==================== Preloading ====================
+
+    private fun preloadPages(anchorPage: Int) {
+        preloadJob?.cancel()
+
+        preloadJob = viewModelScope.launch(dispatchers.io) {
+            try {
+                val range = (anchorPage - PRELOAD_RANGE)..(anchorPage + PRELOAD_RANGE)
+                for (i in range.coerceIn(0, totalPages - 1)) {
+                    if (!isActive) break
+                    if (i == anchorPage) continue
+
+                    renderer?.requestRender(
+                        AsyncPageRenderer.RenderRequest(
+                            pageIndex = i,
+                            width = _uiState.value.screenWidth,
+                            height = (_uiState.value.screenWidth * 1.414f).toInt(),
+                            priority = RenderPriority.NORMAL
+                        )
+                    )
+                }
+            } catch (e: CancellationException) {
+                throw e
+            }
+        }
+    }
+
+    // ==================== Rotation ====================
+
+    fun onRotationChanged(orientation: Int) {
+        val isLandscape = orientation == android.content.res.Configuration.ORIENTATION_LANDSCAPE
+        _uiState.update { it.copy(isLandscape = isLandscape) }
+
+        if (isLandscape && _uiState.value.viewerMode == ViewMode.SINGLE_PAGE_VERTICAL) {
+            setViewerMode(ViewMode.TWO_PAGE_SPREAD)
+        }
+    }
+
+    // ==================== Tab Management ====================
+
+    private fun addTab(tab: PdfTab) {
+        if (tabs.size >= MAX_TABS) {
+            tabs.removeAt(0)
+        }
+        tabs.add(tab)
+        activeTabIndex = tabs.size - 1
+    }
+
+    fun switchTab(index: Int) {
+        if (index in tabs.indices) {
+            activeTabIndex = index
+            val tab = tabs[index]
+            _uiState.update {
+                it.copy(
+                    currentPage = tab.currentPage,
+                    zoom = tab.zoomLevel,
+                    viewerMode = ViewMode.valueOf(tab.viewMode)
+                )
+            }
+        }
+    }
+
+    fun closeTab(index: Int) {
+        if (index in tabs.indices && tabs.size > 1) {
+            tabs.removeAt(index)
+            if (activeTabIndex >= tabs.size) activeTabIndex = tabs.size - 1
+            switchTab(activeTabIndex)
+        }
+    }
+
+    private fun updateActiveTab(block: PdfTab.() -> PdfTab) {
+        if (activeTabIndex in tabs.indices) {
+            tabs[activeTabIndex] = tabs[activeTabIndex].block()
+            _uiState.update { it.copy(tabs = tabs.toList()) }
+        }
+    }
+
+    // ==================== Screen Dimensions ====================
 
     fun setScreenDimensions(width: Int, height: Int) {
         _uiState.update { it.copy(screenWidth = width, screenHeight = height) }
     }
 
-    fun onScrollPositionChanged(position: Int) {
-        _uiState.update { it.copy(scrollPosition = position) }
-        updateActiveTab { copy(scrollPosition = position) }
+    // ==================== Renderer Observation ====================
+
+    private fun observeRenderer(renderer: AsyncPageRenderer) {
+        renderStateJob?.cancel()
+        renderStateJob = viewModelScope.launch {
+            renderer.renderState.collect { state ->
+                when (state) {
+                    is AsyncPageRenderer.RenderState.Complete -> {
+                        _uiState.update { currentState ->
+                            val pages = currentState.pages.toMutableMap()
+                            pages[state.pageIndex] = state.bitmap
+                            currentState.copy(pages = pages)
+                        }
+                    }
+                    is AsyncPageRenderer.RenderState.Error -> {
+                        logger.e(TAG, "Render error page ${state.pageIndex}", state.throwable)
+                    }
+                    else -> {}
+                }
+            }
+        }
+    }
+
+    // ==================== Utility ====================
+
+    private fun IntRange.coerceIn(min: Int, max: Int): IntRange {
+        return kotlin.math.max(first, min)..kotlin.math.min(last, max)
+    }
+
+    private suspend fun copyUriToTempFile(context: Context, uri: Uri): File? = withContext(dispatchers.io) {
+        try {
+            val name = context.contentResolver.query(uri, null, null, null, null)?.use { cursor ->
+                if (cursor.moveToFirst()) {
+                    val idx = cursor.getColumnIndex(OpenableColumns.DISPLAY_NAME)
+                    if (idx >= 0) cursor.getString(idx) else null
+                } else null
+            } ?: "document_${System.currentTimeMillis()}.pdf"
+
+            val safeName = name.replace(Regex("[^A-Za-z0-9._-]"), "_")
+            val dest = File(context.cacheDir, safeName)
+
+            context.contentResolver.openInputStream(uri)?.use { input ->
+                FileOutputStream(dest).use { output ->
+                    input.copyTo(output)
+                }
+            } ?: return@withContext null
+
+            if (dest.exists() && dest.length() > 0) dest else null
+        } catch (e: Exception) {
+            logger.e(TAG, "Failed to copy URI to temp file", e)
+            null
+        }
     }
 
     override fun onCleared() {
         super.onCleared()
-        preloadJob?.cancel()
-        thumbnailJob?.cancel()
         closeCurrentDocument()
     }
 
-    data class PremiumViewerUiState(
-        val isLoading: Boolean = false,
-        val isRendering: Boolean = false,
-        val isSearching: Boolean = false,
-        val totalPages: Int = 0,
-        val currentPage: Int = 0,
-        val zoom: Float = 1.0f,
-        val zoomFocalX: Float = 0.5f,
-        val zoomFocalY: Float = 0.5f,
-        val zoomMode: ZoomMode = ZoomMode.FIT_WIDTH,
-        val viewerMode: ViewMode = ViewMode.CONTINUOUS_VERTICAL,
-        val theme: ViewerTheme = ViewerTheme.LIGHT,
-        val scrollPosition: Int = 0,
-        val scrollOffset: Float = 0f,
-        val screenWidth: Int = 1080,
-        val screenHeight: Int = 1920,
-        val documentName: String = "",
-        val tabs: List<PdfTab> = emptyList(),
-        val activeTabIndex: Int = 0,
-        val isToolbarVisible: Boolean = true,
-        val isThumbnailSidebarVisible: Boolean = false,
-        val isBottomSheetVisible: Boolean = false,
-        val searchResults: List<SearchResult> = emptyList(),
-        val searchQuery: String = "",
-        val currentSearchIndex: Int = -1,
-        val error: String? = null
-    )
-
-    data class SearchResult(
-        val pageIndex: Int,
-        val charIndex: Int,
-        val query: String
-    )
+    // ==================== Events ====================
 
     sealed class ViewerEvent {
         data class SmoothScrollToPage(val pageIndex: Int) : ViewerEvent()
         data class ShowPageScrubber(val currentPage: Int, val totalPages: Int) : ViewerEvent()
-        data class ShowPagePreview(val pageIndex: Int) : ViewerEvent()
         data class ModeChanged(val mode: ViewMode) : ViewerEvent()
         data class ThemeChanged(val theme: ViewerTheme) : ViewerEvent()
-        object FitToWidth : ViewerEvent()
-        object FitToPage : ViewerEvent()
-        data class ShowError(val message: String) : ViewerEvent()
-        data class PageRendered(val pageIndex: Int, val bitmap: Bitmap) : ViewerEvent()
-        data class ThumbnailRendered(val pageIndex: Int, val bitmap: Bitmap) : ViewerEvent()
+        data class FitToWidth(val dummy: Unit = Unit) : ViewerEvent()
+        data class FitToPage(val dummy: Unit = Unit) : ViewerEvent()
+        data class AnimateZoom(val zoom: Float, val focalX: Float, val focalY: Float) : ViewerEvent()
+        data class FullscreenChanged(val isFullscreen: Boolean) : ViewerEvent()
+        data class KeepScreenOnChanged(val keepOn: Boolean) : ViewerEvent()
+        data class AutoBrightnessChanged(val auto: Boolean) : ViewerEvent()
     }
 }
+
+// ==================== UI State ====================
+
+data class PremiumViewerUiState(
+    val isLoading: Boolean = false,
+    val isRendering: Boolean = false,
+    val isSearching: Boolean = false,
+    val totalPages: Int = 0,
+    val currentPage: Int = 0,
+    val scrollOffset: Float = 0f,
+    val zoom: Float = 1.0f,
+    val zoomFocalX: Float = 0.5f,
+    val zoomFocalY: Float = 0.5f,
+    val zoomMode: ZoomMode = ZoomMode.FIT_PAGE,
+    val viewerMode: ViewMode = ViewMode.CONTINUOUS_VERTICAL,
+    val viewerTheme: ViewerTheme = ViewerTheme.LIGHT,
+    val isDark: Boolean = false,
+    val isFullscreen: Boolean = false,
+    val isLandscape: Boolean = false,
+    val screenWidth: Int = 1080,
+    val screenHeight: Int = 1920,
+    val pages: Map<Int, Bitmap> = emptyMap(),
+    val thumbnails: List<ThumbnailPage> = emptyList(),
+    val searchResults: List<SearchResult> = emptyList(),
+    val searchQuery: String = "",
+    val currentSearchResultIndex: Int = -1,
+    val bookmarks: List<Bookmark> = emptyList(),
+    val recentPages: List<Int> = emptyList(),
+    val pageHistory: List<PageHistoryEntry> = emptyList(),
+    val canGoBack: Boolean = false,
+    val canGoForward: Boolean = false,
+    val keepScreenOn: Boolean = false,
+    val autoBrightness: Boolean = false,
+    val documentName: String = "",
+    val fileName: String = "",
+    val tabs: List<PdfTab> = emptyList(),
+    val pageCount: Int = 0,
+    val pageSizes: List<Pair<Int, Int>> = emptyList(),
+    val error: String? = null
+)
