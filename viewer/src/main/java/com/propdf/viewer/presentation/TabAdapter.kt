@@ -1,72 +1,67 @@
 package com.propdf.viewer.presentation
 
 import android.view.LayoutInflater
+import android.view.View
 import android.view.ViewGroup
+import android.widget.ImageButton
+import android.widget.TextView
 import androidx.core.view.isVisible
 import androidx.recyclerview.widget.DiffUtil
 import androidx.recyclerview.widget.ListAdapter
 import androidx.recyclerview.widget.RecyclerView
-import com.propdf.viewer.databinding.ItemTabBinding
+import com.propdf.viewer.R
 import com.propdf.viewer.model.PdfTab
 
+/**
+ * Horizontal RecyclerView adapter for multi-tab PDF viewing.
+ * Shows document name with close button and active state indicator.
+ */
 class TabAdapter(
     private val onTabSelected: (Int) -> Unit,
     private val onTabClose: (Int) -> Unit
-) : ListAdapter<PdfTab, TabAdapter.TabViewHolder>(TabDiffCallback()) {
+) : ListAdapter<PdfTab, TabAdapter.TabViewHolder>(DiffCallback()) {
 
-    private var selectedPosition: Int = 0
+    private var activeIndex = 0
+
+    fun setActiveIndex(index: Int) {
+        val oldIndex = activeIndex
+        activeIndex = index
+        notifyItemChanged(oldIndex)
+        notifyItemChanged(index)
+    }
 
     override fun onCreateViewHolder(parent: ViewGroup, viewType: Int): TabViewHolder {
-        val binding = ItemTabBinding.inflate(
-            LayoutInflater.from(parent.context), parent, false
-        )
-        return TabViewHolder(binding)
+        val view = LayoutInflater.from(parent.context)
+            .inflate(R.layout.item_pdf_tab, parent, false)
+        return TabViewHolder(view, onTabSelected, onTabClose)
     }
 
     override fun onBindViewHolder(holder: TabViewHolder, position: Int) {
-        holder.bind(getItem(position), position == selectedPosition)
+        holder.bind(getItem(position), position == activeIndex, position)
     }
 
-    fun setSelectedPosition(position: Int) {
-        val previousPosition = selectedPosition
-        selectedPosition = position
-        if (previousPosition in 0 until itemCount) {
-            notifyItemChanged(previousPosition)
-        }
-        if (position in 0 until itemCount) {
-            notifyItemChanged(position)
-        }
-    }
+    class TabViewHolder(
+        itemView: View,
+        private val onTabSelected: (Int) -> Unit,
+        private val onTabClose: (Int) -> Unit
+    ) : RecyclerView.ViewHolder(itemView) {
 
-    inner class TabViewHolder(
-        private val binding: ItemTabBinding
-    ) : RecyclerView.ViewHolder(binding.root) {
+        private val tabName: TextView = itemView.findViewById(R.id.tabName)
+        private val closeButton: ImageButton = itemView.findViewById(R.id.closeButton)
+        private val activeIndicator: View = itemView.findViewById(R.id.activeIndicator)
 
-        init {
-            binding.root.setOnClickListener {
-                val pos = adapterPosition
-                if (pos != RecyclerView.NO_POSITION) {
-                    onTabSelected(pos)
-                }
-            }
-        }
+        fun bind(tab: PdfTab, isActive: Boolean, position: Int) {
+            tabName.text = tab.documentName
+            tabName.isSelected = isActive
+            activeIndicator.isVisible = isActive
 
-        fun bind(tab: PdfTab, isSelected: Boolean) {
-            binding.tabTitle.text = tab.documentName
-            binding.tabTitle.isSelected = isSelected
-
-            binding.tabClose.setOnClickListener {
-                val pos = adapterPosition
-                if (pos != RecyclerView.NO_POSITION) {
-                    onTabClose(pos)
-                }
-            }
-
-            binding.activeIndicator.isVisible = isSelected
+            itemView.setOnClickListener { onTabSelected(position) }
+            closeButton.setOnClickListener { onTabClose(position) }
+            closeButton.isVisible = currentList.size > 1
         }
     }
 
-    class TabDiffCallback : DiffUtil.ItemCallback<PdfTab>() {
+    class DiffCallback : DiffUtil.ItemCallback<PdfTab>() {
         override fun areItemsTheSame(oldItem: PdfTab, newItem: PdfTab): Boolean {
             return oldItem.id == newItem.id
         }
