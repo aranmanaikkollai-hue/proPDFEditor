@@ -1,7 +1,7 @@
 package com.propdf.viewer.model
 
 /**
- * Color theme for the PDF viewer.
+ * PDF viewer color themes.
  */
 enum class ViewerTheme {
     LIGHT,
