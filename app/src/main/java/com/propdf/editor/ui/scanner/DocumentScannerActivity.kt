@@ -51,7 +51,7 @@ class DocumentScannerActivity : AppCompatActivity() {
     companion object {
         private const val TAG = "DocScanner"
         private const val PERM_REQ = 2001
-        private val PERMS = arrayOf(Manifest.permission.CAMERA, Manifest.permission.RECORD_AUDIO)
+        private val PERMS = arrayOf(Manifest.permission.CAMERA)
     }
 
     private var isDark = true
