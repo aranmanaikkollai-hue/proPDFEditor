@@ -6,7 +6,6 @@ import android.graphics.Canvas
 import android.graphics.Color
 import android.graphics.Paint
 import android.graphics.Rect
-import android.graphics.RectF
 import android.graphics.pdf.PdfRenderer
 import android.os.ParcelFileDescriptor
 import com.propdf.viewer.cache.PageCacheManager
@@ -21,11 +20,11 @@ import kotlinx.coroutines.cancel
 import kotlinx.coroutines.ensureActive
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import java.io.File
-import java.util.concurrent.ConcurrentHashMap
 import java.util.concurrent.PriorityBlockingQueue
 import java.util.concurrent.TimeUnit
 import java.util.concurrent.atomic.AtomicInteger
@@ -41,6 +40,15 @@ import kotlin.coroutines.coroutineContext
  * PdfRenderer is not safe to access concurrently. A single render worker drains
  * a priority queue and a lock guards every renderer/page open/render/close
  * critical section. Stale queued requests are discarded when a document changes.
+ *
+ * Features:
+ * - Thread-safe document lifecycle management
+ * - Priority-based render queue (CRITICAL > HIGH > NORMAL > LOW)
+ * - Bitmap pooling for memory efficiency
+ * - Theme rendering (Night, Sepia, High Contrast)
+ * - Thumbnail generation at reduced resolution
+ * - Page size caching for layout calculations
+ * - Automatic stale request cleanup on document change
  */
 class AsyncPageRenderer(
     context: Context,
@@ -48,14 +56,14 @@ class AsyncPageRenderer(
     maxConcurrentRenders: Int = 1
 ) {
     private val renderScope = CoroutineScope(SupervisorJob() + Dispatchers.Default)
-    private val activeJobs = ConcurrentHashMap<RenderKey, Job>()
+    private val activeJobs = java.util.concurrent.ConcurrentHashMap<RenderKey, Job>()
     private val renderQueue = PriorityBlockingQueue<QueuedRenderRequest>()
     private val sequence = AtomicLong(0L)
     private val generation = AtomicInteger(0)
     private val rendererLock = ReentrantLock()
 
     private val _renderState = MutableStateFlow<RenderState>(RenderState.Idle)
-    val renderState: StateFlow<RenderState> = _renderState
+    val renderState: StateFlow<RenderState> = _renderState.asStateFlow()
 
     private var pdfRenderer: PdfRenderer? = null
     private var parcelFileDescriptor: ParcelFileDescriptor? = null
@@ -66,6 +74,8 @@ class AsyncPageRenderer(
 
     // Bitmap pool for reuse - prevents GC pressure
     private val bitmapPool = BitmapPool(maxSize = 4)
+
+    private val pageSizes = mutableListOf<Pair<Int, Int>>()
 
     data class RenderRequest(
         val pageIndex: Int,
@@ -86,15 +96,38 @@ class AsyncPageRenderer(
         startRenderWorker()
     }
 
+    /**
+     * Opens a PDF document for rendering.
+     * @return Number of pages in the document
+     */
     fun openDocument(file: File): Int = rendererLock.withLock {
         closeDocumentLocked()
         parcelFileDescriptor = ParcelFileDescriptor.open(file, ParcelFileDescriptor.MODE_READ_ONLY)
         pdfRenderer = PdfRenderer(parcelFileDescriptor!!)
         pageCount = pdfRenderer?.pageCount ?: 0
+
+        // Cache page sizes for layout calculations
+        pageSizes.clear()
+        pdfRenderer?.let { renderer ->
+            for (i in 0 until renderer.pageCount) {
+                renderer.openPage(i).use { page ->
+                    pageSizes.add(page.width to page.height)
+                }
+            }
+        }
+
         generation.incrementAndGet()
         pageCount
     }
 
+    /**
+     * Returns cached page sizes for layout calculations.
+     */
+    fun getPageSizes(): List<Pair<Int, Int>> = pageSizes.toList()
+
+    /**
+     * Closes the current document and cancels all pending renders.
+     */
     fun closeDocument() {
         activeJobs.values.forEach { it.cancel() }
         activeJobs.clear()
@@ -106,6 +139,9 @@ class AsyncPageRenderer(
         _renderState.value = RenderState.Idle
     }
 
+    /**
+     * Queues a page for rendering. Higher priority requests are processed first.
+     */
     fun requestRender(request: RenderRequest) {
         if (request.pageIndex < 0 || request.width <= 0 || request.height <= 0) return
 
@@ -121,6 +157,9 @@ class AsyncPageRenderer(
         )
     }
 
+    /**
+     * Cancels rendering for a specific page.
+     */
     fun cancelRender(pageIndex: Int) {
         RenderKey(pageIndex, false).also { key ->
             activeJobs[key]?.cancel()
@@ -133,6 +172,44 @@ class AsyncPageRenderer(
         renderQueue.removeIf { it.request.pageIndex == pageIndex }
     }
 
+    /**
+     * Renders a thumbnail synchronously for the thumbnail sidebar.
+     * Uses bitmap pooling for memory efficiency.
+     */
+    fun renderThumbnail(pageIndex: Int, maxWidth: Int): Bitmap? {
+        if (pageIndex < 0 || pageIndex >= pageCount) return null
+
+        return rendererLock.withLock {
+            try {
+                val renderer = pdfRenderer ?: return@withLock null
+                val (pageWidth, pageHeight) = pageSizes.getOrNull(pageIndex) ?: (1 to 1)
+
+                val scale = maxWidth.toFloat() / pageWidth.coerceAtLeast(1)
+                val thumbWidth = maxWidth
+                val thumbHeight = (pageHeight * scale).toInt().coerceAtLeast(1)
+
+                val bitmap = bitmapPool.acquire(thumbWidth, thumbHeight)
+                    ?: Bitmap.createBitmap(thumbWidth, thumbHeight, Bitmap.Config.ARGB_8888)
+
+                bitmap.eraseColor(backgroundColorForTheme(currentTheme))
+                val canvas = Canvas(bitmap)
+
+                renderer.openPage(pageIndex).use { page ->
+                    val renderRect = Rect(0, 0, thumbWidth, thumbHeight)
+                    page.render(bitmap, renderRect, null, PdfRenderer.Page.RENDER_MODE_FOR_DISPLAY)
+                }
+
+                applyThemeFilter(canvas, thumbWidth, thumbHeight)
+                bitmap
+            } catch (e: Exception) {
+                null
+            }
+        }
+    }
+
+    /**
+     * Sets the current rendering theme (Light, Dark, Night, Sepia, High Contrast).
+     */
     fun setTheme(theme: ViewerTheme) {
         currentTheme = theme
         when (theme) {
@@ -242,6 +319,9 @@ class AsyncPageRenderer(
                         val destRect = Rect(offsetX, offsetY, offsetX + scaledWidth, offsetY + scaledHeight)
 
                         coroutineContext.ensureActive()
+
+                        page.render(bitmap, destRect, null, PdfRenderer.Page.RENDER_MODE_FOR_DISPLAY)
+
                         val themePaint = when (currentTheme) {
                             ViewerTheme.NIGHT, ViewerTheme.HIGH_CONTRAST -> nightModePaint
                             ViewerTheme.SEPIA -> sepiaPaint
@@ -249,22 +329,12 @@ class AsyncPageRenderer(
                         }
 
                         if (themePaint != null) {
-                            val tempBitmap = bitmapPool.acquire(scaledWidth, scaledHeight)
-                                ?: Bitmap.createBitmap(scaledWidth, scaledHeight, Bitmap.Config.ARGB_8888)
-                            try {
-                                tempBitmap.eraseColor(Color.WHITE)
-                                page.render(tempBitmap, null, null, PdfRenderer.Page.RENDER_MODE_FOR_DISPLAY)
-                                canvas.drawBitmap(tempBitmap, null, destRect.toRectF(), themePaint)
-                            } finally {
-                                bitmapPool.release(tempBitmap)
-                            }
-                        } else {
-                            page.render(bitmap, destRect, null, PdfRenderer.Page.RENDER_MODE_FOR_DISPLAY)
+                            canvas.drawRect(0f, 0f, bitmap.width.toFloat(), bitmap.height.toFloat(), themePaint)
                         }
-                        coroutineContext.ensureActive()
-                        bitmap
-                    } catch (e: Throwable) {
-                        bitmapPool.release(bitmap)
+
+                        return@withContext bitmap
+                    } catch (e: Exception) {
+                        if (!bitmap.isRecycled) bitmap.recycle()
                         throw e
                     }
                 }
@@ -272,27 +342,22 @@ class AsyncPageRenderer(
         }
 
     private fun backgroundColorForTheme(theme: ViewerTheme): Int = when (theme) {
-        ViewerTheme.DARK, ViewerTheme.NIGHT, ViewerTheme.HIGH_CONTRAST -> Color.BLACK
-        ViewerTheme.SEPIA -> Color.rgb(244, 236, 216)
         ViewerTheme.LIGHT -> Color.WHITE
+        ViewerTheme.DARK -> Color.parseColor("#121212")
+        ViewerTheme.NIGHT -> Color.parseColor("#000000")
+        ViewerTheme.SEPIA -> Color.parseColor("#F4ECD8")
+        ViewerTheme.HIGH_CONTRAST -> Color.BLACK
     }
 
-    private fun Rect.toRectF(): RectF = RectF(
-        left.toFloat(), top.toFloat(), right.toFloat(), bottom.toFloat()
-    )
-
-    fun getPageCount(): Int = pageCount
-
-    fun getPageSize(pageIndex: Int): Pair<Int, Int>? = rendererLock.withLock {
-        val renderer = pdfRenderer ?: return null
-        if (pageIndex !in 0 until renderer.pageCount) return null
-        renderer.openPage(pageIndex).use { page -> page.width to page.height }
-    }
-
-    fun release() {
-        closeDocument()
-        bitmapPool.clear()
-        renderScope.cancel()
+    private fun applyThemeFilter(canvas: Canvas, width: Int, height: Int) {
+        val paint = when (currentTheme) {
+            ViewerTheme.NIGHT, ViewerTheme.HIGH_CONTRAST -> nightModePaint
+            ViewerTheme.SEPIA -> sepiaPaint
+            else -> null
+        }
+        paint?.let {
+            canvas.drawRect(0f, 0f, width.toFloat(), height.toFloat(), it)
+        }
     }
 
     private fun closeDocumentLocked() {
@@ -300,9 +365,15 @@ class AsyncPageRenderer(
         pdfRenderer = null
         parcelFileDescriptor?.close()
         parcelFileDescriptor = null
-        pageCount = 0
+        pageSizes.clear()
     }
 
+    fun release() {
+        closeDocument()
+        renderScope.cancel()
+    }
+
+    // Inner classes
     private data class RenderKey(val pageIndex: Int, val isThumbnail: Boolean)
 
     private data class QueuedRenderRequest(
@@ -310,45 +381,64 @@ class AsyncPageRenderer(
         val generation: Int,
         val sequence: Long
     ) : Comparable<QueuedRenderRequest> {
-        val key: RenderKey = RenderKey(request.pageIndex, request.isThumbnail)
+        val key = RenderKey(request.pageIndex, request.isThumbnail)
 
         override fun compareTo(other: QueuedRenderRequest): Int {
             val priorityCompare = other.request.priority.ordinal.compareTo(request.priority.ordinal)
-            return if (priorityCompare != 0) priorityCompare else sequence.compareTo(other.sequence)
+            if (priorityCompare != 0) return priorityCompare
+            return sequence.compareTo(other.sequence)
         }
     }
 
     /**
-     * Bitmap pool for reusing bitmap memory and reducing GC pressure.
+     * Simple bitmap pool for reuse to prevent GC pressure during rapid scrolling.
      */
-    private class BitmapPool(private val maxSize: Int) {
-        private val lock = ReentrantLock()
-        private val pool = ArrayDeque<Bitmap>()
+    class BitmapPool(private val maxSize: Int) {
+        private val pool = mutableListOf<Bitmap>()
 
-        fun acquire(width: Int, height: Int): Bitmap? = lock.withLock {
-            val iterator = pool.iterator()
-            while (iterator.hasNext()) {
-                val bitmap = iterator.next()
-                if (!bitmap.isRecycled && bitmap.width == width && bitmap.height == height) {
-                    iterator.remove()
-                    return bitmap
+        fun acquire(width: Int, height: Int): Bitmap? {
+            synchronized(pool) {
+                val iterator = pool.iterator()
+                while (iterator.hasNext()) {
+                    val bitmap = iterator.next()
+                    if (!bitmap.isRecycled && bitmap.width == width && bitmap.height == height) {
+                        iterator.remove()
+                        return bitmap
+                    }
                 }
             }
-            null
+            return null
         }
 
-        fun release(bitmap: Bitmap) = lock.withLock {
-            if (!bitmap.isRecycled && pool.size < maxSize) {
-                bitmap.eraseColor(Color.TRANSPARENT)
-                pool.addLast(bitmap)
-            } else if (!bitmap.isRecycled) {
-                bitmap.recycle()
+        fun release(bitmap: Bitmap) {
+            if (bitmap.isRecycled) return
+            synchronized(pool) {
+                if (pool.size < maxSize) {
+                    pool.add(bitmap)
+                } else {
+                    bitmap.recycle()
+                }
             }
         }
 
-        fun clear() = lock.withLock {
-            pool.forEach { bitmap -> if (!bitmap.isRecycled) bitmap.recycle() }
-            pool.clear()
+        fun releaseSync(bitmap: Bitmap) {
+            release(bitmap)
+        }
+
+        fun trim(percent: Float) {
+            synchronized(pool) {
+                val targetSize = (pool.size * (1 - percent)).toInt()
+                while (pool.size > targetSize) {
+                    pool.removeFirstOrNull()?.recycle()
+                }
+            }
+        }
+
+        fun clear() {
+            synchronized(pool) {
+                pool.forEach { it.recycle() }
+                pool.clear()
+            }
         }
     }
 }
