@@ -11,6 +11,7 @@ import androidx.activity.viewModels
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Build
 import androidx.compose.material.icons.filled.Description
 import androidx.compose.material.icons.filled.Folder
 import androidx.compose.material.icons.filled.Home
@@ -25,6 +26,7 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.navigation.NavDestination.Companion.hierarchy
 import androidx.navigation.NavGraph.Companion.findStartDestination
 import androidx.navigation.compose.NavHost
@@ -40,6 +42,8 @@ import com.propdf.editor.ui.theme.ProPDFTheme
 import com.propdf.editor.ui.tools.ToolsScreen
 import com.propdf.editor.ui.viewer.PdfViewerScreen
 import dagger.hilt.android.AndroidEntryPoint
+
+data class BottomNavItem(val route: String, val label: String, val icon: ImageVector)
 
 @AndroidEntryPoint
 class MainActivity : ComponentActivity() {
@@ -57,17 +61,18 @@ class MainActivity : ComponentActivity() {
                     val navController = rememberNavController()
 
                     val pdfPickerLauncher = rememberLauncherForActivityResult(
-                        contract = ActivityResultContracts.OpenDocument()
+                        ActivityResultContracts.OpenDocument()
                     ) { uri: Uri? ->
                         if (uri != null) {
                             contentResolver.takePersistableUriPermission(
                                 uri, Intent.FLAG_GRANT_READ_URI_PERMISSION
                             )
+                            // Records to recent files AND fires OpenPdf event
                             viewModel.openPdf(uri)
                         }
                     }
 
-                    // Handle ViewModel events
+                    // Handle ViewModel navigation events
                     LaunchedEffect(Unit) {
                         viewModel.events.collect { event ->
                             when (event) {
@@ -89,18 +94,17 @@ class MainActivity : ComponentActivity() {
                         }
                     }
 
-                    // Bottom nav destinations
                     val bottomNavItems = listOf(
                         BottomNavItem("home", "Home", Icons.Default.Home),
                         BottomNavItem("files", "Files", Icons.Default.Folder),
                         BottomNavItem("recent", "Recent", Icons.Default.Description),
+                        BottomNavItem("tools", "Tools", Icons.Default.Build),
                         BottomNavItem("settings", "Settings", Icons.Default.Settings)
                     )
 
-                    // Only show bottom nav on top-level routes
                     val navBackStackEntry by navController.currentBackStackEntryAsState()
                     val currentRoute = navBackStackEntry?.destination?.route
-                    val showBottomBar = currentRoute in bottomNavItems.map { it.route }
+                    val showBottomBar = bottomNavItems.any { it.route == currentRoute }
 
                     Scaffold(
                         bottomBar = {
@@ -108,10 +112,10 @@ class MainActivity : ComponentActivity() {
                                 NavigationBar {
                                     bottomNavItems.forEach { item ->
                                         NavigationBarItem(
-                                            icon = { Icon(item.icon, contentDescription = item.label) },
+                                            icon = { Icon(item.icon, item.label) },
                                             label = { Text(item.label) },
-                                            selected = navBackStackEntry?.destination?.hierarchy
-                                                ?.any { it.route == item.route } == true,
+                                            selected = navBackStackEntry?.destination
+                                                ?.hierarchy?.any { it.route == item.route } == true,
                                             onClick = {
                                                 navController.navigate(item.route) {
                                                     popUpTo(navController.graph.findStartDestination().id) {
@@ -158,21 +162,21 @@ class MainActivity : ComponentActivity() {
                             composable("settings") {
                                 SettingsScreen(navController = navController)
                             }
+                            composable("viewer/{uri}") { backStackEntry ->
+                                val encodedUri = backStackEntry.arguments?.getString("uri") ?: ""
+                                val decodedUri = Uri.decode(encodedUri)
+                                PdfViewerScreen(
+                                    uri = decodedUri,
+                                    onBack = { navController.popBackStack() }
+                                )
+                            }
                             composable("scanner") {
-                                // Scanner is a traditional Activity — navigate back and launch it
                                 LaunchedEffect(Unit) {
                                     navController.popBackStack()
                                     startActivity(
                                         Intent(this@MainActivity, DocumentScannerActivity::class.java)
                                     )
                                 }
-                            }
-                            composable("viewer/{uri}") { backStackEntry ->
-                                val encodedUri = backStackEntry.arguments?.getString("uri") ?: ""
-                                PdfViewerScreen(
-                                    uri = Uri.decode(encodedUri),
-                                    onBack = { navController.popBackStack() }
-                                )
                             }
                         }
                     }
@@ -181,9 +185,3 @@ class MainActivity : ComponentActivity() {
         }
     }
 }
-
-data class BottomNavItem(
-    val route: String,
-    val label: String,
-    val icon: androidx.compose.ui.graphics.vector.ImageVector
-)
