@@ -21,6 +21,7 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
@@ -33,6 +34,7 @@ import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableFloatStateOf
 import androidx.compose.runtime.mutableStateOf
@@ -45,6 +47,10 @@ import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.viewinterop.AndroidView
+import androidx.hilt.navigation.compose.hiltViewModel
+import com.propdf.annotations.ui.AnnotationOverlay
+import com.propdf.annotations.ui.AnnotationToolbar
+import com.propdf.annotations.ui.AnnotationViewModel
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import java.io.File
@@ -52,19 +58,38 @@ import java.io.FileOutputStream
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun PdfViewerScreen(uri: String, onBack: () -> Unit) {
+fun PdfViewerScreen(
+    uri: String,
+    onBack: () -> Unit,
+    annotationViewModel: AnnotationViewModel = hiltViewModel()
+) {
     val context = LocalContext.current
-    var pageCount by remember { mutableStateOf(0) }
+
+    // PDF rendering state
+    var bitmaps by remember { mutableStateOf<List<Bitmap>>(emptyList()) }
     var isLoading by remember { mutableStateOf(true) }
     var errorMsg by remember { mutableStateOf<String?>(null) }
-    var bitmaps by remember { mutableStateOf<List<Bitmap>>(emptyList()) }
     var pdfRenderer by remember { mutableStateOf<PdfRenderer?>(null) }
     var scale by remember { mutableFloatStateOf(1f) }
-    val fileName = remember(uri) {
-        Uri.parse(uri).lastPathSegment ?: "Document"
+    var showAnnotations by remember { mutableStateOf(false) }
+
+    val fileName = remember(uri) { Uri.parse(uri).lastPathSegment ?: "Document" }
+
+    // Annotation state from ViewModel
+    val currentTool by annotationViewModel.currentTool.collectAsState()
+    val currentColor by annotationViewModel.currentColor.collectAsState()
+    val currentStrokeWidth by annotationViewModel.currentStrokeWidth.collectAsState()
+    val historyManager = remember { annotationViewModel }.let {
+        // Access historyManager via reflection-safe approach - expose via VM
+        null // handled inside toolbar via canUndo/canRedo from VM directly
     }
 
-    // Open and render PDF
+    // Initialize annotation document
+    LaunchedEffect(uri) {
+        annotationViewModel.initializeDocument(uri)
+    }
+
+    // Render PDF pages
     LaunchedEffect(uri) {
         withContext(Dispatchers.IO) {
             try {
@@ -72,18 +97,17 @@ fun PdfViewerScreen(uri: String, onBack: () -> Unit) {
                     ?: throw Exception("Cannot open file")
                 val renderer = PdfRenderer(pfd)
                 pdfRenderer = renderer
-                pageCount = renderer.pageCount
-                val rendered = mutableListOf<Bitmap>()
                 val displayWidth = context.resources.displayMetrics.widthPixels
+                val rendered = mutableListOf<Bitmap>()
                 for (i in 0 until renderer.pageCount) {
                     val page = renderer.openPage(i)
                     val ratio = displayWidth.toFloat() / page.width
-                    val bmpWidth = displayWidth
-                    val bmpHeight = (page.height * ratio).toInt()
-                    val bmp = Bitmap.createBitmap(bmpWidth, bmpHeight, Bitmap.Config.ARGB_8888)
-                    // Fill white background
-                    val canvas = Canvas(bmp)
-                    canvas.drawColor(Color.WHITE)
+                    val bmp = Bitmap.createBitmap(
+                        displayWidth,
+                        (page.height * ratio).toInt(),
+                        Bitmap.Config.ARGB_8888
+                    )
+                    Canvas(bmp).drawColor(Color.WHITE)
                     page.render(bmp, null, null, PdfRenderer.Page.RENDER_MODE_FOR_DISPLAY)
                     page.close()
                     rendered.add(bmp)
@@ -97,7 +121,6 @@ fun PdfViewerScreen(uri: String, onBack: () -> Unit) {
         }
     }
 
-    // Clean up renderer when leaving
     DisposableEffect(Unit) {
         onDispose {
             pdfRenderer?.close()
@@ -111,7 +134,19 @@ fun PdfViewerScreen(uri: String, onBack: () -> Unit) {
                 title = { Text(fileName, maxLines = 1) },
                 navigationIcon = {
                     IconButton(onClick = onBack) {
-                        Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back")
+                        Icon(Icons.AutoMirrored.Filled.ArrowBack, "Back")
+                    }
+                },
+                actions = {
+                    IconButton(onClick = { showAnnotations = !showAnnotations }) {
+                        Icon(
+                            Icons.Default.Edit,
+                            contentDescription = "Toggle annotations",
+                            tint = if (showAnnotations)
+                                MaterialTheme.colorScheme.primary
+                            else
+                                MaterialTheme.colorScheme.onSurface
+                        )
                     }
                 },
                 colors = TopAppBarDefaults.topAppBarColors(
@@ -120,52 +155,93 @@ fun PdfViewerScreen(uri: String, onBack: () -> Unit) {
             )
         }
     ) { padding ->
-        Box(
+        Column(
             modifier = Modifier
                 .fillMaxSize()
                 .padding(padding)
-                .background(MaterialTheme.colorScheme.surfaceVariant)
         ) {
-            when {
-                isLoading -> {
-                    CircularProgressIndicator(modifier = Modifier.align(Alignment.Center))
-                }
-                errorMsg != null -> {
-                    Column(modifier = Modifier.align(Alignment.Center).padding(24.dp)) {
-                        Text(
-                            text = errorMsg ?: "Unknown error",
-                            style = MaterialTheme.typography.bodyLarge,
-                            color = MaterialTheme.colorScheme.error
-                        )
-                    }
-                }
-                bitmaps.isNotEmpty() -> {
-                    LazyColumn(
-                        modifier = Modifier
-                            .fillMaxSize()
-                            .pointerInput(Unit) {
-                                detectTransformGestures { _, _, zoom, _ ->
-                                    scale = (scale * zoom).coerceIn(0.5f, 4f)
-                                }
-                            }
-                    ) {
-                        itemsIndexed(bitmaps) { index, bitmap ->
-                            AndroidView(
-                                factory = { ctx ->
-                                    ImageView(ctx).apply {
-                                        scaleType = ImageView.ScaleType.FIT_CENTER
-                                        adjustViewBounds = true
+            // Annotation toolbar — shown when pencil icon is active
+            if (showAnnotations) {
+                AnnotationToolbar(
+                    currentTool = currentTool,
+                    onToolSelected = { annotationViewModel.setTool(it) },
+                    currentColor = currentColor,
+                    onColorSelected = { annotationViewModel.setColor(it) },
+                    currentStrokeWidth = currentStrokeWidth,
+                    onStrokeWidthChanged = { annotationViewModel.setStrokeWidth(it) },
+                    historyManager = annotationViewModel.historyManager,
+                    onUndo = { annotationViewModel.undo() },
+                    onRedo = { annotationViewModel.redo() }
+                )
+            }
+
+            // PDF content area
+            Box(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .background(MaterialTheme.colorScheme.surfaceVariant)
+            ) {
+                when {
+                    isLoading -> CircularProgressIndicator(
+                        modifier = Modifier.align(Alignment.Center)
+                    )
+                    errorMsg != null -> Text(
+                        text = errorMsg ?: "",
+                        modifier = Modifier.align(Alignment.Center).padding(24.dp),
+                        color = MaterialTheme.colorScheme.error,
+                        style = MaterialTheme.typography.bodyLarge
+                    )
+                    bitmaps.isNotEmpty() -> {
+                        LazyColumn(
+                            modifier = Modifier
+                                .fillMaxSize()
+                                .pointerInput(Unit) {
+                                    detectTransformGestures { _, _, zoom, _ ->
+                                        scale = (scale * zoom).coerceIn(0.5f, 4f)
                                     }
-                                },
-                                update = { view ->
-                                    view.setImageBitmap(bitmap)
-                                },
-                                modifier = Modifier
-                                    .fillMaxWidth()
-                                    .graphicsLayer(scaleX = scale, scaleY = scale)
-                            )
-                            if (index < bitmaps.lastIndex) {
-                                Spacer(modifier = Modifier.height(4.dp))
+                                }
+                        ) {
+                            itemsIndexed(bitmaps) { index, bitmap ->
+                                Box(
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .graphicsLayer(scaleX = scale, scaleY = scale)
+                                ) {
+                                    // PDF page image
+                                    AndroidView(
+                                        factory = { ctx ->
+                                            ImageView(ctx).apply {
+                                                scaleType = ImageView.ScaleType.FIT_CENTER
+                                                adjustViewBounds = true
+                                            }
+                                        },
+                                        update = { view -> view.setImageBitmap(bitmap) },
+                                        modifier = Modifier.fillMaxWidth()
+                                    )
+
+                                    // Annotation overlay on top of each page
+                                    if (showAnnotations) {
+                                        AnnotationOverlay(
+                                            pageIndex = index,
+                                            layerManager = annotationViewModel.layerManager,
+                                            currentTool = currentTool,
+                                            currentColor = currentColor,
+                                            currentStrokeWidth = currentStrokeWidth,
+                                            onAnnotationCreated = { annotation ->
+                                                annotationViewModel.createAnnotation(annotation)
+                                            },
+                                            onAnnotationSelected = { annotation ->
+                                                annotation?.let {
+                                                    annotationViewModel.selectAnnotation(it)
+                                                } ?: annotationViewModel.deselectAll()
+                                            },
+                                            modifier = Modifier.matchParentSize()
+                                        )
+                                    }
+                                }
+                                if (index < bitmaps.lastIndex) {
+                                    Spacer(modifier = Modifier.height(4.dp))
+                                }
                             }
                         }
                     }
@@ -175,23 +251,18 @@ fun PdfViewerScreen(uri: String, onBack: () -> Unit) {
     }
 }
 
-/** Opens a ParcelFileDescriptor for both content:// and file:// URIs */
 private fun openParcelFileDescriptor(context: Context, uri: Uri): ParcelFileDescriptor? {
     return when (uri.scheme) {
         "content" -> {
-            // Copy to a temp file so PdfRenderer can seek
             val tmp = File(context.cacheDir, "pdf_view_${System.currentTimeMillis()}.pdf")
             context.contentResolver.openInputStream(uri)?.use { input ->
                 FileOutputStream(tmp).use { output -> input.copyTo(output) }
             }
             ParcelFileDescriptor.open(tmp, ParcelFileDescriptor.MODE_READ_ONLY)
         }
-        "file" -> {
-            ParcelFileDescriptor.open(
-                File(uri.path ?: return null),
-                ParcelFileDescriptor.MODE_READ_ONLY
-            )
-        }
+        "file" -> ParcelFileDescriptor.open(
+            File(uri.path ?: return null), ParcelFileDescriptor.MODE_READ_ONLY
+        )
         else -> null
     }
 }
