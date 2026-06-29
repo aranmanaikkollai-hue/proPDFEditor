@@ -1,7 +1,7 @@
 package com.propdf.viewer.model
 
 /**
- * PDF viewer layout modes.
+ * PDF viewer display modes.
  */
 enum class ViewMode {
     SINGLE_PAGE_VERTICAL,
