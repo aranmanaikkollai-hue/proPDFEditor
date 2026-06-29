@@ -1,7 +1,7 @@
 package com.propdf.viewer.model
 
 /**
- * Zoom behavior modes.
+ * PDF zoom modes.
  */
 enum class ZoomMode {
     FIT_WIDTH,
