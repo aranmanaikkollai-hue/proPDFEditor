@@ -4,6 +4,7 @@ import android.graphics.RectF
 import androidx.compose.ui.graphics.Color
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.propdf.annotations.export.PdfAnnotationExporter
 import com.propdf.annotations.history.HistoryManager
 import com.propdf.annotations.layers.LayerManager
 import com.propdf.annotations.model.*
@@ -12,11 +13,16 @@ import com.propdf.annotations.persistence.AnnotationRepository
 import com.propdf.annotations.transform.AnnotationTransformer
 import com.propdf.annotations.transform.SelectionTool
 import dagger.hilt.android.lifecycle.HiltViewModel
+import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.SharedFlow
 import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.asSharedFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
+import java.io.File
 import javax.inject.Inject
 
 /**
@@ -28,7 +34,8 @@ class AnnotationViewModel @Inject constructor(
     private val repository: AnnotationRepository,
     val layerManager: LayerManager,
     val historyManager: HistoryManager,
-    private val transformer: AnnotationTransformer
+    private val transformer: AnnotationTransformer,
+    private val pdfExporter: PdfAnnotationExporter
 ) : ViewModel() {
 
     // Tool state
@@ -63,6 +70,7 @@ class AnnotationViewModel @Inject constructor(
     val currentDocumentId: StateFlow<String?> = _currentDocumentId.asStateFlow()
 
     private val _currentDocumentPath = MutableStateFlow<String>("")
+    val currentDocumentPath: StateFlow<String> = _currentDocumentPath.asStateFlow()
 
     // UI state
     private val _showAnnotationList = MutableStateFlow(false)
@@ -74,8 +82,15 @@ class AnnotationViewModel @Inject constructor(
     private val _isLoading = MutableStateFlow(false)
     val isLoading: StateFlow<Boolean> = _isLoading.asStateFlow()
 
+    private val _isExporting = MutableStateFlow(false)
+    val isExporting: StateFlow<Boolean> = _isExporting.asStateFlow()
+
     private val _errorMessage = MutableStateFlow<String?>(null)
     val errorMessage: StateFlow<String?> = _errorMessage.asStateFlow()
+
+    // One-shot events for UI feedback (Snackbars, toasts), e.g. "Saved", "Exported to ..."
+    private val _saveEvent = MutableSharedFlow<SaveEvent>(extraBufferCapacity = 4)
+    val saveEvent: SharedFlow<SaveEvent> = _saveEvent.asSharedFlow()
 
     // Exposed managers
     val layers = layerManager.layers
@@ -89,6 +104,16 @@ class AnnotationViewModel @Inject constructor(
 
     // ==================== Initialization ====================
 
+    /**
+     * Loads any previously saved annotations for this document into the active layer.
+     *
+     * This is a ONE-SHOT load (repository.getAnnotationsForDocument(...).first()), not an
+     * ongoing subscription. Room's DAO query is a Flow that re-emits on every write to the
+     * annotations table -- including the writes this ViewModel itself performs via
+     * saveAnnotations(). Collecting it with `.collect { }` would re-run on every autosave and
+     * re-add every already-loaded annotation into the layer again, duplicating them and never
+     * completing (which also left `_isLoading` stuck at true forever).
+     */
     fun initializeDocument(documentId: String, documentPath: String = "") {
         _currentDocumentId.value = documentId
         _currentDocumentPath.value = documentPath
@@ -96,10 +121,9 @@ class AnnotationViewModel @Inject constructor(
             _isLoading.value = true
             try {
                 layerManager.createLayer("Default")
-                repository.getAnnotationsForDocument(documentId).collect { annotations ->
-                    annotations.forEach { annotation ->
-                        layerManager.getActiveLayer()?.addAnnotation(annotation)
-                    }
+                val existing = repository.getAnnotationsForDocument(documentId).first()
+                existing.forEach { annotation ->
+                    layerManager.getActiveLayer()?.addAnnotation(annotation)
                 }
             } catch (e: Exception) {
                 _errorMessage.value = "Failed to load annotations: ${e.message}"
@@ -107,6 +131,15 @@ class AnnotationViewModel @Inject constructor(
                 _isLoading.value = false
             }
         }
+    }
+
+    /**
+     * Updates the on-disk path for the current document (e.g. once a content:// URI has been
+     * resolved to a local cache file). Needed for export/flatten/burn, which operate on a real
+     * File, not a content URI.
+     */
+    fun setDocumentPath(path: String) {
+        _currentDocumentPath.value = path
     }
 
     // ==================== Tool Management ====================
@@ -122,7 +155,6 @@ class AnnotationViewModel @Inject constructor(
 
     fun setColor(color: Color) {
         _currentColor.update { color }
-        // Update selected annotations' color immediately
         if (selectionTool.hasSelection) {
             changeSelectedColor(color)
         }
@@ -203,7 +235,7 @@ class AnnotationViewModel @Inject constructor(
             text = text,
             rect = rect,
             color = colorInt,
-            fontSize = _currentStrokeWidth.value * 3 // Scale font with stroke width
+            fontSize = _currentStrokeWidth.value * 3
         )
         createAnnotation(annotation)
     }
@@ -416,61 +448,153 @@ class AnnotationViewModel @Inject constructor(
         return layerManager.getAnnotationsForPage(pageIndex)
     }
 
-    // ==================== Export/Import ====================
+    // ==================== Export/Import (annotation data as JSON) ====================
 
-    fun exportAnnotations(outputFile: java.io.File) {
+    fun exportAnnotations(outputFile: File) {
         viewModelScope.launch {
-            _isLoading.value = true
+            _isExporting.value = true
             try {
-                val docId = _currentDocumentId.value ?: return@launch
-                repository.exportToJson(docId, outputFile)
+                val docId = _currentDocumentId.value
+                if (docId == null) {
+                    _saveEvent.emit(SaveEvent.Failure("No document loaded yet"))
+                    return@launch
+                }
+                val success = repository.exportToJson(docId, outputFile)
+                _saveEvent.emit(
+                    if (success) SaveEvent.ExportSuccess(outputFile.absolutePath)
+                    else SaveEvent.Failure("Export failed")
+                )
             } catch (e: Exception) {
                 _errorMessage.value = "Export failed: ${e.message}"
+                _saveEvent.emit(SaveEvent.Failure(e.message ?: "Export failed"))
             } finally {
-                _isLoading.value = false
+                _isExporting.value = false
             }
         }
     }
 
-    fun importAnnotations(jsonFile: java.io.File) {
+    fun importAnnotations(jsonFile: File) {
         viewModelScope.launch {
-            _isLoading.value = true
+            _isExporting.value = true
             try {
-                val docId = _currentDocumentId.value ?: return@launch
+                val docId = _currentDocumentId.value
+                if (docId == null) {
+                    _saveEvent.emit(SaveEvent.Failure("No document loaded yet"))
+                    return@launch
+                }
                 val imported = repository.importFromJson(docId, _currentDocumentPath.value, jsonFile)
                 imported.forEach { annotation ->
                     layerManager.getActiveLayer()?.addAnnotation(annotation)
                 }
                 saveAnnotations()
+                _saveEvent.emit(SaveEvent.Success(imported.size))
             } catch (e: Exception) {
                 _errorMessage.value = "Import failed: ${e.message}"
+                _saveEvent.emit(SaveEvent.Failure(e.message ?: "Import failed"))
             } finally {
-                _isLoading.value = false
+                _isExporting.value = false
+            }
+        }
+    }
+
+    // ==================== Flatten / Burn (produce a new PDF) ====================
+
+    /**
+     * Bakes annotations into the PDF as native, non-editable PDF graphics
+     * (annotations remain vector, page content is still searchable/selectable).
+     */
+    fun flattenAnnotations(outputFile: File) {
+        viewModelScope.launch {
+            val inputPath = _currentDocumentPath.value
+            val docId = _currentDocumentId.value
+            if (inputPath.isBlank() || docId == null) {
+                _saveEvent.emit(SaveEvent.Failure("Document is still loading, please wait"))
+                return@launch
+            }
+            _isExporting.value = true
+            try {
+                val success = pdfExporter.flattenAnnotations(File(inputPath), outputFile, docId)
+                _saveEvent.emit(
+                    if (success) SaveEvent.ExportSuccess(outputFile.absolutePath)
+                    else SaveEvent.Failure("Flatten failed")
+                )
+            } catch (e: Exception) {
+                _saveEvent.emit(SaveEvent.Failure(e.message ?: "Flatten failed"))
+            } finally {
+                _isExporting.value = false
+            }
+        }
+    }
+
+    /**
+     * Rasterizes each page (with annotations baked in) into a flat image-based PDF.
+     * Use for final, guaranteed non-editable output.
+     */
+    fun burnAnnotationsIntoPdf(outputFile: File, dpi: Int = 300) {
+        viewModelScope.launch {
+            val inputPath = _currentDocumentPath.value
+            val docId = _currentDocumentId.value
+            if (inputPath.isBlank() || docId == null) {
+                _saveEvent.emit(SaveEvent.Failure("Document is still loading, please wait"))
+                return@launch
+            }
+            _isExporting.value = true
+            try {
+                val success = pdfExporter.burnAnnotationsIntoPdf(File(inputPath), outputFile, docId, dpi)
+                _saveEvent.emit(
+                    if (success) SaveEvent.ExportSuccess(outputFile.absolutePath)
+                    else SaveEvent.Failure("Burn failed")
+                )
+            } catch (e: Exception) {
+                _saveEvent.emit(SaveEvent.Failure(e.message ?: "Burn failed"))
+            } finally {
+                _isExporting.value = false
             }
         }
     }
 
     // ==================== Persistence ====================
 
-    private fun saveAnnotations() {
-        val docId = _currentDocumentId.value ?: return
+    /**
+     * Persists the current in-memory annotation state to the database.
+     * Called automatically (silently) after every mutation, and explicitly
+     * (with UI feedback) when the user taps Save.
+     */
+    private fun saveAnnotations(notifyUser: Boolean = false) {
+        val docId = _currentDocumentId.value ?: run {
+            if (notifyUser) {
+                viewModelScope.launch { _saveEvent.emit(SaveEvent.Failure("No document loaded yet")) }
+            }
+            return
+        }
         val docPath = _currentDocumentPath.value
         viewModelScope.launch {
             try {
                 val allAnnotations = layerManager.getAllAnnotations()
                 repository.saveAnnotations(docId, docPath, allAnnotations)
+                if (notifyUser) _saveEvent.emit(SaveEvent.Success(allAnnotations.size))
             } catch (e: Exception) {
                 _errorMessage.value = "Save failed: ${e.message}"
+                if (notifyUser) _saveEvent.emit(SaveEvent.Failure(e.message ?: "Save failed"))
             }
         }
     }
 
+    /** Explicit, user-triggered save with UI feedback (Save button). */
     fun forceSave() {
-        historyManager.forceSave()
+        saveAnnotations(notifyUser = true)
     }
 
     fun clearError() {
         _errorMessage.value = null
+    }
+
+    // ==================== Save/Export Events ====================
+
+    sealed class SaveEvent {
+        data class Success(val annotationCount: Int) : SaveEvent()
+        data class ExportSuccess(val path: String) : SaveEvent()
+        data class Failure(val message: String) : SaveEvent()
     }
 
     // ==================== Annotation Tool Enum ====================
