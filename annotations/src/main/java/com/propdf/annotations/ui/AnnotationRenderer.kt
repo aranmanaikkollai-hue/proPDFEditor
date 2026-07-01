@@ -17,6 +17,7 @@ import androidx.compose.ui.graphics.drawscope.DrawScope
 import androidx.compose.ui.graphics.drawscope.Fill
 import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.graphics.drawscope.drawIntoCanvas
+import androidx.compose.ui.graphics.nativeCanvas
 import com.propdf.annotations.model.*
 import com.propdf.annotations.model.Annotation
 import kotlin.math.*
@@ -468,7 +469,7 @@ class AnnotationRenderer {
                 textSize = annotation.fontSize * pageScale
                 isAntiAlias = true
                 typeface = when {
-                    annotation.isBold && annotation.isItalic -> Typeface.DEFAULT_BOLD_ITALIC
+                    annotation.isBold && annotation.isItalic -> Typeface.defaultFromStyle(Typeface.BOLD_ITALIC)
                     annotation.isBold -> Typeface.DEFAULT_BOLD
                     annotation.isItalic -> Typeface.defaultFromStyle(Typeface.ITALIC)
                     else -> Typeface.DEFAULT
