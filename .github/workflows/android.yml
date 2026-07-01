@@ -1,4 +1,4 @@
-Name: Android CI
+name: Android CI
 
 on:
   push:
@@ -8,7 +8,6 @@ on:
 
 jobs:
   build:
-
     runs-on: ubuntu-latest
 
     steps:
@@ -24,11 +23,9 @@ jobs:
     - name: Grant execute permission for gradlew
       run: chmod +x gradlew
       
-    # Changed from 'build' to 'assembleDebug' to generate the debug APK
     - name: Build Debug APK
       run: ./gradlew assembleDebug
 
-    # New step to upload and save the APK
     - name: Upload APK Artifact
       uses: actions/upload-artifact@v4
       with:
