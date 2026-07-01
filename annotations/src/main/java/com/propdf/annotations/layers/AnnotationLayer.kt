@@ -1,14 +1,20 @@
 package com.propdf.annotations.layers
 
+import androidx.compose.runtime.mutableStateListOf
 import com.propdf.annotations.model.Annotation
 
 /**
  * A layer containing a group of annotations with z-order control.
+ *
+ * `annotations` is backed by a Compose SnapshotStateList so that in-place
+ * mutations (add/remove/update) are observed by Compose and trigger
+ * recomposition of anything reading it (e.g. the annotation drawing overlay).
+ * A plain MutableList here would silently mutate without notifying the UI.
  */
 data class AnnotationLayer(
     val id: String,
     val name: String,
-    val annotations: MutableList<Annotation> = mutableListOf(),
+    val annotations: MutableList<Annotation> = mutableStateListOf(),
     var isVisible: Boolean = true,
     var isLocked: Boolean = false,
     var opacity: Float = 1.0f,
