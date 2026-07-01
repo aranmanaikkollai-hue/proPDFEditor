@@ -42,6 +42,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.platform.LocalContext
@@ -75,10 +76,9 @@ fun PdfViewerScreen(
 
     val fileName = remember(uri) { Uri.parse(uri).lastPathSegment ?: "Document" }
 
-    // Annotation state from ViewModel
-    val currentTool by annotationViewModel.currentTool.collectAsState()
-    val currentColor by annotationViewModel.currentColor.collectAsState()
-    val currentStrokeWidth by annotationViewModel.currentStrokeWidth.collectAsState()
+    // Per-page PDF point dimensions (needed to map annotation coordinates, which are
+    // stored in PDF point space, to the rendered bitmap's pixel space)
+    var pageSizes by remember { mutableStateOf<List<Pair<Float, Float>>>(emptyList()) }
 
     // Initialize annotation document
     LaunchedEffect(uri) {
@@ -95,6 +95,7 @@ fun PdfViewerScreen(
                 pdfRenderer = renderer
                 val displayWidth = context.resources.displayMetrics.widthPixels
                 val rendered = mutableListOf<Bitmap>()
+                val sizes = mutableListOf<Pair<Float, Float>>()
                 for (i in 0 until renderer.pageCount) {
                     val page = renderer.openPage(i)
                     val ratio = displayWidth.toFloat() / page.width
@@ -105,10 +106,12 @@ fun PdfViewerScreen(
                     )
                     Canvas(bmp).drawColor(Color.WHITE)
                     page.render(bmp, null, null, PdfRenderer.Page.RENDER_MODE_FOR_DISPLAY)
+                    sizes.add(page.width.toFloat() to page.height.toFloat())
                     page.close()
                     rendered.add(bmp)
                 }
                 bitmaps = rendered
+                pageSizes = sizes
                 isLoading = false
             } catch (e: SecurityException) {
                 errorMsg = "Cannot open PDF: permission denied. Please re-select the file using the file picker."
@@ -162,15 +165,7 @@ fun PdfViewerScreen(
             // Annotation toolbar — shown when pencil icon is active
             if (showAnnotations) {
                 AnnotationToolbar(
-                    currentTool = currentTool,
-                    onToolSelected = { annotationViewModel.setTool(it) },
-                    currentColor = currentColor,
-                    onColorSelected = { annotationViewModel.setColor(it) },
-                    currentStrokeWidth = currentStrokeWidth,
-                    onStrokeWidthChanged = { annotationViewModel.setStrokeWidth(it) },
-                    historyManager = annotationViewModel.historyManager,
-                    onUndo = { annotationViewModel.undo() },
-                    onRedo = { annotationViewModel.redo() }
+                    viewModel = annotationViewModel
                 )
             }
 
@@ -220,20 +215,17 @@ fun PdfViewerScreen(
 
                                     // Annotation overlay on top of each page
                                     if (showAnnotations) {
+                                        val pdfSize = pageSizes.getOrNull(index)
+                                        val pdfPageWidth = pdfSize?.first ?: bitmap.width.toFloat()
+                                        val pdfPageHeight = pdfSize?.second ?: bitmap.height.toFloat()
+                                        val renderRatio = if (pdfPageWidth > 0f) bitmap.width.toFloat() / pdfPageWidth else 1f
                                         AnnotationOverlay(
+                                            viewModel = annotationViewModel,
                                             pageIndex = index,
-                                            layerManager = annotationViewModel.layerManager,
-                                            currentTool = currentTool,
-                                            currentColor = currentColor,
-                                            currentStrokeWidth = currentStrokeWidth,
-                                            onAnnotationCreated = { annotation ->
-                                                annotationViewModel.createAnnotation(annotation)
-                                            },
-                                            onAnnotationSelected = { annotation ->
-                                                annotation?.let {
-                                                    annotationViewModel.selectAnnotation(it)
-                                                } ?: annotationViewModel.deselectAll()
-                                            },
+                                            pageWidth = pdfPageWidth,
+                                            pageHeight = pdfPageHeight,
+                                            pageScale = renderRatio * scale,
+                                            pageOffset = Offset.Zero,
                                             modifier = Modifier.matchParentSize()
                                         )
                                     }
