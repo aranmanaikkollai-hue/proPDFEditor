@@ -7,6 +7,7 @@ import android.graphics.Color
 import android.graphics.pdf.PdfRenderer
 import android.net.Uri
 import android.os.ParcelFileDescriptor
+import android.provider.OpenableColumns
 import android.widget.ImageView
 import androidx.compose.foundation.background
 import androidx.compose.foundation.gestures.detectTransformGestures
@@ -74,7 +75,7 @@ fun PdfViewerScreen(
     var scale by remember { mutableFloatStateOf(1f) }
     var showAnnotations by remember { mutableStateOf(false) }
 
-    val fileName = remember(uri) { Uri.parse(uri).lastPathSegment ?: "Document" }
+    val fileName by remember(uri) { mutableStateOf(resolveDisplayName(context, Uri.parse(uri))) }
 
     // Per-page PDF point dimensions (needed to map annotation coordinates, which are
     // stored in PDF point space, to the rendered bitmap's pixel space)
@@ -243,6 +244,36 @@ fun PdfViewerScreen(
 }
 
 /**
+ * Resolves a human-readable display name for a URI.
+ *
+ * For content:// URIs from providers like the Downloads provider (msf:...),
+ * Uri.lastPathSegment returns the provider's raw internal document ID
+ * (e.g. "msf:1000000123"), not the actual filename. Querying
+ * OpenableColumns.DISPLAY_NAME via the ContentResolver gives the real name.
+ */
+private fun resolveDisplayName(context: Context, uri: Uri): String {
+    if (uri.scheme == "content") {
+        try {
+            context.contentResolver.query(uri, arrayOf(OpenableColumns.DISPLAY_NAME), null, null, null)
+                ?.use { cursor ->
+                    val nameIndex = cursor.getColumnIndex(OpenableColumns.DISPLAY_NAME)
+                    if (nameIndex != -1 && cursor.moveToFirst()) {
+                        val name = cursor.getString(nameIndex)
+                        if (!name.isNullOrBlank()) return name
+                    }
+                }
+        } catch (e: Exception) {
+            // Fall through to path-segment fallback below.
+        }
+    }
+    val lastSegment = uri.lastPathSegment
+    return lastSegment
+        ?.substringAfterLast('/')
+        ?.takeIf { it.isNotBlank() && !it.startsWith("msf:") }
+        ?: "Document"
+}
+
+/**
  * Safely opens a ParcelFileDescriptor for a URI, handling the Downloads provider
  * and other content providers that may not support direct PFD opening.
  *
@@ -299,8 +330,6 @@ private fun openParcelFileDescriptorSafe(context: Context, uri: Uri): ParcelFile
             null
         }
     } catch (e: Exception) {
-        // Preserve the most informative error we encountered for the caller's
-        // catch block instead of silently returning null with no context.
         throw lastError ?: e
     }
 }
