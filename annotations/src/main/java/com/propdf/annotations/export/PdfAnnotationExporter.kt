@@ -124,9 +124,12 @@ class PdfAnnotationExporter(
                     // Render PDF page
                     if (i < pdfRenderer.pageCount) {
                         pdfRenderer.openPage(i).use { pdfPage ->
-                            val srcRect = Rect(0, 0, pdfPage.width, pdfPage.height)
-                            val dstRect = Rect(0, 0, bitmapWidth, bitmapHeight)
-                            pdfPage.render(bitmap, srcRect, dstRect, null)
+                            pdfPage.render(
+                                bitmap,
+                                null,
+                                null,
+                                android.graphics.pdf.PdfRenderer.Page.RENDER_MODE_FOR_DISPLAY
+                            )
                         }
                     }
 
@@ -368,7 +371,7 @@ class PdfAnnotationExporter(
                 paint.color = annotation.color
                 paint.textSize = annotation.fontSize * scale
                 paint.typeface = when {
-                    annotation.isBold && annotation.isItalic -> Typeface.DEFAULT_BOLD_ITALIC
+                    annotation.isBold && annotation.isItalic -> Typeface.defaultFromStyle(Typeface.BOLD_ITALIC)
                     annotation.isBold -> Typeface.DEFAULT_BOLD
                     annotation.isItalic -> Typeface.defaultFromStyle(Typeface.ITALIC)
                     else -> Typeface.DEFAULT
