@@ -14,31 +14,32 @@ import javax.inject.Inject
 
 class PdfOperationsRepositoryImpl @Inject constructor() : PdfOperationsRepository {
 
-    override suspend fun merge(request: MergeRequest): AppResult<File> = toAppResult {
-        val outputFile = File(request.outputPath)
+    // ===================== MERGE =====================
+    override suspend fun merge(request: MergeRequest, outputFile: File): AppResult<File> = toAppResult {
         val writer = PdfWriter(outputFile)
         val dest = PdfDocument(writer)
         val merger = PdfMerger(dest)
-        
+
         // Safely convert Uri to File and filter out non-existent files
         request.inputUris.mapNotNull { it.path?.let { p -> File(p) } }.filter { it.exists() }.forEach { f ->
             val src = PdfDocument(PdfReader(f))
             merger.merge(src, 1, src.numberOfPages)
             src.close()
         }
-        
+
         dest.close()
         outputFile
     }
 
-    override suspend fun split(request: SplitRequest): AppResult<List<File>> = toAppResult {
+    // ===================== SPLIT =====================
+    override suspend fun split(request: SplitRequest, outputDir: File): AppResult<List<File>> = toAppResult {
         // Safely extract path from Uri
         val srcFile = File(request.inputUri.path ?: "")
         val src = PdfDocument(PdfReader(srcFile))
         val outputFiles = mutableListOf<File>()
-        
+
         for (i in 1..src.numberOfPages) {
-            val out = File(request.outputDir, "split_$i.pdf")
+            val out = File(outputDir, "split_$i.pdf")
             val writer = PdfWriter(out)
             val dest = PdfDocument(writer)
             val merger = PdfMerger(dest)
@@ -50,27 +51,29 @@ class PdfOperationsRepositoryImpl @Inject constructor() : PdfOperationsRepositor
         outputFiles
     }
 
+    // ===================== DELETE PAGES =====================
     override suspend fun deletePages(inputFile: File, outputFile: File, pages: List<Int>): AppResult<File> = toAppResult {
         val src = PdfDocument(PdfReader(inputFile))
         val writer = PdfWriter(outputFile)
         val dest = PdfDocument(writer)
-        
+
         for (i in 1..src.numberOfPages) {
             if (i !in pages) {
                 dest.addPage(src.getPage(i).copyTo(dest))
             }
         }
-        
+
         src.close()
         dest.close()
         outputFile
     }
 
+    // ===================== ROTATE PAGES =====================
     override suspend fun rotatePage(inputFile: File, outputFile: File, rotations: Map<Int, Float>): AppResult<File> = toAppResult {
         val src = PdfDocument(PdfReader(inputFile))
         val writer = PdfWriter(outputFile)
         val dest = PdfDocument(writer)
-        
+
         for (i in 1..src.numberOfPages) {
             val page = src.getPage(i).copyTo(dest)
             val rotation = rotations[i] ?: rotations[i - 1] ?: 0f
@@ -80,12 +83,13 @@ class PdfOperationsRepositoryImpl @Inject constructor() : PdfOperationsRepositor
             }
             dest.addPage(page)
         }
-        
+
         src.close()
         dest.close()
         outputFile
     }
 
+    // ===================== ADD PAGE NUMBERS =====================
     override suspend fun addPageNumbers(inputFile: File, outputFile: File, config: PageNumberConfig): AppResult<File> = toAppResult {
         val src = PdfDocument(PdfReader(inputFile))
         val writer = PdfWriter(outputFile)
@@ -98,6 +102,7 @@ class PdfOperationsRepositoryImpl @Inject constructor() : PdfOperationsRepositor
         outputFile
     }
 
+    // ===================== ADD HEADER/FOOTER =====================
     override suspend fun addHeaderFooter(inputFile: File, outputFile: File, config: HeaderFooterConfig): AppResult<File> = toAppResult {
         val src = PdfDocument(PdfReader(inputFile))
         val writer = PdfWriter(outputFile)
@@ -110,6 +115,7 @@ class PdfOperationsRepositoryImpl @Inject constructor() : PdfOperationsRepositor
         outputFile
     }
 
+    // ===================== ADD WATERMARK =====================
     override suspend fun addWatermark(inputFile: File, outputFile: File, config: WatermarkConfig): AppResult<File> = toAppResult {
         val src = PdfDocument(PdfReader(inputFile))
         val writer = PdfWriter(outputFile)
@@ -122,6 +128,7 @@ class PdfOperationsRepositoryImpl @Inject constructor() : PdfOperationsRepositor
         outputFile
     }
 
+    // ===================== COMPRESS =====================
     override suspend fun compress(inputFile: File, outputFile: File, config: CompressConfig): AppResult<File> = toAppResult {
         val src = PdfDocument(PdfReader(inputFile))
         val writer = PdfWriter(outputFile)
@@ -135,8 +142,7 @@ class PdfOperationsRepositoryImpl @Inject constructor() : PdfOperationsRepositor
     }
 
     // ===================== STUBBED METHODS =====================
-    // These methods are stubbed to resolve unresolved reference errors (e.g., pageNum, x, y) 
-    // and type mismatches while maintaining interface compliance.
+    // These methods are stubbed to resolve compilation errors while maintaining interface compliance.
     
     override suspend fun imagesToPdf(imageFiles: List<File>, outputFile: File): AppResult<File> = 
         AppResult.Error(Exception("Not implemented"))
