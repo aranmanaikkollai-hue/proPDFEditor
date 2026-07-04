@@ -4,7 +4,7 @@ package com.propdf.core.domain.result
  * Sealed exception hierarchy for ProPDF domain errors.
  * All exceptions are recoverable and contain user-friendly messages.
  */
-sealed class AppException : Exception() {
+sealed class AppException(message: String? = null, cause: Throwable? = null) : Exception(message, cause) {
     data class FileNotFound(override val message: String = "File not found") : AppException()
     data class FileTooLarge(override val message: String) : AppException()
     data class UnsupportedUri(override val message: String) : AppException()
@@ -15,7 +15,14 @@ sealed class AppException : Exception() {
     data class RenderingError(override val message: String) : AppException()
     data class AnnotationError(override val message: String) : AppException()
     data class Unknown(override val message: String = "Unknown error") : AppException()
-    sealed class PdfProcessingError(message: String, cause: Throwable? = null) : AppException(message, cause) {
+}
+
+/**
+ * Errors specific to PDF document processing (page manipulation, rendering pipeline, etc.).
+ * Top-level (not nested under [AppException]) so callers can `import ...PdfProcessingError`
+ * and reference `PdfProcessingError.InvalidPage(...)` directly.
+ */
+sealed class PdfProcessingError(message: String, cause: Throwable? = null) : AppException(message, cause) {
     class InvalidPage(message: String = "Invalid page number", cause: Throwable? = null) : PdfProcessingError(message, cause)
     class CorruptedFile(message: String = "Corrupted PDF file", cause: Throwable? = null) : PdfProcessingError(message, cause)
     class ProcessingFailed(message: String = "PDF processing failed", cause: Throwable? = null) : PdfProcessingError(message, cause)
@@ -23,6 +30,7 @@ sealed class AppException : Exception() {
 
 /** Convert any [Throwable] to the appropriate [AppException]. */
 fun Throwable.toAppException(): AppException = when (this) {
+    is AppException -> this
     is SecurityException -> AppException.SecurityError(message ?: "Permission denied")
     is OutOfMemoryError -> AppException.OutOfMemory()
     is java.io.FileNotFoundException -> AppException.FileNotFound(message ?: "File not found")
