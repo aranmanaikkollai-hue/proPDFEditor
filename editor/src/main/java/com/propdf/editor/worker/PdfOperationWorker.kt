@@ -3,7 +3,6 @@ package com.propdf.editor.worker
 import android.content.Context
 import androidx.hilt.work.HiltWorker
 import androidx.work.CoroutineWorker
-import androidx.work.Data
 import androidx.work.WorkerParameters
 import com.propdf.core.domain.model.*
 import com.propdf.core.domain.repository.PdfOperationsRepository
@@ -100,7 +99,7 @@ class PdfOperationWorker @AssistedInject constructor(
             }
             is AppResult.Error -> {
                 val outputData = Data.Builder()
-                    .putString(KEY_ERROR_MESSAGE, result.exception.message)
+                    .putString(KEY_ERROR_MESSAGE, result.exception.message ?: "Unknown error")
                     .putString("status", "failed")
                     .build()
                 Result.failure(outputData)
