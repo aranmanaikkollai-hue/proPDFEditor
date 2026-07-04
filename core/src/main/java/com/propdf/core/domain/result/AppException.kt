@@ -15,6 +15,10 @@ sealed class AppException : Exception() {
     data class RenderingError(override val message: String) : AppException()
     data class AnnotationError(override val message: String) : AppException()
     data class Unknown(override val message: String = "Unknown error") : AppException()
+    sealed class PdfProcessingError(message: String, cause: Throwable? = null) : AppException(message, cause) {
+    class InvalidPage(message: String = "Invalid page number", cause: Throwable? = null) : PdfProcessingError(message, cause)
+    class CorruptedFile(message: String = "Corrupted PDF file", cause: Throwable? = null) : PdfProcessingError(message, cause)
+    class ProcessingFailed(message: String = "PDF processing failed", cause: Throwable? = null) : PdfProcessingError(message, cause)
 }
 
 /** Convert any [Throwable] to the appropriate [AppException]. */
