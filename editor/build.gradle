@@ -1,66 +1,41 @@
 plugins {
     id 'com.android.library'
     id 'org.jetbrains.kotlin.android'
-    id 'org.jetbrains.kotlin.kapt'
+    id 'kotlin-kapt'
+    id 'kotlin-parcelize'
     id 'com.google.dagger.hilt.android'
+    id 'org.jetbrains.kotlin.plugin.serialization' version '1.9.22'
 }
 
 android {
-    namespace = 'com.propdf.editor.module.editor'
-    compileSdk = 34
+    namespace 'com.propdf.editor'
+    compileSdk 34
 
     defaultConfig {
-        minSdk = 24
-        targetSdk = 34
-        testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
+        minSdk 21
+        targetSdk 34
+
+        testInstrumentationRunner "androidx.test.runner.AndroidJUnitRunner"
         consumerProguardFiles "consumer-rules.pro"
     }
 
     buildTypes {
         release {
-            minifyEnabled = false
+            minifyEnabled false
             proguardFiles getDefaultProguardFile('proguard-android-optimize.txt'), 'proguard-rules.pro'
         }
-        debug {
-            minifyEnabled = false
-        }
     }
-
     compileOptions {
-        sourceCompatibility = JavaVersion.VERSION_17
-        targetCompatibility = JavaVersion.VERSION_17
+        sourceCompatibility JavaVersion.VERSION_17
+        targetCompatibility JavaVersion.VERSION_17
     }
-
     kotlinOptions {
         jvmTarget = '17'
     }
 }
 
 dependencies {
-    implementation "org.jetbrains.kotlin:kotlin-stdlib:1.9.20"
     implementation project(':core')
-
-    implementation "androidx.core:core-ktx:1.12.0"
-    implementation "androidx.appcompat:appcompat:1.6.1"
-
-    implementation "com.google.dagger:hilt-android:2.50"
-    kapt "com.google.dagger:hilt-compiler:2.50"
-
-    // WorkManager
-    implementation "androidx.work:work-runtime-ktx:2.9.0"
-
-    implementation "org.jetbrains.kotlinx:kotlinx-coroutines-android:1.7.3"
-
-    // PDFBox-Android — Maven Central (valid version)
-    implementation "com.tom-roush:pdfbox-android:2.0.25.0"
-
-    // iText7 for PDF operations (merge, split, encrypt, watermark, etc.)
-    implementation 'com.itextpdf:kernel:7.2.5'
-    implementation 'com.itextpdf:io:7.2.5'
-    implementation 'com.itextpdf:layout:7.2.5'
-
-    testImplementation "junit:junit:4.13.2"
-    
     
     // iTextPDF for PDF manipulation
     implementation 'com.itextpdf:itext7-core:7.2.5'
@@ -73,4 +48,15 @@ dependencies {
     // Serialization for worker data
     implementation "org.jetbrains.kotlinx:kotlinx-serialization-json:1.6.2"
     
+    // Hilt
+    implementation 'com.google.dagger:hilt-android:2.50'
+    kapt 'com.google.dagger:hilt-compiler:2.50'
+    
+    // AndroidX
+    implementation 'androidx.core:core-ktx:1.12.0'
+    
+    // Testing
+    testImplementation 'junit:junit:4.13.2'
+    androidTestImplementation 'androidx.test.ext:junit:1.1.5'
+    androidTestImplementation 'androidx.test.espresso:espresso-core:3.5.1'
 }
