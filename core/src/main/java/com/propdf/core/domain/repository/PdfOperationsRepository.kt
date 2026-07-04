@@ -4,56 +4,28 @@ import android.graphics.Bitmap
 import android.net.Uri
 import com.propdf.core.domain.model.*
 import com.propdf.core.domain.result.AppResult
-import kotlinx.coroutines.flow.StateFlow
+import java.io.File
 
-/**
- * Repository interface for all PDF editing operations.
- */
 interface PdfOperationsRepository {
-
-    // ==================== PAGE OPERATIONS ====================
-    
-    suspend fun deletePages(sourceUri: Uri, pageNumbers: List<Int>): AppResult<Uri>
-    suspend fun duplicatePages(sourceUri: Uri, pageNumbers: List<Int>, insertAfter: Boolean = true): AppResult<Uri>
-    suspend fun movePages(sourceUri: Uri, pageNumbers: List<Int>, targetPosition: Int): AppResult<Uri>
-    suspend fun extractPages(sourceUri: Uri, pageNumbers: List<Int>, outputName: String): AppResult<Uri>
-    suspend fun rotatePages(sourceUri: Uri, pageNumbers: List<Int>, degrees: Int): AppResult<Uri>
-    suspend fun cropPages(sourceUri: Uri, pageNumbers: List<Int>, config: CropConfig): AppResult<Uri>
-    suspend fun resizePages(sourceUri: Uri, pageNumbers: List<Int>, config: ResizeConfig): AppResult<Uri>
-    suspend fun mirrorPages(sourceUri: Uri, pageNumbers: List<Int>, horizontal: Boolean = true): AppResult<Uri>
-
-    // ==================== INSERT OPERATIONS ====================
-    
-    suspend fun insertBlankPage(sourceUri: Uri, position: Int, width: Float, height: Float): AppResult<Uri>
-    suspend fun insertImagePage(sourceUri: Uri, position: Int, config: ImageInsertionConfig): AppResult<Uri>
-    suspend fun insertPdfPages(sourceUri: Uri, insertUri: Uri, position: Int, sourcePages: List<Int> = emptyList()): AppResult<Uri>
-
-    // ==================== SPLIT & MERGE ====================
-    
-    suspend fun splitBySize(sourceUri: Uri, maxSizeMB: Int, outputPrefix: String): AppResult<List<Uri>>
-    suspend fun splitByBookmark(sourceUri: Uri, outputPrefix: String): AppResult<List<Uri>>
-    suspend fun splitEveryNPages(sourceUri: Uri, n: Int, outputPrefix: String): AppResult<List<Uri>>
-    suspend fun mergePdfs(config: MergeConfig): AppResult<Uri>
-    suspend fun combineImagesToPdf(imageUris: List<Uri>, outputName: String, config: ImageInsertionConfig): AppResult<Uri>
-
-    // ==================== DOCUMENT ENHANCEMENT ====================
-    
-    suspend fun addPageNumbers(sourceUri: Uri, config: PageNumberConfig): AppResult<Uri>
-    suspend fun addHeaderFooter(sourceUri: Uri, config: HeaderFooterConfig): AppResult<Uri>
-    suspend fun addWatermark(sourceUri: Uri, config: WatermarkConfig): AppResult<Uri>
-    suspend fun addBackground(sourceUri: Uri, config: BackgroundConfig): AppResult<Uri>
-
-    // ==================== COMPRESSION & OPTIMIZATION ====================
-    
-    suspend fun compressPdf(sourceUri: Uri, config: CompressConfig): AppResult<Uri>
-    suspend fun optimizePdf(sourceUri: Uri, aggressive: Boolean = false): AppResult<Uri>
-
-    // ==================== UTILITY ====================
-    
-    suspend fun getPageCount(uri: Uri): AppResult<Int>
-    suspend fun getPageThumbnails(uri: Uri, pageNumbers: List<Int>): AppResult<List<Bitmap>>
-    suspend fun getPageInfo(uri: Uri, pageNumber: Int): AppResult<PdfPage>
-    suspend fun renderPageToBitmap(uri: Uri, pageNumber: Int, width: Int): AppResult<Bitmap>
-    
-    fun observeOperationProgress(): StateFlow<OperationProgress?>
+    suspend fun merge(request: MergeRequest, outputFile: File): AppResult<File>
+    suspend fun split(request: SplitRequest): AppResult<List<File>>
+    suspend fun compress(inputFile: File, outputFile: File, config: CompressConfig): AppResult<File>
+    suspend fun encrypt(inputFile: File, outputFile: File, config: SecurityConfig): AppResult<File>
+    suspend fun decrypt(inputFile: File, outputFile: File, password: String): AppResult<File>
+    suspend fun addWatermark(inputFile: File, outputFile: File, config: WatermarkConfig): AppResult<File>
+    suspend fun deletePages(inputFile: File, outputFile: File, pages: List<Int>): AppResult<File>
+    suspend fun rotatePages(inputFile: File, outputFile: File, rotations: Map<Int, Float>): AppResult<File>
+    suspend fun addPageNumbers(inputFile: File, outputFile: File, config: PageNumberConfig): AppResult<File>
+    suspend fun addHeaderFooter(inputFile: File, outputFile: File, config: HeaderFooterConfig): AppResult<File>
+    suspend fun imagesToPdf(imageFiles: List<File>, outputFile: File): AppResult<File>
+    suspend fun insertImageOnPage(inputFile: File, outputFile: File, config: ImageInsertionConfig): AppResult<File>
+    suspend fun reshapePageSize(inputFile: File, outputFile: File, widthPt: Float, heightPt: Float): AppResult<File>
+    suspend fun saveAnnotations(
+        inputFile: File,
+        outputFile: File,
+        pageAnnotations: Map<Int, Pair<List<AnnotationStroke>, Float>>,
+        pageTextAnnotations: Map<Int, Pair<List<AnnotationText>, Float>> = emptyMap()
+    ): AppResult<File>
+    suspend fun extractPagesAsImages(inputFile: File, pages: List<Int>? = null): AppResult<List<Bitmap>>
+    suspend fun renderPageToBitmap(inputFile: File, pageNum: Int, width: Int? = null): AppResult<Bitmap>
 }
