@@ -31,11 +31,11 @@ class PdfOperationsRepositoryImpl @Inject constructor() : PdfOperationsRepositor
     }.toAppResult()
 
     override suspend fun split(request: SplitRequest): AppResult<List<File>> = runCatching {
-        val srcFile = File(request.inputUri.path ?: "")
+        // FIX: Use .toString() instead of .path to resolve "Unresolved reference: path"
+        val srcFile = File(request.inputUri.toString())
         val src = PdfDocument(PdfReader(srcFile))
         val outputFiles = mutableListOf<File>()
         
-        // Use the parent directory of the source file, or a temp dir if unavailable
         val outputDir = srcFile.parentFile ?: File(System.getProperty("java.io.tmpdir"))
 
         for (i in 1..src.numberOfPages) {
@@ -114,4 +114,34 @@ class PdfOperationsRepositoryImpl @Inject constructor() : PdfOperationsRepositor
         dest.close()
         outputFile
     }.toAppResult()
+
+    // ===================== NEWLY ADDED METHOD =====================
+    // FIX: Added missing abstract member 'decrypt' to satisfy the interface contract
+    override suspend fun decrypt(inputFile: File, outputFile: File, password: String): AppResult<File> = 
+        AppResult.Error("Not implemented")
+
+    // ===================== STUBBED METHODS =====================
+    // These methods are stubbed to resolve compilation errors while maintaining interface compliance.
+    
+    override suspend fun imagesToPdf(imageFiles: List<File>, outputFile: File): AppResult<File> = 
+        AppResult.Error("Not implemented")
+    
+    override suspend fun insertImageOnPage(inputFile: File, outputFile: File, config: ImageInsertionConfig): AppResult<File> = 
+        AppResult.Error("Not implemented")
+    
+    override suspend fun reshapePageSize(inputFile: File, outputFile: File, widthPt: Float, heightPt: Float): AppResult<File> = 
+        AppResult.Error("Not implemented")
+    
+    override suspend fun saveAnnotations(
+        inputFile: File,
+        outputFile: File,
+        pageAnnotations: Map<Int, Pair<List<AnnotationStroke>, Float>>,
+        pageTextAnnotations: Map<Int, Pair<List<TextAnnotation>, Float>>
+    ): AppResult<File> = AppResult.Error("Not implemented")
+    
+    override suspend fun extractPagesAsImages(inputFile: File, pages: List<Int>?): AppResult<List<Bitmap>> = 
+        AppResult.Error("Not implemented")
+    
+    override suspend fun renderPageToBitmap(inputFile: File, pageNum: Int, width: Int?): AppResult<Bitmap> = 
+        AppResult.Error("Not implemented")
 }
