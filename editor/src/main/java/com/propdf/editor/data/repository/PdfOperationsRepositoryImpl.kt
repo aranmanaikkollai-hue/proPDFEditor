@@ -14,8 +14,7 @@ import javax.inject.Inject
 
 class PdfOperationsRepositoryImpl @Inject constructor() : PdfOperationsRepository {
 
-    // ===================== MERGE =====================
-    override suspend fun merge(request: MergeRequest, outputFile: File): AppResult<File> = toAppResult {
+    override suspend fun merge(request: MergeRequest, outputFile: File): AppResult<File> = runCatching {
         val writer = PdfWriter(outputFile)
         val dest = PdfDocument(writer)
         val merger = PdfMerger(dest)
@@ -29,14 +28,15 @@ class PdfOperationsRepositoryImpl @Inject constructor() : PdfOperationsRepositor
 
         dest.close()
         outputFile
-    }
+    }.toAppResult()
 
-    // ===================== SPLIT =====================
-    override suspend fun split(request: SplitRequest, outputDir: File): AppResult<List<File>> = toAppResult {
-        // Safely extract path from Uri
+    override suspend fun split(request: SplitRequest): AppResult<List<File>> = runCatching {
         val srcFile = File(request.inputUri.path ?: "")
         val src = PdfDocument(PdfReader(srcFile))
         val outputFiles = mutableListOf<File>()
+        
+        // Use the parent directory of the source file, or a temp dir if unavailable
+        val outputDir = srcFile.parentFile ?: File(System.getProperty("java.io.tmpdir"))
 
         for (i in 1..src.numberOfPages) {
             val out = File(outputDir, "split_$i.pdf")
@@ -49,10 +49,9 @@ class PdfOperationsRepositoryImpl @Inject constructor() : PdfOperationsRepositor
         }
         src.close()
         outputFiles
-    }
+    }.toAppResult()
 
-    // ===================== DELETE PAGES =====================
-    override suspend fun deletePages(inputFile: File, outputFile: File, pages: List<Int>): AppResult<File> = toAppResult {
+    override suspend fun deletePages(inputFile: File, outputFile: File, pages: List<Int>): AppResult<File> = runCatching {
         val src = PdfDocument(PdfReader(inputFile))
         val writer = PdfWriter(outputFile)
         val dest = PdfDocument(writer)
@@ -66,31 +65,9 @@ class PdfOperationsRepositoryImpl @Inject constructor() : PdfOperationsRepositor
         src.close()
         dest.close()
         outputFile
-    }
+    }.toAppResult()
 
-    // ===================== ROTATE PAGES =====================
-    override suspend fun rotatePage(inputFile: File, outputFile: File, rotations: Map<Int, Float>): AppResult<File> = toAppResult {
-        val src = PdfDocument(PdfReader(inputFile))
-        val writer = PdfWriter(outputFile)
-        val dest = PdfDocument(writer)
-
-        for (i in 1..src.numberOfPages) {
-            val page = src.getPage(i).copyTo(dest)
-            val rotation = rotations[i] ?: rotations[i - 1] ?: 0f
-            if (rotation != 0f) {
-                val currentRotation = page.getRotation()
-                page.setRotation((currentRotation + rotation.toInt()) % 360)
-            }
-            dest.addPage(page)
-        }
-
-        src.close()
-        dest.close()
-        outputFile
-    }
-
-    // ===================== ADD PAGE NUMBERS =====================
-    override suspend fun addPageNumbers(inputFile: File, outputFile: File, config: PageNumberConfig): AppResult<File> = toAppResult {
+    override suspend fun addPageNumbers(inputFile: File, outputFile: File, config: PageNumberConfig): AppResult<File> = runCatching {
         val src = PdfDocument(PdfReader(inputFile))
         val writer = PdfWriter(outputFile)
         val dest = PdfDocument(writer)
@@ -100,10 +77,9 @@ class PdfOperationsRepositoryImpl @Inject constructor() : PdfOperationsRepositor
         src.close()
         dest.close()
         outputFile
-    }
+    }.toAppResult()
 
-    // ===================== ADD HEADER/FOOTER =====================
-    override suspend fun addHeaderFooter(inputFile: File, outputFile: File, config: HeaderFooterConfig): AppResult<File> = toAppResult {
+    override suspend fun addHeaderFooter(inputFile: File, outputFile: File, config: HeaderFooterConfig): AppResult<File> = runCatching {
         val src = PdfDocument(PdfReader(inputFile))
         val writer = PdfWriter(outputFile)
         val dest = PdfDocument(writer)
@@ -113,10 +89,9 @@ class PdfOperationsRepositoryImpl @Inject constructor() : PdfOperationsRepositor
         src.close()
         dest.close()
         outputFile
-    }
+    }.toAppResult()
 
-    // ===================== ADD WATERMARK =====================
-    override suspend fun addWatermark(inputFile: File, outputFile: File, config: WatermarkConfig): AppResult<File> = toAppResult {
+    override suspend fun addWatermark(inputFile: File, outputFile: File, config: WatermarkConfig): AppResult<File> = runCatching {
         val src = PdfDocument(PdfReader(inputFile))
         val writer = PdfWriter(outputFile)
         val dest = PdfDocument(writer)
@@ -126,10 +101,9 @@ class PdfOperationsRepositoryImpl @Inject constructor() : PdfOperationsRepositor
         src.close()
         dest.close()
         outputFile
-    }
+    }.toAppResult()
 
-    // ===================== COMPRESS =====================
-    override suspend fun compress(inputFile: File, outputFile: File, config: CompressConfig): AppResult<File> = toAppResult {
+    override suspend fun compress(inputFile: File, outputFile: File, config: CompressConfig): AppResult<File> = runCatching {
         val src = PdfDocument(PdfReader(inputFile))
         val writer = PdfWriter(outputFile)
         val dest = PdfDocument(writer)
@@ -139,30 +113,5 @@ class PdfOperationsRepositoryImpl @Inject constructor() : PdfOperationsRepositor
         src.close()
         dest.close()
         outputFile
-    }
-
-    // ===================== STUBBED METHODS =====================
-    // These methods are stubbed to resolve compilation errors while maintaining interface compliance.
-    
-    override suspend fun imagesToPdf(imageFiles: List<File>, outputFile: File): AppResult<File> = 
-        AppResult.Error(Exception("Not implemented"))
-    
-    override suspend fun insertImageOnPage(inputFile: File, outputFile: File, config: ImageInsertionConfig): AppResult<File> = 
-        AppResult.Error(Exception("Not implemented"))
-    
-    override suspend fun reshapePageSize(inputFile: File, outputFile: File, widthPt: Float, heightPt: Float): AppResult<File> = 
-        AppResult.Error(Exception("Not implemented"))
-    
-    override suspend fun saveAnnotations(
-        inputFile: File,
-        outputFile: File,
-        pageAnnotations: Map<Int, Pair<List<AnnotationStroke>, Float>>,
-        pageTextAnnotations: Map<Int, Pair<List<TextAnnotation>, Float>>
-    ): AppResult<File> = AppResult.Error(Exception("Not implemented"))
-    
-    override suspend fun extractPagesAsImages(inputFile: File, pages: List<Int>?): AppResult<List<Bitmap>> = 
-        AppResult.Error(Exception("Not implemented"))
-    
-    override suspend fun renderPageToBitmap(inputFile: File, pageNum: Int, width: Int?): AppResult<Bitmap> = 
-        AppResult.Error(Exception("Not implemented"))
+    }.toAppResult()
 }
