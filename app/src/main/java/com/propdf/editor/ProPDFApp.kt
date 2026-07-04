@@ -7,7 +7,7 @@ import dagger.hilt.android.HiltAndroidApp
 import javax.inject.Inject
 
 @HiltAndroidApp
-class ProPDFApp : Application(), Configuration.Provider {
+class ProPDFApplication : Application(), Configuration.Provider {
 
     @Inject
     lateinit var workerFactory: HiltWorkerFactory
@@ -15,10 +15,11 @@ class ProPDFApp : Application(), Configuration.Provider {
     override val workManagerConfiguration: Configuration
         get() = Configuration.Builder()
             .setWorkerFactory(workerFactory)
+            .setMinimumLoggingLevel(android.util.Log.INFO)
             .build()
 
     override fun onCreate() {
         super.onCreate()
-        // App initialization
+        // Initialize any app-wide configurations
     }
 }
