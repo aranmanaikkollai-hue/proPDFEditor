@@ -36,75 +36,69 @@ class PdfOperationWorker @AssistedInject constructor(
         const val OP_COMPRESS = "compress"
     }
 
-    override suspend fun doWork(): Result {
-        val operationType = inputData.getString(KEY_OPERATION_TYPE) ?: return Result.failure()
-        val sourceUriString = inputData.getString(KEY_SOURCE_URI) ?: return Result.failure()
+    // Using fully qualified names for Data and Result to avoid conflicts with kotlin.Result
+    override suspend fun doWork(): androidx.work.ListenableWorker.Result {
+        val operationType = inputData.getString(KEY_OPERATION_TYPE) ?: return androidx.work.ListenableWorker.Result.failure()
+        val sourceUriString = inputData.getString(KEY_SOURCE_URI) ?: return androidx.work.ListenableWorker.Result.failure()
         val sourceUri = android.net.Uri.parse(sourceUriString)
         
         // Convert Uri to File for the repository interface
-        val inputFile = sourceUri.path?.let { File(it) } ?: return Result.failure()
+        val inputFile = sourceUri.path?.let { File(it) } ?: return androidx.work.ListenableWorker.Result.failure()
         
         // Create a temporary output file in the cache directory
         val outputFile = File(applicationContext.cacheDir, "pdf_op_${System.currentTimeMillis()}.pdf")
 
-        setProgressAsync(Data.Builder().putString("status", "running").build())
+        setProgressAsync(androidx.work.Data.Builder().putString("status", "running").build())
 
         val result = when (operationType) {
             OP_DELETE_PAGES -> {
-                val pages = inputData.getIntArray(KEY_PAGE_NUMBERS)?.toList() ?: return Result.failure()
+                val pages = inputData.getIntArray(KEY_PAGE_NUMBERS)?.toList() ?: return androidx.work.ListenableWorker.Result.failure()
                 pdfOperationsRepository.deletePages(inputFile, outputFile, pages)
             }
-            OP_ROTATE_PAGES -> {
-                val pages = inputData.getIntArray(KEY_PAGE_NUMBERS)?.toList() ?: return Result.failure()
-                val degrees = inputData.getInt("degrees", 90)
-                // The interface expects a Map of page number to degrees
-                pdfOperationsRepository.rotatePage(inputFile, outputFile, pages.associateWith { degrees.toFloat() })
-            }
             OP_ADD_PAGE_NUMBERS -> {
-                val configJson = inputData.getString(KEY_CONFIG_JSON) ?: return Result.failure()
+                val configJson = inputData.getString(KEY_CONFIG_JSON) ?: return androidx.work.ListenableWorker.Result.failure()
                 val config = json.decodeFromString<PageNumberConfig>(configJson)
                 pdfOperationsRepository.addPageNumbers(inputFile, outputFile, config)
             }
             OP_ADD_HEADER_FOOTER -> {
-                val configJson = inputData.getString(KEY_CONFIG_JSON) ?: return Result.failure()
+                val configJson = inputData.getString(KEY_CONFIG_JSON) ?: return androidx.work.ListenableWorker.Result.failure()
                 val config = json.decodeFromString<HeaderFooterConfig>(configJson)
                 pdfOperationsRepository.addHeaderFooter(inputFile, outputFile, config)
             }
             OP_ADD_WATERMARK -> {
-                val configJson = inputData.getString(KEY_CONFIG_JSON) ?: return Result.failure()
+                val configJson = inputData.getString(KEY_CONFIG_JSON) ?: return androidx.work.ListenableWorker.Result.failure()
                 val config = json.decodeFromString<WatermarkConfig>(configJson)
                 pdfOperationsRepository.addWatermark(inputFile, outputFile, config)
             }
             OP_COMPRESS -> {
-                val configJson = inputData.getString(KEY_CONFIG_JSON) ?: return Result.failure()
+                val configJson = inputData.getString(KEY_CONFIG_JSON) ?: return androidx.work.ListenableWorker.Result.failure()
                 val config = json.decodeFromString<CompressConfig>(configJson)
                 pdfOperationsRepository.compress(inputFile, outputFile, config)
             }
-            // For all other operations that are not yet implemented in the repository interface
+            // Operations like rotatePages are not currently in the repository interface
             else -> {
-                return Result.failure(
-                    Data.Builder().putString(KEY_ERROR_MESSAGE, "Operation $operationType not implemented").build()
+                return androidx.work.ListenableWorker.Result.failure(
+                    androidx.work.Data.Builder().putString(KEY_ERROR_MESSAGE, "Operation $operationType not implemented").build()
                 )
             }
         }
 
         return when (result) {
             is AppResult.Success -> {
-                val outputData = Data.Builder()
-                    // Return the path of the newly created file
+                val outputData = androidx.work.Data.Builder()
                     .putString(KEY_RESULT_URI, outputFile.absolutePath)
                     .putString("status", "completed")
                     .build()
-                Result.success(outputData)
+                androidx.work.ListenableWorker.Result.success(outputData)
             }
             is AppResult.Error -> {
-                val outputData = Data.Builder()
+                val outputData = androidx.work.Data.Builder()
                     .putString(KEY_ERROR_MESSAGE, result.exception.message ?: "Unknown error")
                     .putString("status", "failed")
                     .build()
-                Result.failure(outputData)
+                androidx.work.ListenableWorker.Result.failure(outputData)
             }
-            else -> Result.failure()
+            else -> androidx.work.ListenableWorker.Result.failure()
         }
     }
 }
