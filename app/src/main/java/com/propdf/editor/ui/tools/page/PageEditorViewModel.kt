@@ -13,6 +13,7 @@ import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.*
 import kotlinx.coroutines.launch
 import kotlinx.serialization.json.Json
+import kotlinx.serialization.encodeToString
 import javax.inject.Inject
 
 @HiltViewModel
@@ -152,7 +153,7 @@ class PageEditorViewModel @Inject constructor(
         if (selected.isEmpty()) return
         executeOperation(PdfOperationWorker.OP_CROP_PAGES) {
             putIntArray(PdfOperationWorker.KEY_PAGE_NUMBERS, selected.toIntArray())
-            putString(PdfOperationWorker.KEY_CONFIG_JSON, Json.encodeToString(CropConfig.serializer(), config))
+            putString(PdfOperationWorker.KEY_CONFIG_JSON, Json.encodeToString(config))
         }
     }
 
@@ -161,7 +162,7 @@ class PageEditorViewModel @Inject constructor(
         if (selected.isEmpty()) return
         executeOperation(PdfOperationWorker.OP_RESIZE_PAGES) {
             putIntArray(PdfOperationWorker.KEY_PAGE_NUMBERS, selected.toIntArray())
-            putString(PdfOperationWorker.KEY_CONFIG_JSON, Json.encodeToString(ResizeConfig.serializer(), config))
+            putString(PdfOperationWorker.KEY_CONFIG_JSON, Json.encodeToString(config))
         }
     }
 
@@ -256,25 +257,25 @@ class PageEditorViewModel @Inject constructor(
 
     fun addPageNumbers(config: PageNumberConfig) {
         executeOperation(PdfOperationWorker.OP_ADD_PAGE_NUMBERS) {
-            putString(PdfOperationWorker.KEY_CONFIG_JSON, Json.encodeToString(PageNumberConfig.serializer(), config))
+            putString(PdfOperationWorker.KEY_CONFIG_JSON, Json.encodeToString(config))
         }
     }
 
     fun addHeaderFooter(config: HeaderFooterConfig) {
         executeOperation(PdfOperationWorker.OP_ADD_HEADER_FOOTER) {
-            putString(PdfOperationWorker.KEY_CONFIG_JSON, Json.encodeToString(HeaderFooterConfig.serializer(), config))
+            putString(PdfOperationWorker.KEY_CONFIG_JSON, Json.encodeToString(config))
         }
     }
 
     fun addWatermark(config: WatermarkConfig) {
         executeOperation(PdfOperationWorker.OP_ADD_WATERMARK) {
-            putString(PdfOperationWorker.KEY_CONFIG_JSON, Json.encodeToString(WatermarkConfig.serializer(), config))
+            putString(PdfOperationWorker.KEY_CONFIG_JSON, Json.encodeToString(config))
         }
     }
 
     fun addBackground(config: BackgroundConfig) {
         executeOperation(PdfOperationWorker.OP_ADD_BACKGROUND) {
-            putString(PdfOperationWorker.KEY_CONFIG_JSON, Json.encodeToString(BackgroundConfig.serializer(), config))
+            putString(PdfOperationWorker.KEY_CONFIG_JSON, Json.encodeToString(config))
         }
     }
 
@@ -282,7 +283,7 @@ class PageEditorViewModel @Inject constructor(
 
     fun compressPdf(config: CompressConfig) {
         executeOperation(PdfOperationWorker.OP_COMPRESS) {
-            putString(PdfOperationWorker.KEY_CONFIG_JSON, Json.encodeToString(CompressConfig.serializer(), config))
+            putString(PdfOperationWorker.KEY_CONFIG_JSON, Json.encodeToString(config))
         }
     }
 
@@ -365,4 +366,5 @@ class PageEditorViewModel @Inject constructor(
                 else -> {}
             }
         }
-   
+    }
+}
