@@ -56,7 +56,7 @@
     <string name="model_downloaded">%s model ready</string>
     <string name="copied_to_clipboard">Copied to clipboard</string>
     <string name="error_title">Error</string>
-    <string name="no_image_selected">No image selected</string>
+  <string name="no_image_selected">No image selected</string> → <string name="error_no_image_selected">No image selected</string>  
     <string name="no_ocr_results">No OCR results to export</string>
     <string name="detected_table">Detected Table</string>
     <string name="download_languages">Download Languages</string>
