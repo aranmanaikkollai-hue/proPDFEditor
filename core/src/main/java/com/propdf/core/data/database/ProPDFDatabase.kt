@@ -14,7 +14,6 @@ import com.propdf.core.data.local.*
     exportSchema = true
 )
 @TypeConverters(
-    RecentFilesConverters::class,
     OcrConverters::class
 )
 abstract class ProPDFDatabase : RoomDatabase() {
