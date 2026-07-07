@@ -1,0 +1,85 @@
+// Root build.gradle — FIXED: Kotlin upgraded from 1.9.20 to 1.9.22
+// to match Compose Compiler 1.5.8 requirement
+
+plugins {
+    id 'com.android.application' version '8.2.0' apply false
+    id 'com.android.library' version '8.2.0' apply false
+    id 'org.jetbrains.kotlin.android' version '1.9.22' apply false
+    id 'org.jetbrains.kotlin.kapt' version '1.9.22' apply false
+    id 'org.jetbrains.kotlin.plugin.parcelize' version '1.9.22' apply false
+    id 'org.jetbrains.kotlin.plugin.serialization' version '1.9.22' apply false
+    id 'com.google.dagger.hilt.android' version '2.50' apply false
+}
+
+allprojects {
+    configurations.all {
+        def legacySuffix = 'jdk15' + 'on'
+        def legacyBcprov = "bcprov-${legacySuffix}"
+        def legacyBcpkix = "bcpkix-${legacySuffix}"
+
+        resolutionStrategy.eachDependency { DependencyResolveDetails details ->
+            if (details.requested.group == 'org.bouncycastle') {
+                if (details.requested.name == legacyBcprov) {
+                    details.useTarget(
+                        group: 'org.bouncycastle',
+                        name: 'bcprov-jdk15to18',
+                        version: '1.70'
+                    )
+                    details.because 'Unify BouncyCastle — jdk15to18 is the superset used by pdfbox-android'
+                } else if (details.requested.name == legacyBcpkix) {
+                    details.useTarget(
+                        group: 'org.bouncycastle',
+                        name: 'bcpkix-jdk15to18',
+                        version: '1.70'
+                    )
+                    details.because 'Unify BouncyCastle PKIX variant to match pdfbox-android'
+                }
+            }
+        }
+        exclude group: 'org.bouncycastle', module: legacyBcprov
+        exclude group: 'org.bouncycastle', module: legacyBcpkix
+    }
+}
+
+gradle.projectsEvaluated {
+    def appProject = project(':app')
+    def libraryProjects = [
+        project(':core'),
+        project(':viewer'),
+        project(':editor'),
+        project(':scanner'),
+        project(':security'),
+        project(':ads'),
+        project(':ocr'),
+        project(':annotations'),
+        // :app depends on these directly (BootReceiver uses com.propdf.backup.*
+        // and com.propdf.sync.*) - they need the same stale .kotlin_module
+        // cleanup below, or kapt's stub generation fails with the classic
+        // "Could not load module <Error module>" bug.
+        project(':backup'),
+        project(':sync'),
+        // :storage is a transitive dependency of :backup and :sync (both do
+        // `implementation project(':storage')`), so :app's kapt classpath
+        // pulls in :storage's compiled classes too. It needs the same
+        // stale .kotlin_module cleanup or kapt fails with
+        // "Could not load module <Error module>".
+        project(':storage')
+    ]
+
+    appProject.tasks.matching { it.name.contains('kaptGenerateStubs') }.configureEach { kaptTask ->
+        libraryProjects.each { libProj ->
+            libProj.tasks.matching { it.name == 'compileDebugKotlin' || it.name == 'compileReleaseKotlin' }.configureEach { compileTask ->
+                kaptTask.dependsOn compileTask
+            }
+        }
+        kaptTask.doFirst {
+            libraryProjects.each { libProj ->
+                def moduleFile = file("${libProj.buildDir}/tmp/kotlin-classes/debug/META-INF/${libProj.name}_debug.kotlin_module")
+                if (moduleFile.exists()) {
+                    moduleFile.delete()
+                    println("[KAPT Fix] Deleted stale module file: ${moduleFile}")
+                }
+            }
+        }
+    }
+}
