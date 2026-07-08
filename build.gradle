@@ -1,0 +1,46 @@
+// Root build.gradle — FIXED: Removed stale .kotlin_module deletion
+// that caused "Could not load module <Error module>" kapt error.
+
+plugins {
+    id 'com.android.application' version '8.2.0' apply false
+    id 'com.android.library' version '8.2.0' apply false
+    id 'org.jetbrains.kotlin.android' version '1.9.23' apply false
+    id 'org.jetbrains.kotlin.kapt' version '1.9.23' apply false
+    id 'org.jetbrains.kotlin.plugin.parcelize' version '1.9.23' apply false
+    id 'com.google.dagger.hilt.android' version '2.50' apply false
+}
+
+allprojects {
+    configurations.all {
+        def legacySuffix = 'jdk15' + 'on'
+        def legacyBcprov = "bcprov-${legacySuffix}"
+        def legacyBcpkix = "bcpkix-${legacySuffix}"
+
+        resolutionStrategy.eachDependency { DependencyResolveDetails details ->
+            if (details.requested.group == 'org.bouncycastle') {
+                if (details.requested.name == legacyBcprov) {
+                    details.useTarget(
+                        group: 'org.bouncycastle',
+                        name: 'bcprov-jdk15to18',
+                        version: '1.70'
+                    )
+                    details.because 'Unify BouncyCastle — jdk15to18 is the superset used by pdfbox-android'
+                } else if (details.requested.name == legacyBcpkix) {
+                    details.useTarget(
+                        group: 'org.bouncycastle',
+                        name: 'bcpkix-jdk15to18',
+                        version: '1.70'
+                    )
+                    details.because 'Unify BouncyCastle PKIX variant to match pdfbox-android'
+                }
+            }
+        }
+        exclude group: 'org.bouncycastle', module: legacyBcprov
+        exclude group: 'org.bouncycastle', module: legacyBcpkix
+    }
+}
+
+// REMOVED: The gradle.projectsEvaluated block that deleted .kotlin_module files.
+// This was causing "Could not load module <Error module>" during kapt.
+// With Kotlin 1.9.23 + Hilt 2.50, this workaround is no longer needed.
+// The kaptGenerateStubs task ordering is handled correctly by Hilt's Gradle plugin.

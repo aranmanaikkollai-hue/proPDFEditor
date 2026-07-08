@@ -1,0 +1,48 @@
+pluginManagement {
+    repositories {
+        google()
+        mavenCentral()
+        gradlePluginPortal()
+    }
+    resolutionStrategy {
+        eachPlugin {
+            if (requested.id.namespace == 'com.android') {
+                useModule('com.android.tools.build:gradle:8.2.0')
+            }
+            if (requested.id.id == 'org.jetbrains.kotlin.android') {
+                useModule('org.jetbrains.kotlin:kotlin-gradle-plugin:1.9.23')
+            }
+            if (requested.id.id == 'org.jetbrains.kotlin.kapt') {
+                useModule('org.jetbrains.kotlin:kotlin-gradle-plugin:1.9.23')
+            }
+            if (requested.id.id == 'com.google.dagger.hilt.android') {
+                useModule('com.google.dagger:hilt-android-gradle-plugin:2.50')
+            }
+        }
+    }
+}
+
+dependencyResolutionManagement {
+    repositoriesMode.set(RepositoriesMode.PREFER_SETTINGS)
+    repositories {
+        google()
+        mavenCentral()
+        maven { url = uri('https://jitpack.io') }
+    }
+}
+
+rootProject.name = "proPDFEditor"
+include ':app'
+include ':core'
+include ':viewer'
+include ':editor'
+include ':scanner'
+include ':security'
+include ':ads'
+include ':ocr'
+include ':annotations'
+include ':storage'   // SAF abstraction layer
+include ':backup'    // Backup/restore feature
+include ':sync'      // Folder watch, auto-import
+include ':share'     // WiFi Direct, Nearby, QR, LAN
+include ':nas'       // WebDAV, SMB
