@@ -1,0 +1,31 @@
+pluginManagement {
+    repositories {
+        google()
+        mavenCentral()
+        gradlePluginPortal()
+    }
+}
+dependencyResolutionManagement {
+    repositoriesMode.set(RepositoriesMode.FAIL_ON_PROJECT_REPOS)
+    repositories {
+        google()
+        mavenCentral()
+        maven { url 'https://jitpack.io' }
+    }
+}
+
+rootProject.name = "proPDFEditor"
+include ':app'
+include ':core'
+include ':viewer'
+include ':editor'
+include ':scanner'
+include ':ocr'
+include ':annotations'
+include ':storage'
+include ':sync'
+include ':backup'
+include ':security'
+include ':share'
+include ':ads'
+include ':nas'
