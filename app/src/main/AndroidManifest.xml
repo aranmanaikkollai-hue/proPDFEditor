@@ -1,0 +1,105 @@
+<?xml version="1.0" encoding="utf-8"?>
+<manifest xmlns:android="http://schemas.android.com/apk/res/android">
+
+    <!-- Camera permission -->
+    <uses-permission android:name="android.permission.CAMERA" />
+    <uses-permission android:name="android.permission.RECEIVE_BOOT_COMPLETED" />
+    <uses-permission android:name="android.permission.READ_EXTERNAL_STORAGE" android:maxSdkVersion="32" />
+    <uses-permission android:name="android.permission.WRITE_EXTERNAL_STORAGE" android:maxSdkVersion="28" />
+
+    <!-- Hardware feature declaration -->
+    <uses-feature
+        android:name="android.hardware.camera"
+        android:required="false" />
+    <uses-feature
+        android:name="android.hardware.camera.autofocus"
+        android:required="false" />
+    <uses-feature
+        android:name="android.hardware.camera.flash"
+        android:required="false" />
+
+    <application
+        android:name=".ProPDFApplication"
+        android:allowBackup="true"
+        android:icon="@mipmap/ic_launcher"
+        android:roundIcon="@mipmap/ic_launcher_round"
+        android:label="@string/app_name"
+        android:supportsRtl="true"
+        android:theme="@style/Theme.ProPDFEditor">
+
+        <!-- Main / launcher activity -->
+        <activity
+            android:name=".ui.main.MainActivity"
+            android:exported="true"
+            android:theme="@style/Theme.ProPDFEditor">
+            <intent-filter>
+                <action android:name="android.intent.action.MAIN" />
+                <category android:name="android.intent.category.LAUNCHER" />
+            </intent-filter>
+        </activity>
+
+        <activity
+            android:name=".ui.tools.ToolsActivity"
+            android:exported="false"
+            android:theme="@style/Theme.ProPDFEditor" />
+
+        <activity
+            android:name=".ui.viewer.ViewerActivity"
+            android:exported="false"
+            android:theme="@style/Theme.ProPDFEditor" />
+
+        <activity
+            android:name=".ui.security.SecurityActivity"
+            android:exported="false"
+            android:theme="@style/Theme.ProPDFEditor" />
+
+        <!-- OCR -->
+        <activity
+            android:name=".ui.ocr.OcrActivity"
+            android:exported="false"
+            android:theme="@style/Theme.ProPDFEditor" />
+
+        <activity
+            android:name=".ui.ocr.OcrCropActivity"
+            android:exported="false"
+            android:theme="@style/Theme.ProPDFEditor" />
+
+        <!-- Scanner Activities -->
+        <activity
+            android:name=".ui.scanner.DocumentScannerActivity"
+            android:exported="false"
+            android:screenOrientation="portrait"
+            android:theme="@style/Theme.AppCompat.NoActionBar"
+            android:windowSoftInputMode="stateAlwaysHidden" />
+
+        <activity
+            android:name=".ui.scanner.ModernScannerActivity"
+            android:exported="false"
+            android:screenOrientation="portrait"
+            android:theme="@style/Theme.AppCompat.NoActionBar"
+            android:windowSoftInputMode="stateAlwaysHidden" />
+
+        <!-- Boot receiver: re-schedules backup/folder-watch work after reboot -->
+        <receiver
+            android:name=".receiver.BootReceiver"
+            android:exported="true">
+            <intent-filter>
+                <action android:name="android.intent.action.BOOT_COMPLETED" />
+            </intent-filter>
+        </receiver>
+
+        <!-- FileProvider is declared once here in :app's AndroidManifest.xml with the
+             "${applicationId}.fileprovider" authority (see app/src/main/res/xml/file_paths.xml,
+             which includes the scanner_original/processed/thumbnails paths too). -->
+        <provider
+            android:name="androidx.core.content.FileProvider"
+            android:authorities="${applicationId}.fileprovider"
+            android:exported="false"
+            android:grantUriPermissions="true">
+            <meta-data
+                android:name="android.support.FILE_PROVIDER_PATHS"
+                android:resource="@xml/file_paths" />
+        </provider>
+    </application>
+</manifest>
+
