@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string-array name="ocr_settings_options">
+        <item>Download Language Models</item>
+        <item>Confidence Threshold</item>
+    </string-array>
+</resources>
