@@ -34,3 +34,12 @@
 
 # Keep Security Crypto
 -keep class androidx.security.crypto.** { *; }
+# Document Manager
+-keep class com.propdf.core.domain.model.** { *; }
+-keep class com.propdf.core.data.entity.** { *; }
+-keepclassmembers class * extends androidx.work.Worker {
+    public <init>(android.content.Context,androidx.work.WorkerParameters);
+}
+-keepclassmembers @androidx.hilt.work.HiltWorker class * {
+    @dagger.assisted.AssistedInject <init>(...);
+}
