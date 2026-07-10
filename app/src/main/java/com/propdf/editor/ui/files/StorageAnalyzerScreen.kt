@@ -2,11 +2,13 @@ package com.propdf.editor.ui.files
 
 import androidx.compose.animation.*
 import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.automirrored.filled.ArrowForward
 import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
@@ -15,6 +17,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
@@ -23,7 +26,7 @@ import com.propdf.core.domain.model.PdfDocument
 import com.propdf.core.domain.model.StorageAnalysis
 import com.propdf.editor.ui.components.EmptyState
 import com.propdf.editor.ui.components.LoadingOverlay
-import com.propdf.editor.ui.home.formatFileSize
+import com.propdf.editor.utils.formatFileSize
 import com.propdf.editor.ui.theme.pdf_blue
 import com.propdf.editor.ui.theme.pdf_green
 import com.propdf.editor.ui.theme.pdf_orange
@@ -131,8 +134,12 @@ private fun StorageOverviewCard(analysis: StorageAnalysis) {
             
             Spacer(modifier = Modifier.height(16.dp))
             
-            val usedPercent = (analysis.usedStorageBytes.toFloat() / analysis.totalStorageBytes * 100).toInt()
-            val pdfPercent = (analysis.pdfFilesBytes.toFloat() / analysis.totalStorageBytes * 100)
+            val usedPercent = if (analysis.totalStorageBytes > 0) {
+                (analysis.usedStorageBytes.toFloat() / analysis.totalStorageBytes * 100).toInt()
+            } else 0
+            val pdfPercent = if (analysis.totalStorageBytes > 0) {
+                (analysis.pdfFilesBytes.toFloat() / analysis.totalStorageBytes * 100)
+            } else 0f
             
             // Progress bar
             LinearProgressIndicator(
