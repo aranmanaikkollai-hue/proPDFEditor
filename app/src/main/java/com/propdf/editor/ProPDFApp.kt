@@ -1,6 +1,7 @@
 package com.propdf.editor
 
 import android.app.Application
+import android.os.StrictMode
 import androidx.hilt.work.HiltWorkerFactory
 import androidx.work.Configuration
 import dagger.hilt.android.HiltAndroidApp
@@ -20,6 +21,16 @@ class ProPDFApplication : Application(), Configuration.Provider {
 
     override fun onCreate() {
         super.onCreate()
-        // Initialize any app-wide configurations
+        
+        if (BuildConfig.DEBUG) {
+            StrictMode.setThreadPolicy(
+                StrictMode.ThreadPolicy.Builder()
+                    .detectDiskReads()
+                    .detectDiskWrites()
+                    .detectNetwork()
+                    .penaltyLog()
+                    .build()
+            )
+        }
     }
 }
