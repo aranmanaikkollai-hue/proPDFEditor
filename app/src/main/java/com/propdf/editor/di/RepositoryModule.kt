@@ -1,7 +1,7 @@
 package com.propdf.editor.di
 
+import com.propdf.core.domain.repository.*
 import com.propdf.editor.data.repository.*
-import com.propdf.editor.domain.repository.*
 import dagger.Binds
 import dagger.Module
 import dagger.hilt.InstallIn
@@ -20,13 +20,19 @@ abstract class RepositoryModule {
 
     @Binds
     @Singleton
-    abstract fun bindFolderRepository(
-        impl: FolderRepositoryImpl
-    ): FolderRepository
+    abstract fun bindTagRepository(
+        impl: TagRepositoryImpl
+    ): TagRepository
 
     @Binds
     @Singleton
-    abstract fun bindCloudRepository(
-        impl: CloudRepositoryImpl
-    ): CloudRepository
+    abstract fun bindCollectionRepository(
+        impl: CollectionRepositoryImpl
+    ): CollectionRepository
+
+    @Binds
+    @Singleton
+    abstract fun bindActivityRepository(
+        impl: ActivityRepositoryImpl
+    ): ActivityRepository
 }
