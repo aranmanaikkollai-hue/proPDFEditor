@@ -1,10 +1,9 @@
+
 package com.propdf.editor.di
 
 import android.content.Context
 import androidx.room.Room
 import com.propdf.core.data.database.ProPDFDatabase
-import com.propdf.core.data.local.OcrJobDao
-import com.propdf.core.worker.OcrJobManager
 import dagger.Module
 import dagger.Provides
 import dagger.hilt.InstallIn
@@ -27,11 +26,6 @@ object AppModule {
     // and RecentFilesDao by :core's DatabaseModule.provideRecentFilesDao(RecentFilesDatabase).
     // Re-declaring them here caused Dagger [Dagger/DuplicateBindings] errors.
 
-    @Provides fun provideOcrJobDao(database: ProPDFDatabase): OcrJobDao = database.ocrJobDao()
-
-    @Provides
-    @Singleton
-    fun provideOcrJobManager(@ApplicationContext context: Context, ocrJobDao: OcrJobDao): OcrJobManager {
-        return OcrJobManager(context, ocrJobDao)
-    }
+    // OcrJobDao and OcrJobManager are provided by the :ocr module or core module
+    // Removing duplicate declarations to avoid unresolved references
 }
