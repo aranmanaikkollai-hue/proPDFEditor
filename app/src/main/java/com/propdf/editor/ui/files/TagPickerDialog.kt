@@ -1,5 +1,6 @@
 package com.propdf.editor.ui.files
 
+import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
@@ -82,7 +83,7 @@ fun TagPickerDialog(
             }
         },
         dismissButton = {
-            TextButton(onClick = onCreateCollection) {
+            TextButton(onClick = onCreateTag) {
                 Icon(Icons.Default.Add, null, modifier = Modifier.size(18.dp))
                 Spacer(modifier = Modifier.width(4.dp))
                 Text("New Tag")
