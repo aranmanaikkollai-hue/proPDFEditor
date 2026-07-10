@@ -15,7 +15,7 @@ class StorageAnalyzerWorker @AssistedInject constructor(
     @Assisted context: Context,
     @Assisted params: WorkerParameters,
     private val documentRepository: DocumentRepository
-) : CoroutineWorker(applicationContext, params) {
+) : CoroutineWorker(context, params) {
 
     companion object {
         const val WORK_NAME = "storage_analyzer_worker"
