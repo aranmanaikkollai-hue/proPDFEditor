@@ -27,7 +27,7 @@ class MergeViewModel @Inject constructor(
 
     fun addDocument(document: PdfDocument) {
         val current = _selectedDocuments.value.toMutableList()
-        if (!current.any { it.uri == document.uri }) {
+        if (!current.any { it.uriString == document.uriString }) {
             current.add(document)
             _selectedDocuments.value = current
         }
@@ -35,7 +35,7 @@ class MergeViewModel @Inject constructor(
 
     fun removeDocument(document: PdfDocument) {
         val current = _selectedDocuments.value.toMutableList()
-        current.removeAll { it.uri == document.uri }
+        current.removeAll { it.uriString == document.uriString }
         _selectedDocuments.value = current
     }
 
@@ -52,7 +52,7 @@ class MergeViewModel @Inject constructor(
         viewModelScope.launch {
             _uiState.value = MergeUiState.Loading
             val request = MergeRequest(
-                inputUris = _selectedDocuments.value.map { Uri.parse(it.uri) },
+                inputUris = _selectedDocuments.value.map { Uri.parse(it.uriString) },
                 outputName = outputFile.name
             )
             when (val result = pdfOperationsRepository.merge(request, outputFile)) {
