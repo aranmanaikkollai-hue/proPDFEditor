@@ -11,31 +11,24 @@ import androidx.activity.viewModels
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Build
-import androidx.compose.material.icons.filled.Description
-import androidx.compose.material.icons.filled.Folder
-import androidx.compose.material.icons.filled.Home
-import androidx.compose.material.icons.filled.Settings
-import androidx.compose.material3.Icon
-import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.NavigationBar
-import androidx.compose.material3.NavigationBarItem
-import androidx.compose.material3.Scaffold
-import androidx.compose.material3.Surface
-import androidx.compose.material3.Text
-import androidx.compose.runtime.LaunchedEffect
-import androidx.compose.runtime.getValue
+import androidx.compose.material.icons.filled.*
+import androidx.compose.material3.*
+import androidx.compose.runtime.*
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.navigation.NavDestination.Companion.hierarchy
 import androidx.navigation.NavGraph.Companion.findStartDestination
+import androidx.navigation.NavHostController
+import androidx.navigation.NavType
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.currentBackStackEntryAsState
 import androidx.navigation.compose.rememberNavController
-import com.propdf.editor.ui.files.FilesScreen
+import androidx.navigation.navArgument
+import com.propdf.core.domain.model.PdfDocument
+import com.propdf.editor.navigation.DocumentManagerDestination
+import com.propdf.editor.ui.files.*
 import com.propdf.editor.ui.home.HomeScreen
-import com.propdf.editor.ui.recent.RecentFilesScreen
 import com.propdf.editor.ui.scanner.DocumentScannerActivity
 import com.propdf.editor.ui.settings.SettingsScreen
 import com.propdf.editor.ui.theme.ProPDFTheme
@@ -59,149 +52,167 @@ class MainActivity : ComponentActivity() {
                     color = MaterialTheme.colorScheme.background
                 ) {
                     val navController = rememberNavController()
-
                     val pdfPickerLauncher = rememberLauncherForActivityResult(
                         ActivityResultContracts.OpenDocument()
                     ) { uri: Uri? ->
-                        if (uri != null) {
-                            // Only attempt persistable permission for providers that support it.
-                            // Downloads provider (msf:) URIs do NOT support persistable permissions
-                            // and will throw SecurityException. We catch and ignore this — the
-                            // transient permission from the picker is sufficient for immediate use.
-                            try {
-                                contentResolver.takePersistableUriPermission(
-                                    uri, Intent.FLAG_GRANT_READ_URI_PERMISSION
-                                )
-                            } catch (e: SecurityException) {
-                                // Persistable permission not supported by this provider (e.g., Downloads).
-                                // Transient permission from the picker is still valid for immediate use.
-                                // The file will be copied to cache in PdfViewerScreen for rendering.
-                            }
-                            // Records to recent files AND fires OpenPdf event
-                            viewModel.openPdf(uri)
-                        }
+                        uri?.let { viewModel.handlePickedDocument(it) }
                     }
 
-                    // Handle ViewModel navigation events
-                    LaunchedEffect(Unit) {
-                        viewModel.events.collect { event ->
-                            when (event) {
-                                is MainViewModel.Event.OpenPdf -> {
-                                    navController.navigate(
-                                        "viewer/${Uri.encode(event.uri.toString())}"
-                                    )
-                                }
-                                is MainViewModel.Event.OpenScanner -> {
-                                    startActivity(
-                                        Intent(this@MainActivity, DocumentScannerActivity::class.java)
-                                    )
-                                }
-                                is MainViewModel.Event.OpenTools -> {
-                                    navController.navigate("tools")
-                                }
-                                is MainViewModel.Event.Error -> Unit
-                            }
+                    MainContent(
+                        navController = navController,
+                        pdfPickerLauncher = pdfPickerLauncher,
+                        onOpenDocument = { document ->
+                            navController.navigate("viewer/${document.id}")
                         }
-                    }
+                    )
+                }
+            }
+        }
+    }
+}
 
-                    val bottomNavItems = listOf(
+@Composable
+private fun MainContent(
+    navController: NavHostController,
+    pdfPickerLauncher: androidx.activity.result.ActivityResultLauncher<Array<String>>,
+    onOpenDocument: (PdfDocument) -> Unit
+) {
+    val navBackStackEntry by navController.currentBackStackEntryAsState()
+    val currentDestination = navBackStackEntry?.destination
+    
+    // Don't show bottom nav on certain screens
+    val hideBottomNavRoutes = listOf(
+        "viewer/",
+        "storage_analyzer",
+        "duplicate_finder",
+        "recent_activity",
+        "folder_browser"
+    )
+    val showBottomNav = hideBottomNavRoutes.none { 
+        currentDestination?.route?.startsWith(it) == true 
+    }
+
+    Scaffold(
+        bottomBar = {
+            if (showBottomNav) {
+                NavigationBar {
+                    val items = listOf(
                         BottomNavItem("home", "Home", Icons.Default.Home),
                         BottomNavItem("files", "Files", Icons.Default.Folder),
-                        BottomNavItem("recent", "Recent", Icons.Default.Description),
                         BottomNavItem("tools", "Tools", Icons.Default.Build),
                         BottomNavItem("settings", "Settings", Icons.Default.Settings)
                     )
-
-                    val navBackStackEntry by navController.currentBackStackEntryAsState()
-                    val currentRoute = navBackStackEntry?.destination?.route
-                    val showBottomBar = bottomNavItems.any { it.route == currentRoute }
-
-                    Scaffold(
-                        bottomBar = {
-                            if (showBottomBar) {
-                                NavigationBar {
-                                    bottomNavItems.forEach { item ->
-                                        NavigationBarItem(
-                                            icon = { Icon(item.icon, item.label) },
-                                            label = { Text(item.label) },
-                                            selected = navBackStackEntry?.destination
-                                                ?.hierarchy?.any { it.route == item.route } == true,
-                                            onClick = {
-                                                navController.navigate(item.route) {
-                                                    popUpTo(navController.graph.findStartDestination().id) {
-                                                        saveState = true
-                                                    }
-                                                    launchSingleTop = true
-                                                    restoreState = true
-                                                }
-                                            }
-                                        )
+                    
+                    items.forEach { item ->
+                        NavigationBarItem(
+                            icon = { Icon(item.icon, item.label) },
+                            label = { Text(item.label) },
+                            selected = currentDestination?.hierarchy?.any { it.route == item.route } == true,
+                            onClick = {
+                                navController.navigate(item.route) {
+                                    popUpTo(navController.graph.findStartDestination().id) {
+                                        saveState = true
                                     }
+                                    launchSingleTop = true
+                                    restoreState = true
                                 }
                             }
-                        }
-                    ) { innerPadding ->
-                        NavHost(
-                            navController = navController,
-                            startDestination = "home",
-                            modifier = Modifier.padding(innerPadding)
-                        ) {
-                            composable("home") {
-                                HomeScreen(
-                                    navController = navController,
-                                    mainViewModel = viewModel,
-                                    onOpenPdf = {
-                                        pdfPickerLauncher.launch(arrayOf("application/pdf"))
-                                    }
-                                )
-                            }
-                            composable("files") {
-                                FilesScreen(
-                                    viewModel = viewModel,
-                                    onOpenPdf = {
-                                        pdfPickerLauncher.launch(arrayOf("application/pdf"))
-                                    }
-                                )
-                            }
-                            composable("recent") {
-                                RecentFilesScreen(navController = navController)
-                            }
-                            composable("tools") {
-                                ToolsScreen(
-                                    navController = navController,
-                                    onOpenPdfPicker = {
-                                        pdfPickerLauncher.launch(arrayOf("application/pdf"))
-                                    }
-                                )
-                            }
-                            composable("settings") {
-                                SettingsScreen(navController = navController)
-                            }
-                            composable("viewer/{uri}") { backStackEntry ->
-                                // Navigation Compose already URL-decodes path arguments once.
-                                // Do NOT call Uri.decode() again here — for Downloads provider
-                                // (msf:) and similar URIs whose document ID itself contains
-                                // percent-encoded characters (e.g. %3A), a second decode pass
-                                // corrupts the URI, which then fails to resolve to any content
-                                // provider ("Cannot open file: unable to obtain read access")
-                                // even though storage permission was granted.
-                                val uriArg = backStackEntry.arguments?.getString("uri") ?: ""
-                                PdfViewerScreen(
-                                    uri = uriArg,
-                                    onBack = { navController.popBackStack() }
-                                )
-                            }
-                            composable("scanner") {
-                                LaunchedEffect(Unit) {
-                                    navController.popBackStack()
-                                    startActivity(
-                                        Intent(this@MainActivity, DocumentScannerActivity::class.java)
-                                    )
-                                }
-                            }
-                        }
+                        )
                     }
                 }
+            }
+        }
+    ) { padding ->
+        NavHost(
+            navController = navController,
+            startDestination = "home",
+            modifier = Modifier.padding(padding)
+        ) {
+            composable("home") {
+                HomeScreen(
+                    viewModel = hiltViewModel(),
+                    onOpenDocument = onOpenDocument,
+                    onNavigateToFiles = { navController.navigate("files") },
+                    onNavigateToRecent = { navController.navigate("recent") },
+                    onNavigateToFavorites = { navController.navigate("favorites") },
+                    onNavigateToTools = { navController.navigate("tools") }
+                )
+            }
+            
+            composable("files") {
+                DocumentManagerScreen(onOpenDocument = onOpenDocument)
+            }
+            
+            composable("recent") {
+                DocumentManagerScreen(onOpenDocument = onOpenDocument)
+            }
+            
+            composable("favorites") {
+                DocumentManagerScreen(onOpenDocument = onOpenDocument)
+            }
+            
+            composable("tools") {
+                ToolsScreen(
+                    onOpenScanner = {
+                        navController.context.startActivity(
+                            Intent(navController.context, DocumentScannerActivity::class.java)
+                        )
+                    },
+                    onOpenStorageAnalyzer = {
+                        navController.navigate(DocumentManagerDestination.StorageAnalyzer.route)
+                    },
+                    onOpenDuplicateFinder = {
+                        navController.navigate(DocumentManagerDestination.DuplicateFinder.route)
+                    },
+                    onOpenRecentActivity = {
+                        navController.navigate(DocumentManagerDestination.RecentActivity.route)
+                    }
+                )
+            }
+            
+            composable("settings") {
+                SettingsScreen()
+            }
+            
+            composable(DocumentManagerDestination.StorageAnalyzer.route) {
+                StorageAnalyzerScreen(
+                    onOpenDocument = onOpenDocument,
+                    onBack = { navController.popBackStack() }
+                )
+            }
+            
+            composable(DocumentManagerDestination.DuplicateFinder.route) {
+                DuplicateFinderScreen(
+                    onOpenDocument = onOpenDocument,
+                    onBack = { navController.popBackStack() }
+                )
+            }
+            
+            composable(DocumentManagerDestination.RecentActivity.route) {
+                RecentActivityScreen(onBack = { navController.popBackStack() })
+            }
+            
+            composable(
+                route = DocumentManagerDestination.FolderBrowser.route,
+                arguments = listOf(navArgument("path") { type = NavType.StringType })
+            ) { backStackEntry ->
+                val path = backStackEntry.arguments?.getString("path") ?: "/"
+                FolderBrowserScreen(
+                    initialPath = path,
+                    onOpenDocument = onOpenDocument,
+                    onBack = { navController.popBackStack() }
+                )
+            }
+            
+            composable(
+                route = "viewer/{documentId}",
+                arguments = listOf(navArgument("documentId") { type = NavType.LongType })
+            ) { backStackEntry ->
+                val documentId = backStackEntry.arguments?.getLong("documentId") ?: 0L
+                PdfViewerScreen(
+                    documentId = documentId,
+                    onBack = { navController.popBackStack() }
+                )
             }
         }
     }
