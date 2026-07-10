@@ -175,6 +175,19 @@ dependencies {
     androidTestImplementation 'androidx.compose.ui:ui-test-junit4'
     debugImplementation 'androidx.compose.ui:ui-tooling'
     debugImplementation 'androidx.compose.ui:ui-test-manifest'
+     
+    
+    // Document Manager additional dependencies
+    implementation 'androidx.work:work-runtime-ktx:2.9.0'
+    implementation 'androidx.hilt:hilt-work:1.1.0'
+    kapt 'androidx.hilt:hilt-compiler:1.1.0'
+    
+    // Image loading for thumbnails
+    implementation 'io.coil-kt:coil-compose:2.5.0'
+    
+    // For folder picker (SAF)
+    implementation 'androidx.documentfile:documentfile:1.0.1'
+    
 }
 
 // itext7-core / pdfbox-android transitively pull org.bouncycastle:*-jdk15on:1.70,
