@@ -1,5 +1,6 @@
 package com.propdf.editor.ui.files
 
+import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
@@ -8,6 +9,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
@@ -52,14 +54,23 @@ fun CreateCollectionDialog(
                 
                 Text("Color", style = MaterialTheme.typography.labelMedium)
                 LazyRow(
-                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+                    horizontalArrangement = Arrangement.spacedBy(8.dp),
+                    verticalAlignment = Alignment.CenterVertically
                 ) {
                     items(pdfColors) { color ->
-                        ColorPickerItem(
-                            color = color,
-                            isSelected = color == selectedColor,
-                            onClick = { selectedColor = color }
-                        )
+                        val isSelected = color == selectedColor
+                        Box(
+                            modifier = Modifier
+                                .size(40.dp)
+                                .clip(CircleShape)
+                                .background(color)
+                                .clickable { selectedColor = color },
+                            contentAlignment = Alignment.Center
+                        ) {
+                            if (isSelected) {
+                                Icon(Icons.Default.Check, null, tint = Color.White)
+                            }
+                        }
                     }
                 }
             }
@@ -70,8 +81,7 @@ fun CreateCollectionDialog(
                     if (name.isBlank()) {
                         error = "Name is required"
                     } else {
-                        onConfirm(name, description.takeIf { it.isNotBlank() }, selectedColor)
-                        onDismiss()
+                        onConfirm(name, description.takeIf { it.isNotBlank() }, selectedColor.toArgb())
                     }
                 }
             ) {
@@ -107,7 +117,7 @@ fun CreateTagDialog(
                         name = it
                         error = null
                     },
-                    label = { Text("Tag name") },
+                    label = { Text("Name") },
                     isError = error != null,
                     supportingText = error?.let { { Text(it) } },
                     singleLine = true,
@@ -116,14 +126,23 @@ fun CreateTagDialog(
                 
                 Text("Color", style = MaterialTheme.typography.labelMedium)
                 LazyRow(
-                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+                    horizontalArrangement = Arrangement.spacedBy(8.dp),
+                    verticalAlignment = Alignment.CenterVertically
                 ) {
                     items(pdfColors) { color ->
-                        ColorPickerItem(
-                            color = color,
-                            isSelected = color == selectedColor,
-                            onClick = { selectedColor = color }
-                        )
+                        val isSelected = color == selectedColor
+                        Box(
+                            modifier = Modifier
+                                .size(40.dp)
+                                .clip(CircleShape)
+                                .background(color)
+                                .clickable { selectedColor = color },
+                            contentAlignment = Alignment.Center
+                        ) {
+                            if (isSelected) {
+                                Icon(Icons.Default.Check, null, tint = Color.White)
+                            }
+                        }
                     }
                 }
             }
@@ -132,10 +151,9 @@ fun CreateTagDialog(
             TextButton(
                 onClick = {
                     if (name.isBlank()) {
-                        error = "Tag name is required"
+                        error = "Name is required"
                     } else {
-                        onConfirm(name, selectedColor)
-                        onDismiss()
+                        onConfirm(name, selectedColor.toArgb())
                     }
                 }
             ) {
@@ -149,47 +167,3 @@ fun CreateTagDialog(
         }
     )
 }
-
-@Composable
-private fun ColorPickerItem(
-    color: Int,
-    isSelected: Boolean,
-    onClick: () -> Unit
-) {
-    Box(
-        modifier = Modifier
-            .size(36.dp)
-            .clip(CircleShape)
-            .background(Color(color))
-            .then(
-                if (isSelected) {
-                    Modifier.padding(2.dp)
-                } else Modifier
-            )
-            .clip(CircleShape)
-            .clickable(onClick = onClick),
-        contentAlignment = Alignment.Center
-    ) {
-        if (isSelected) {
-            Icon(
-                Icons.Default.Check,
-                null,
-                tint = Color.White,
-                modifier = Modifier.size(20.dp)
-            )
-        }
-    }
-}
-
-val pdfColors = listOf(
-    0xFF1E88E5.toInt(), // Blue
-    0xFF43A047.toInt(), // Green
-    0xFFFB8C00.toInt(), // Orange
-    0xFFE53935.toInt(), // Red
-    0xFF8E24AA.toInt(), // Purple
-    0xFF00897B.toInt(), // Teal
-    0xFFFFB300.toInt(), // Amber
-    0xFF5E35B1.toInt(), // Deep Purple
-    0xFFD81B60.toInt(), // Pink
-    0xFF3949AB.toInt(), // Indigo
-)
