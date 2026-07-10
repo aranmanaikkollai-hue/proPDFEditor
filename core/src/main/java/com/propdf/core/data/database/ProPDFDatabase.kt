@@ -2,21 +2,23 @@ package com.propdf.core.data.database
 
 import androidx.room.Database
 import androidx.room.RoomDatabase
-import androidx.room.TypeConverters
-import com.propdf.core.data.local.*
+import com.propdf.core.data.entity.*
+import com.propdf.core.data.local.dao.*
 
 @Database(
     entities = [
-        RecentFileEntity::class,
-        OcrJobEntity::class
+        PdfDocumentEntity::class,
+        DocumentTagEntity::class,
+        DocumentTagCrossRef::class,
+        DocumentCollectionEntity::class,
+        RecentActivityEntity::class
     ],
-    version = 2,
-    exportSchema = false  // FIXED: Set to false to avoid schema export warning
-)
-@TypeConverters(
-    OcrConverters::class
+    version = 1,
+    exportSchema = true
 )
 abstract class ProPDFDatabase : RoomDatabase() {
-    abstract fun recentFilesDao(): RecentFilesDao
-    abstract fun ocrJobDao(): OcrJobDao
+    abstract fun pdfDocumentDao(): PdfDocumentDao
+    abstract fun documentTagDao(): DocumentTagDao
+    abstract fun documentCollectionDao(): DocumentCollectionDao
+    abstract fun recentActivityDao(): RecentActivityDao
 }
