@@ -6,7 +6,13 @@
     <uses-permission android:name="android.permission.RECEIVE_BOOT_COMPLETED" />
     <uses-permission android:name="android.permission.READ_EXTERNAL_STORAGE" android:maxSdkVersion="32" />
     <uses-permission android:name="android.permission.WRITE_EXTERNAL_STORAGE" android:maxSdkVersion="28" />
-
+    <!-- Document Manager permissions -->
+    <uses-permission android:name="android.permission.MANAGE_EXTERNAL_STORAGE"
+        tools:ignore="ScopedStorage" />
+    <uses-permission android:name="android.permission.READ_MEDIA_IMAGES" />
+    <uses-permission android:name="android.permission.READ_MEDIA_VIDEO" />
+    <uses-permission android:name="android.permission.READ_MEDIA_AUDIO" />
+    <uses-permission android:name="android.permission.ACCESS_MEDIA_LOCATION" />
     <!-- Hardware feature declaration -->
     <uses-feature
         android:name="android.hardware.camera"
@@ -78,7 +84,11 @@
             android:screenOrientation="portrait"
             android:theme="@style/Theme.AppCompat.NoActionBar"
             android:windowSoftInputMode="stateAlwaysHidden" />
-
+        <!-- Document Manager Activities -->
+        <activity
+            android:name=".ui.files.DocumentManagerActivity"
+            android:exported="false"
+            android:theme="@style/Theme.ProPDFEditor" />
         <!-- Boot receiver: re-schedules backup/folder-watch work after reboot -->
         <receiver
             android:name=".receiver.BootReceiver"
