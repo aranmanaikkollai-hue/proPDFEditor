@@ -9,6 +9,7 @@ import com.propdf.core.domain.repository.DocumentRepository
 import dagger.assisted.Assisted
 import dagger.assisted.AssistedInject
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.withContext
 import java.io.File
 import java.io.FileInputStream
@@ -20,7 +21,7 @@ class DuplicateFinderWorker @AssistedInject constructor(
     @Assisted params: WorkerParameters,
     private val pdfDocumentDao: PdfDocumentDao,
     private val documentRepository: DocumentRepository
-) : CoroutineWorker(applicationContext, params) {
+) : CoroutineWorker(context, params) {
 
     companion object {
         const val WORK_NAME = "duplicate_finder_worker"
@@ -37,17 +38,19 @@ class DuplicateFinderWorker @AssistedInject constructor(
             var processed = 0
 
             docs.forEach { doc ->
-                val file = File(doc.filePath)
-                if (file.exists()) {
+                val file = doc.filePath?.let { File(it) }
+                if (file != null && file.exists()) {
                     val checksum = calculateChecksum(file)
                     pdfDocumentDao.update(doc.copy(checksum = checksum))
                 }
                 processed++
-                setProgress(
-                    androidx.work.Data.Builder()
-                        .putInt(KEY_PROGRESS, (processed * 100 / total))
-                        .build()
-                )
+                if (total > 0) {
+                    setProgress(
+                        androidx.work.Data.Builder()
+                            .putInt(KEY_PROGRESS, ((processed * 100) / total))
+                            .build()
+                    )
+                }
             }
 
             val duplicates = documentRepository.findDuplicates()
@@ -71,6 +74,6 @@ class DuplicateFinderWorker @AssistedInject constructor(
                 digest.update(buffer, 0, read)
             }
         }
-        return digest.digest().joinToString("") { "%02x".format(it) }
+        return digest.digest().joinToString("") { byte -> "%02x".format(byte) }
     }
 }
