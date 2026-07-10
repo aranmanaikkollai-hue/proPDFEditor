@@ -14,8 +14,8 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
-import com.propdf.editor.domain.model.PdfDocument
-import com.propdf.editor.ui.home.formatFileSize
+import com.propdf.core.domain.model.PdfDocument
+import com.propdf.editor.utils.formatFileSize
 import com.propdf.editor.ui.theme.*
 
 @Composable
