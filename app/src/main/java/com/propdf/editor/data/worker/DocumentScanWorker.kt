@@ -12,6 +12,7 @@ import com.propdf.core.data.entity.PdfDocumentEntity
 import dagger.assisted.Assisted
 import dagger.assisted.AssistedInject
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.withContext
 import java.io.File
 
@@ -28,7 +29,7 @@ class DocumentScanWorker @AssistedInject constructor(
 
     override suspend fun doWork(): Result = withContext(Dispatchers.IO) {
         try {
-            val context = applicationContext
+            val appContext = applicationContext
             val existingUris = pdfDocumentDao.getAllDocuments("NAME_ASC", includeHidden = true)
                 .first()
                 .map { it.uriString }
@@ -49,7 +50,7 @@ class DocumentScanWorker @AssistedInject constructor(
                 "%.pdf"
             )
 
-            context.contentResolver.query(
+            appContext.contentResolver.query(
                 MediaStore.Files.getContentUri("external"),
                 projection,
                 selection,
@@ -74,32 +75,83 @@ class DocumentScanWorker @AssistedInject constructor(
                         id.toString()
                     ).toString()
 
-                    if (uri !in existingUris && File(path).exists()) {
-                        pdfDocumentDao.insert(
-                            PdfDocumentEntity(
+                    if (uri !in existingUris && path != null) {
+                        val file = File(path)
+                        if (file.exists()) {
+                            val entity = PdfDocumentEntity(
                                 uriString = uri,
                                 fileName = name,
                                 filePath = path,
-                                sizeBytes = size,
-                                lastModified = modified
+                                fileSize = size,
+                                dateModified = modified,
+                                dateAdded = System.currentTimeMillis()
                             )
-                        )
-                        existingUris.add(uri)
+                            pdfDocumentDao.insert(entity)
+                            existingUris.add(uri)
+                        }
                     }
                 }
             }
 
-            // Clean up non-existent files
-            val allDocs = pdfDocumentDao.getAllDocuments("NAME_ASC", includeHidden = true).first()
-            allDocs.forEach { doc ->
-                if (!File(doc.filePath).exists() && !doc.isInRecycleBin) {
-                    pdfDocumentDao.moveToRecycleBin(doc.id, System.currentTimeMillis())
-                }
-            }
+            // Scan DocumentsContract for cloud files
+            scanDocumentProvider(appContext, existingUris)
 
             Result.success()
         } catch (e: Exception) {
             Result.retry()
+        }
+    }
+
+    private suspend fun scanDocumentProvider(context: Context, existingUris: MutableSet<String>) {
+        val docUri = DocumentsContract.buildRootsUri("com.android.externalstorage.documents")
+        context.contentResolver.query(docUri, null, null, null, null)?.use { cursor ->
+            while (cursor.moveToNext()) {
+                val rootId = cursor.getString(cursor.getColumnIndexOrThrow(DocumentsContract.Root.COLUMN_ROOT_ID))
+                val treeUri = DocumentsContract.buildTreeDocumentUri("com.android.externalstorage.documents", rootId)
+                scanTree(context, treeUri, existingUris)
+            }
+        }
+    }
+
+    private suspend fun scanTree(context: Context, treeUri: Uri, existingUris: MutableSet<String>) {
+        val childrenUri = DocumentsContract.buildChildDocumentsUriUsingTree(treeUri, DocumentsContract.getTreeDocumentId(treeUri))
+        context.contentResolver.query(childrenUri, arrayOf(
+            DocumentsContract.Document.COLUMN_DOCUMENT_ID,
+            DocumentsContract.Document.COLUMN_DISPLAY_NAME,
+            DocumentsContract.Document.COLUMN_SIZE,
+            DocumentsContract.Document.COLUMN_LAST_MODIFIED,
+            DocumentsContract.Document.COLUMN_MIME_TYPE
+        ), null, null, null)?.use { cursor ->
+            val idCol = cursor.getColumnIndexOrThrow(DocumentsContract.Document.COLUMN_DOCUMENT_ID)
+            val nameCol = cursor.getColumnIndexOrThrow(DocumentsContract.Document.COLUMN_DISPLAY_NAME)
+            val sizeCol = cursor.getColumnIndexOrThrow(DocumentsContract.Document.COLUMN_SIZE)
+            val modifiedCol = cursor.getColumnIndexOrThrow(DocumentsContract.Document.COLUMN_LAST_MODIFIED)
+            val mimeCol = cursor.getColumnIndexOrThrow(DocumentsContract.Document.COLUMN_MIME_TYPE)
+
+            while (cursor.moveToNext()) {
+                val docId = cursor.getString(idCol)
+                val name = cursor.getString(nameCol)
+                val mime = cursor.getString(mimeCol)
+
+                if (mime == DocumentsContract.Document.MIME_TYPE_DIR) {
+                    val childTree = DocumentsContract.buildTreeDocumentUri("com.android.externalstorage.documents", docId)
+                    scanTree(context, childTree, existingUris)
+                } else if (name.endsWith(".pdf", ignoreCase = true)) {
+                    val uri = DocumentsContract.buildDocumentUriUsingTree(treeUri, docId).toString()
+                    if (uri !in existingUris) {
+                        val entity = PdfDocumentEntity(
+                            uriString = uri,
+                            fileName = name,
+                            filePath = null,
+                            fileSize = cursor.getLong(sizeCol),
+                            dateModified = cursor.getLong(modifiedCol),
+                            dateAdded = System.currentTimeMillis()
+                        )
+                        pdfDocumentDao.insert(entity)
+                        existingUris.add(uri)
+                    }
+                }
+            }
         }
     }
 }
