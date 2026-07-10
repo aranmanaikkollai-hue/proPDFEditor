@@ -16,6 +16,7 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.navigation.NavDestination.Companion.hierarchy
 import androidx.navigation.NavGraph.Companion.findStartDestination
 import androidx.navigation.NavHostController
@@ -130,7 +131,7 @@ private fun MainContent(
         ) {
             composable("home") {
                 HomeScreen(
-                    viewModel = hiltViewModel(),
+                    navController = navController,
                     onOpenDocument = onOpenDocument,
                     onNavigateToFiles = { navController.navigate("files") },
                     onNavigateToRecent = { navController.navigate("recent") },
@@ -140,15 +141,30 @@ private fun MainContent(
             }
             
             composable("files") {
-                DocumentManagerScreen(onOpenDocument = onOpenDocument)
+                DocumentManagerScreen(
+                    onNavigateToViewer = { docId -> navController.navigate("viewer/$docId") },
+                    onNavigateToMerge = { /* TODO */ },
+                    onNavigateToSplit = { /* TODO */ },
+                    onNavigateToFolder = { path -> navController.navigate("folder/$path") }
+                )
             }
             
             composable("recent") {
-                DocumentManagerScreen(onOpenDocument = onOpenDocument)
+                DocumentManagerScreen(
+                    onNavigateToViewer = { docId -> navController.navigate("viewer/$docId") },
+                    onNavigateToMerge = { /* TODO */ },
+                    onNavigateToSplit = { /* TODO */ },
+                    onNavigateToFolder = { path -> navController.navigate("folder/$path") }
+                )
             }
             
             composable("favorites") {
-                DocumentManagerScreen(onOpenDocument = onOpenDocument)
+                DocumentManagerScreen(
+                    onNavigateToViewer = { docId -> navController.navigate("viewer/$docId") },
+                    onNavigateToMerge = { /* TODO */ },
+                    onNavigateToSplit = { /* TODO */ },
+                    onNavigateToFolder = { path -> navController.navigate("folder/$path") }
+                )
             }
             
             composable("tools") {
@@ -183,8 +199,8 @@ private fun MainContent(
             
             composable(DocumentManagerDestination.DuplicateFinder.route) {
                 DuplicateFinderScreen(
-                    onOpenDocument = onOpenDocument,
-                    onBack = { navController.popBackStack() }
+                    duplicateGroups = emptyList(),
+                    onFindDuplicates = { /* TODO */ }
                 )
             }
             
