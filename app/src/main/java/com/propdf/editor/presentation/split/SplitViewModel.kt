@@ -1,5 +1,6 @@
 package com.propdf.editor.presentation.split
 
+import android.net.Uri
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.propdf.core.domain.model.PdfDocument
@@ -53,7 +54,7 @@ class SplitViewModel @Inject constructor(
                 return@launch
             }
             val request = SplitRequest(
-                inputUri = document.uri,
+                inputUri = Uri.parse(document.uriString),
                 ranges = _pageRanges.value,
                 outputDir = outputDir
             )
