@@ -1,16 +1,15 @@
 package com.propdf.editor.ui.files
 
 import androidx.compose.foundation.layout.*
-import androidx.compose.foundation.rememberScrollState
-import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
-import androidx.compose.runtime.Composable
+import androidx.compose.runtime.*
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import com.propdf.core.domain.model.PdfDocument
-import com.propdf.editor.ui.home.formatFileSize
+import com.propdf.editor.utils.formatFileSize
 import java.text.SimpleDateFormat
 import java.util.*
 
@@ -24,33 +23,17 @@ fun DocumentPropertiesDialog(
     AlertDialog(
         onDismissRequest = onDismiss,
         icon = { Icon(Icons.Default.Info, null) },
-        title = { Text("Document Properties") },
+        title = { Text("Properties") },
         text = {
-            Column(
-                modifier = Modifier.verticalScroll(rememberScrollState()),
-                verticalArrangement = Arrangement.spacedBy(12.dp)
-            ) {
-                PropertyItem("Name", document.displayName)
-                PropertyItem("File Name", document.fileName)
-                PropertyItem("Path", document.filePath)
-                PropertyItem("Size", formatFileSize(document.sizeBytes))
-                PropertyItem("Pages", document.pageCount.toString())
-                PropertyItem("Format", document.extension.uppercase())
-                
-                document.metadataTitle?.let { PropertyItem("Title", it) }
-                document.metadataAuthor?.let { PropertyItem("Author", it) }
-                document.metadataSubject?.let { PropertyItem("Subject", it) }
-                document.metadataKeywords?.let { PropertyItem("Keywords", it) }
-                
-                PropertyItem("Modified", dateFormat.format(Date(document.lastModified)))
-                document.lastOpened?.let {
-                    PropertyItem("Last Opened", dateFormat.format(Date(it)))
-                }
-                document.metadataCreationDate?.let {
-                    PropertyItem("Created", dateFormat.format(Date(it)))
-                }
-                
-                document.checksum?.let { PropertyItem("Checksum", it.take(16) + "...") }
+            Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                PropertyRow("Name", document.displayName)
+                PropertyRow("Size", formatFileSize(document.fileSize))
+                PropertyRow("Path", document.filePath ?: "Unknown")
+                PropertyRow("Modified", dateFormat.format(Date(document.dateModified)))
+                PropertyRow("Created", dateFormat.format(Date(document.dateAdded)))
+                PropertyRow("Pages", document.pageCount.toString())
+                PropertyRow("Favorite", if (document.isFavorite) "Yes" else "No")
+                PropertyRow("Hidden", if (document.isHidden) "Yes" else "No")
             }
         },
         confirmButton = {
@@ -62,16 +45,12 @@ fun DocumentPropertiesDialog(
 }
 
 @Composable
-private fun PropertyItem(label: String, value: String) {
-    Column {
-        Text(
-            label,
-            style = MaterialTheme.typography.labelSmall,
-            color = MaterialTheme.colorScheme.onSurfaceVariant
-        )
-        Text(
-            value,
-            style = MaterialTheme.typography.bodyMedium
-        )
+private fun PropertyRow(label: String, value: String) {
+    Row(
+        modifier = Modifier.fillMaxWidth(),
+        horizontalArrangement = Arrangement.SpaceBetween
+    ) {
+        Text(label, style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+        Text(value, style = MaterialTheme.typography.bodyMedium, maxLines = 1, overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis)
     }
 }
