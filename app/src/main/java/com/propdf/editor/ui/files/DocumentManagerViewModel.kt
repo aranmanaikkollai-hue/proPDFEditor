@@ -89,23 +89,29 @@ class DocumentManagerViewModel @Inject constructor(
                     DocumentViewType.FOLDER_BROWSER -> {
                         _uiState.value.currentFolderPath?.let { path ->
                             documentRepository.getDocumentsInFolder(path)
-                        } ?: flowOf(emptyList())
+                        } ?: documentRepository.getAllDocuments(_uiState.value.filter)
                     }
-                    DocumentViewType.SEARCH -> documentRepository.searchDocuments(_uiState.value.searchQuery)
-                    DocumentViewType.LARGE_FILES -> documentRepository.getLargeFiles()
+                    DocumentViewType.SEARCH -> {
+                        if (_uiState.value.searchQuery.length >= 2) {
+                            documentRepository.searchDocuments(_uiState.value.searchQuery)
+                        } else {
+                            flowOf(emptyList())
+                        }
+                    }
+                    DocumentViewType.LARGE_FILES -> documentRepository.getLargeFiles(10 * 1024 * 1024)
                     DocumentViewType.RECYCLE_BIN -> documentRepository.getRecycleBinDocuments()
-                    DocumentViewType.HIDDEN -> documentRepository.getAllDocuments(
-                        DocumentFilter(includeHidden = true)
-                    )
-                    else -> flowOf(emptyList())
+                    DocumentViewType.DUPLICATE_FINDER -> flowOf(emptyList())
+                    DocumentViewType.STORAGE_ANALYZER -> flowOf(emptyList())
+                    DocumentViewType.RECENT_ACTIVITY -> flowOf(emptyList())
+                    DocumentViewType.HIDDEN -> documentRepository.getHiddenDocuments()
                 }
-
+                
                 flow.collect { documents ->
-                    _uiState.update { state ->
-                        state.copy(
+                    _uiState.update { 
+                        it.copy(
                             documents = documents,
                             isLoading = false
-                        )
+                        ) 
                     }
                 }
             } catch (e: Exception) {
@@ -114,7 +120,7 @@ class DocumentManagerViewModel @Inject constructor(
         }
     }
 
-    fun setSearchQuery(query: String) {
+    fun search(query: String) {
         _uiState.update { it.copy(searchQuery = query, currentView = DocumentViewType.SEARCH) }
         if (query.length >= 2) {
             loadDocuments()
@@ -405,22 +411,6 @@ class DocumentManagerViewModel @Inject constructor(
             documentRepository.emptyRecycleBin()
             _events.emit(DocumentManagerEvent.ShowSnackbar("Recycle bin emptied"))
             loadDocuments()
-        }
-    }
-
-    private fun loadCollections() {
-        viewModelScope.launch {
-            collectionRepository.getAllCollections().collect { list ->
-                _uiState.update { it.copy(collections = list) }
-            }
-        }
-    }
-
-    private fun loadTags() {
-        viewModelScope.launch {
-            tagRepository.getAllTags().collect { list ->
-                _uiState.update { it.copy(tags = list) }
-            }
         }
     }
 }
