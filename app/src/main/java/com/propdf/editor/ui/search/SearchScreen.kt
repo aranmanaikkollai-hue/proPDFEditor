@@ -1,33 +1,73 @@
 package com.propdf.editor.ui.search
 
-import androidx.compose.runtime.Composable
-import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.foundation.clickable
+import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.items
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.*
+import androidx.compose.material3.*
+import androidx.compose.runtime.*
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.unit.dp
+import androidx.hilt.navigation.compose.hiltViewModel
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.navigation.NavController
-import com.propdf.editor.ui.files.DocumentManagerScreen
-import com.propdf.editor.ui.files.DocumentManagerViewModel
-import com.propdf.editor.ui.files.DocumentViewType
+import com.propdf.editor.ui.home.HomeViewModel
 
-/**
- * Legacy SearchScreen - now delegates to unified DocumentManagerScreen
- */
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun SearchScreen(
     navController: NavController,
-    initialQuery: String = ""
+    viewModel: HomeViewModel,
+    onNavigateToViewer: (String) -> Unit,
+    onNavigateToMerge: () -> Unit,
+    onNavigateToSplit: () -> Unit,
+    onNavigateToFolder: () -> Unit
 ) {
-    val viewModel: DocumentManagerViewModel = androidx.hilt.navigation.compose.hiltViewModel()
-    
-    LaunchedEffect(initialQuery) {
-        viewModel.setViewType(DocumentViewType.SEARCH)
-        if (initialQuery.isNotBlank()) {
-            viewModel.setSearchQuery(initialQuery)
+    val uiState by viewModel.uiState.collectAsStateWithLifecycle()
+    var searchQuery by remember { mutableStateOf("") }
+
+    LaunchedEffect(searchQuery) {
+        viewModel.setSearchQuery(searchQuery)
+    }
+
+    Scaffold(
+        topBar = {
+            TopAppBar(
+                title = {
+                    OutlinedTextField(
+                        value = searchQuery,
+                        onValueChange = { searchQuery = it },
+                        placeholder = { Text("Search...") },
+                        singleLine = true,
+                        modifier = Modifier.fillMaxWidth(),
+                        leadingIcon = { Icon(Icons.Default.Search, null) }
+                    )
+                },
+                navigationIcon = {
+                    IconButton(onClick = { navController.popBackStack() }) {
+                        Icon(Icons.Default.ArrowBack, contentDescription = "Back")
+                    }
+                }
+            )
+        }
+    ) { padding ->
+        LazyColumn(
+            modifier = Modifier.fillMaxSize().padding(padding),
+            contentPadding = PaddingValues(16.dp)
+        ) {
+            val filtered = uiState.recentFiles.filter {
+                it.displayName.contains(searchQuery, ignoreCase = true)
+            }
+            items(filtered) { file ->
+                ListItem(
+                    headlineContent = { Text(file.displayName) },
+                    supportingContent = { Text("${file.fileSizeBytes} bytes") },
+                    leadingContent = { Icon(Icons.Default.PictureAsPdf, null) },
+                    modifier = Modifier.clickable { onNavigateToViewer(file.uri) }
+                )
+            }
         }
     }
-    
-    DocumentManagerScreen(
-        onOpenDocument = { document ->
-            navController.navigate("viewer/${document.id}")
-        },
-        viewModel = viewModel
-    )
 }
