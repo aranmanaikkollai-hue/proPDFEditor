@@ -1,47 +1,79 @@
 package com.propdf.editor.ui.files
 
-import androidx.compose.foundation.background
-import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.*
+import androidx.compose.material.icons.filled.ArrowBack
+import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material3.*
-import androidx.compose.runtime.*
+import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
-import com.propdf.core.domain.model.DuplicateGroup
-import com.propdf.editor.utils.formatFileSize
+import androidx.hilt.navigation.compose.hiltViewModel
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import androidx.navigation.NavController
+import com.propdf.editor.domain.model.PdfDocument
+import com.propdf.editor.ui.home.formatFileSize
 
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun DuplicateFinderScreen(
-    duplicateGroups: List<DuplicateGroup>,
-    onFindDuplicates: () -> Unit
+    navController: NavController,
+    viewModel: DuplicateFinderViewModel = hiltViewModel()
 ) {
-    Column(modifier = Modifier.fillMaxSize()) {
-        if (duplicateGroups.isEmpty()) {
-            EmptyState(
-                icon = Icons.Default.FileCopy,
-                title = "No Duplicates Found",
-                message = "Tap the button below to scan for duplicate files",
-                action = {
-                    Button(onClick = onFindDuplicates) {
-                        Icon(Icons.Default.Search, null)
-                        Spacer(modifier = Modifier.width(8.dp))
-                        Text("Scan for Duplicates")
+    val uiState by viewModel.uiState.collectAsStateWithLifecycle()
+
+    Scaffold(
+        topBar = {
+            TopAppBar(
+                title = { Text("Duplicate Finder") },
+                navigationIcon = {
+                    IconButton(onClick = { navController.popBackStack() }) {
+                        Icon(Icons.Default.ArrowBack, contentDescription = "Back")
                     }
                 }
             )
-        } else {
-            LazyColumn(
-                modifier = Modifier.fillMaxSize(),
-                contentPadding = PaddingValues(16.dp),
-                verticalArrangement = Arrangement.spacedBy(16.dp)
-            ) {
-                items(duplicateGroups) { group ->
-                    DuplicateGroupCard(group = group)
+        }
+    ) { padding ->
+        LazyColumn(
+            modifier = Modifier.fillMaxSize().padding(padding),
+            contentPadding = PaddingValues(16.dp)
+        ) {
+            if (uiState.duplicateGroups.isEmpty()) {
+                item {
+                    EmptyState(
+                        icon = Icons.Default.Search,
+                        title = "No duplicates found",
+                        subtitle = "Your library is clean!"
+                    )
+                }
+            } else {
+                uiState.duplicateGroups.forEach { group ->
+                    item {
+                        Card(
+                            modifier = Modifier.fillMaxWidth().padding(vertical = 8.dp),
+                            colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.errorContainer)
+                        ) {
+                            Column(modifier = Modifier.padding(16.dp)) {
+                                Text(
+                                    "${group.size} duplicates",
+                                    style = MaterialTheme.typography.titleMedium,
+                                    color = MaterialTheme.colorScheme.onErrorContainer
+                                )
+                                Text(
+                                    "Wasted space: ${formatFileSize(group.sumOf { it.fileSize })}",
+                                    style = MaterialTheme.typography.bodyMedium,
+                                    color = MaterialTheme.colorScheme.onErrorContainer
+                                )
+                            }
+                        }
+                    }
+                    items(group) { doc ->
+                        DuplicateItem(doc, onDelete = { viewModel.deleteDuplicate(doc) })
+                    }
                 }
             }
         }
@@ -49,70 +81,43 @@ fun DuplicateFinderScreen(
 }
 
 @Composable
-private fun DuplicateGroupCard(group: DuplicateGroup) {
-    var expanded by remember { mutableStateOf(false) }
-    
-    Card(
-        modifier = Modifier.fillMaxWidth(),
-        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.errorContainer)
-    ) {
-        Column(modifier = Modifier.padding(16.dp)) {
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.SpaceBetween,
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                Text(
-                    text = "${group.documents.size} duplicates",
-                    style = MaterialTheme.typography.titleMedium
-                )
-                Text(
-                    text = "Wasted: ${formatFileSize(group.wastedSpace)}",
-                    style = MaterialTheme.typography.labelMedium,
-                    color = MaterialTheme.colorScheme.error
-                )
-            }
-            
-            group.documents.take(if (expanded) group.documents.size else 2).forEach { doc ->
-                ListItem(
-                    headlineContent = { Text(doc.displayName) },
-                    supportingContent = { Text(formatFileSize(doc.fileSize)) },
-                    leadingContent = { Icon(Icons.Default.InsertDriveFile, null) }
-                )
-            }
-            
-            if (group.documents.size > 2) {
-                TextButton(
-                    onClick = { expanded = !expanded },
-                    modifier = Modifier.align(Alignment.End)
-                ) {
-                    Text(if (expanded) "Show Less" else "Show ${group.documents.size - 2} More")
-                }
-            }
-        }
-    }
-}
-
-@Composable
-private fun EmptyState(
-    icon: androidx.compose.ui.graphics.vector.ImageVector,
-    title: String,
-    message: String,
-    action: @Composable () -> Unit
+private fun DuplicateItem(
+    document: PdfDocument,
+    onDelete: () -> Unit
 ) {
+    ListItem(
+        headlineContent = { Text(document.displayName) },
+        supportingContent = { Text(formatFileSize(document.fileSize)) },
+        trailingContent = {
+            IconButton(onClick = onDelete) {
+                Icon(Icons.Default.Delete, contentDescription = "Delete", tint = MaterialTheme.colorScheme.error)
+            }
+        }
+    )
+}
+
+@Composable
+private fun EmptyState(icon: androidx.compose.ui.graphics.vector.ImageVector, title: String, subtitle: String) {
     Column(
-        modifier = Modifier
-            .fillMaxSize()
-            .padding(32.dp),
-        horizontalAlignment = Alignment.CenterHorizontally,
-        verticalArrangement = Arrangement.Center
+        modifier = Modifier.fillMaxWidth().padding(32.dp),
+        horizontalAlignment = Alignment.CenterHorizontally
     ) {
-        Icon(icon, null, modifier = Modifier.size(64.dp), tint = MaterialTheme.colorScheme.onSurfaceVariant)
-        Spacer(modifier = Modifier.height(16.dp))
-        Text(title, style = MaterialTheme.typography.titleLarge)
+        Icon(icon, null, modifier = Modifier.size(48.dp), tint = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.5f))
         Spacer(modifier = Modifier.height(8.dp))
-        Text(message, style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
-        Spacer(modifier = Modifier.height(16.dp))
-        action()
+        Text(title, style = MaterialTheme.typography.labelLarge, color = MaterialTheme.colorScheme.onSurfaceVariant)
+        Text(subtitle, style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f))
+    }
+}
+
+class DuplicateFinderViewModel : androidx.lifecycle.ViewModel() {
+    data class UiState(
+        val duplicateGroups: List<List<PdfDocument>> = emptyList(),
+        val isLoading: Boolean = false
+    )
+    private val _uiState = MutableStateFlow(UiState())
+    val uiState: StateFlow<UiState> = _uiState.asStateFlow()
+
+    fun deleteDuplicate(document: PdfDocument) {
+        // Implementation
     }
 }
