@@ -1,28 +1,58 @@
 package com.propdf.editor.ui.recent
 
+import androidx.compose.foundation.clickable
+import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.items
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.*
+import androidx.compose.material3.*
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.getValue
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.unit.dp
+import androidx.hilt.navigation.compose.hiltViewModel
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.navigation.NavController
-import com.propdf.editor.ui.files.DocumentManagerScreen
-import com.propdf.editor.ui.files.DocumentManagerViewModel
-import com.propdf.editor.ui.files.DocumentViewType
+import com.propdf.editor.ui.home.HomeViewModel
 
-/**
- * Legacy RecentFilesScreen - now delegates to unified DocumentManagerScreen
- */
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun RecentFilesScreen(
     navController: NavController,
-    viewModel: DocumentManagerViewModel = androidx.hilt.navigation.compose.hiltViewModel()
+    viewModel: HomeViewModel,
+    onNavigateToViewer: (String) -> Unit,
+    onNavigateToMerge: () -> Unit,
+    onNavigateToSplit: () -> Unit,
+    onNavigateToFolder: () -> Unit
 ) {
-    LaunchedEffect(Unit) {
-        viewModel.setViewType(DocumentViewType.RECENT)
+    val uiState by viewModel.uiState.collectAsStateWithLifecycle()
+
+    Scaffold(
+        topBar = {
+            TopAppBar(
+                title = { Text("Recent Files") },
+                navigationIcon = {
+                    IconButton(onClick = { navController.popBackStack() }) {
+                        Icon(Icons.Default.ArrowBack, contentDescription = "Back")
+                    }
+                }
+            )
+        }
+    ) { padding ->
+        LazyColumn(
+            modifier = Modifier.fillMaxSize().padding(padding),
+            contentPadding = PaddingValues(16.dp),
+            verticalArrangement = Arrangement.spacedBy(12.dp)
+        ) {
+            items(uiState.recentFiles) { file ->
+                ListItem(
+                    headlineContent = { Text(file.displayName) },
+                    supportingContent = { Text("${file.fileSizeBytes} bytes · ${file.pageCount} pages") },
+                    leadingContent = { Icon(Icons.Default.PictureAsPdf, null) },
+                    modifier = Modifier.clickable { onNavigateToViewer(file.uri) }
+                )
+            }
+        }
     }
-    
-    DocumentManagerScreen(
-        onOpenDocument = { document ->
-            navController.navigate("viewer/${document.id}")
-        },
-        viewModel = viewModel
-    )
 }
