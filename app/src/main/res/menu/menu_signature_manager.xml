@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="utf-8"?>
+<menu xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto">
+    <item android:id="@+id/action_import_certificate"
+        android:title="@string/import_certificate"
+        android:icon="@drawable/ic_certificate"
+        app:showAsAction="ifRoom" />
+    <item android:id="@+id/action_verify_document"
+        android:title="@string/verify_signatures"
+        android:icon="@drawable/ic_verified"
+        app:showAsAction="ifRoom" />
+</menu>
