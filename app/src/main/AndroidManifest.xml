@@ -127,6 +127,24 @@
             android:screenOrientation="portrait"
             android:theme="@style/Theme.AppCompat.NoActionBar"
             android:windowSoftInputMode="stateAlwaysHidden" />
+        <!-- Signature Activities -->
+<activity android:name=".ui.signature.SignatureManagerActivity"
+    android:exported="false" android:theme="@style/Theme.ProPDFEditor"
+    android:parentActivityName=".ui.main.MainActivity" />
+<activity android:name=".ui.signature.DrawSignatureActivity"
+    android:exported="false" android:theme="@style/Theme.ProPDFEditor"
+    android:parentActivityName=".ui.signature.SignatureManagerActivity" />
+<activity android:name=".ui.signature.TypeSignatureActivity"
+    android:exported="false" android:theme="@style/Theme.ProPDFEditor"
+    android:parentActivityName=".ui.signature.SignatureManagerActivity" />
+<activity android:name=".ui.signature.ApplySignatureActivity"
+    android:exported="false" android:theme="@style/Theme.ProPDFEditor" />
+<activity android:name=".ui.signature.CertificateManagerActivity"
+    android:exported="false" android:theme="@style/Theme.ProPDFEditor"
+    android:parentActivityName=".ui.signature.SignatureManagerActivity" />
+<activity android:name=".ui.signature.SignatureVerificationActivity"
+    android:exported="false" android:theme="@style/Theme.ProPDFEditor"
+    android:parentActivityName=".ui.signature.SignatureManagerActivity" />
 
         <!-- Boot receiver -->
         <receiver
