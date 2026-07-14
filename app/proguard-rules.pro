@@ -43,3 +43,23 @@
 -keepclassmembers @androidx.hilt.work.HiltWorker class * {
     @dagger.assisted.AssistedInject <init>(...);
 }
+# iText PDF
+-keep class com.itextpdf.** { *; }
+-dontwarn com.itextpdf.**
+
+# BouncyCastle
+-keep class org.bouncycastle.** { *; }
+-dontwarn org.bouncycastle.**
+
+# Room
+-keep class * extends androidx.room.RoomDatabase
+-keep @androidx.room.Entity class *
+-dontwarn androidx.room.paging.**
+
+# Signature entities
+-keep class com.propdfeditor.core.database.entity.** { *; }
+
+# Parcelize
+-keep class * implements android.os.Parcelable {
+    public static final android.os.Parcelable$Creator *;
+}
