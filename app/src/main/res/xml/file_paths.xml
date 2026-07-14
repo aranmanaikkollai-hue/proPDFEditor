@@ -9,4 +9,8 @@
     <files-path name="scanner_original" path="scanner/original/" />
     <files-path name="scanner_processed" path="scanner/processed/" />
     <files-path name="scanner_thumbnails" path="scanner/thumbnails/" />
+    <files-path name="signatures" path="signatures/" />
+    <cache-path name="signed_documents" path="signed_documents/" />
+    <cache-path name="batch_signed" path="batch_signed/" />
+
 </paths>
