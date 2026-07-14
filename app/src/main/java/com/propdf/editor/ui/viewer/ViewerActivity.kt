@@ -13,3 +13,21 @@ class ViewerActivity : AppCompatActivity() {
         // TODO: Replace with setContent { PdfViewerScreen(...) } when ready.
     }
 }
+// In onCreateOptionsMenu:
+override fun onCreateOptionsMenu(menu: Menu): Boolean {
+    menuInflater.inflate(R.menu.menu_pdf_viewer, menu)
+    return true
+}
+
+// In onOptionsItemSelected:
+override fun onOptionsItemSelected(item: MenuItem): Boolean {
+    return when (item.itemId) {
+        R.id.action_sign_document -> {
+            documentUri?.let { uri ->
+                startActivity(ApplySignatureActivity.createIntent(this, uri))
+            }
+            true
+        }
+        else -> super.onOptionsItemSelected(item)
+    }
+}
