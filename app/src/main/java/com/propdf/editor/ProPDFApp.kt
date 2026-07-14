@@ -1,11 +1,17 @@
-package com.propdf.editor
+import androidx.work.ExistingPeriodicWorkPolicy
+import androidx.work.PeriodicWorkRequestBuilder
+import androidx.work.WorkManager
+import com.propdfeditor.core.worker.SignatureCleanupWorker
+import java.util.concurrent.TimeUnit
 
-import android.app.Application
-import dagger.hilt.android.HiltAndroidApp
-
-@HiltAndroidApp
-class ProPDFApp : Application() {
-    override fun onCreate() {
-        super.onCreate()
-    }
+// Inside onCreate():
+private fun setupPeriodicCleanup() {
+    val cleanupRequest = PeriodicWorkRequestBuilder<SignatureCleanupWorker>(
+        7, TimeUnit.DAYS
+    ).build()
+    WorkManager.getInstance(this).enqueueUniquePeriodicWork(
+        SignatureCleanupWorker.WORK_NAME,
+        ExistingPeriodicWorkPolicy.KEEP,
+        cleanupRequest
+    )
 }
