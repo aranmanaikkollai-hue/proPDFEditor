@@ -1,6 +1,11 @@
+       
 package com.propdfeditor.ui.signature
 
+import android.graphics.Bitmap
+import android.graphics.Canvas
 import android.graphics.Color
+import android.graphics.Paint
+import android.graphics.Typeface
 import android.os.Bundle
 import android.view.LayoutInflater
 import android.view.View
@@ -114,4 +119,107 @@ class TypedSignatureFragment : Fragment() {
     }
 
     private fun renderTextToBitmap(
-       
+        text: String,
+        fontFamily: String,
+        fontSize: Float,
+        textColor: Int,
+        width: Int = 400,
+        height: Int = 200
+    ): Bitmap {
+        val bitmap = Bitmap.createBitmap(width, height, Bitmap.Config.ARGB_8888)
+        val canvas = Canvas(bitmap)
+        bitmap.eraseColor(Color.TRANSPARENT)
+
+        val paint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
+            color = textColor
+            this.textSize = fontSize
+            textAlign = Paint.Align.CENTER
+            typeface = when (fontFamily.lowercase()) {
+                "cursive", "script" -> Typeface.create(Typeface.SERIF, Typeface.ITALIC)
+                "serif" -> Typeface.SERIF
+                "sans-serif" -> Typeface.SANS_SERIF
+                "monospace" -> Typeface.MONOSPACE
+                "bold" -> Typeface.create(Typeface.DEFAULT, Typeface.BOLD)
+                else -> Typeface.create(Typeface.SERIF, Typeface.ITALIC)
+            }
+        }
+
+        val x = width / 2f
+        val y = height / 2f - (paint.descent() + paint.ascent()) / 2f
+
+        // Draw underline
+        val textWidth = paint.measureText(text)
+        val underlinePaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
+            color = textColor
+            strokeWidth = 2f
+            alpha = 128
+        }
+
+        canvas.drawText(text, x, y, paint)
+        canvas.drawLine(
+            x - textWidth / 2 - 20,
+            y + paint.descent() + 5,
+            x + textWidth / 2 + 20,
+            y + paint.descent() + 5,
+            underlinePaint
+        )
+
+        return bitmap
+    }
+
+    private fun setupButtons() {
+        binding.saveButton.setOnClickListener {
+            val text = binding.signatureInput.text.toString().trim()
+            if (text.isEmpty()) return@setOnClickListener
+
+            val editText = android.widget.EditText(requireContext()).apply {
+                hint = getString(R.string.signature_name_hint)
+            }
+
+            com.google.android.material.dialog.MaterialAlertDialogBuilder(requireContext())
+                .setTitle(R.string.save_signature)
+                .setView(editText.apply {
+                    setPadding(48, 24, 48, 24)
+                })
+                .setPositiveButton(R.string.save) { _, _ ->
+                    val name = editText.text.toString().trim()
+                    if (name.isNotEmpty()) {
+                        viewModel.createTypedSignature(
+                            name = name,
+                            text = text,
+                            fontFamily = currentFontFamily,
+                            fontSize = currentFontSize,
+                            textColor = currentTextColor
+                        )
+                    }
+                }
+                .setNegativeButton(R.string.cancel, null)
+                .show()
+        }
+    }
+
+    private fun observeEvents() {
+        viewLifecycleOwner.lifecycleScope.launch {
+            viewLifecycleOwner.repeatOnLifecycle(Lifecycle.State.STARTED) {
+                viewModel.uiEvent.collect { event ->
+                    when (event) {
+                        is SignatureViewModel.UiEvent.SignatureCreated -> {
+                            Snackbar.make(binding.root, R.string.signature_saved, Snackbar.LENGTH_SHORT).show()
+                            binding.signatureInput.text?.clear()
+                            binding.signaturePreview.setImageBitmap(null)
+                        }
+                        is SignatureViewModel.UiEvent.Error -> {
+                            Snackbar.make(binding.root, event.message, Snackbar.LENGTH_LONG).show()
+                        }
+                        else -> {}
+                    }
+                }
+            }
+        }
+    }
+
+    override fun onDestroyView() {
+        super.onDestroyView()
+        _binding = null
+    }
+}
