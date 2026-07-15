@@ -1,16 +1,15 @@
 <?xml version="1.0" encoding="utf-8"?>
-<paths xmlns:android="http://schemas.android.com/apk/res/android">
-    <cache-path name="cache" path="." />
-    <external-path name="external_files" path="." />
-    <external-files-path name="external_app_files" path="." />
-
-    <!-- Scanner module (merged from scanner_file_paths.xml so both modules
-         can share the single app-level FileProvider authority) -->
-    <files-path name="scanner_original" path="scanner/original/" />
-    <files-path name="scanner_processed" path="scanner/processed/" />
-    <files-path name="scanner_thumbnails" path="scanner/thumbnails/" />
-    <files-path name="signatures" path="signatures/" />
-    <cache-path name="signed_documents" path="signed_documents/" />
-    <cache-path name="batch_signed" path="batch_signed/" />
-
+<paths>
+    <external-files-path
+        name="documents"
+        path="Documents/conversions/" />
+    <cache-path
+        name="cache"
+        path="conversions/" />
+    <files-path
+        name="files"
+        path="." />
+    <external-cache-path
+        name="external_cache"
+        path="." />
 </paths>
