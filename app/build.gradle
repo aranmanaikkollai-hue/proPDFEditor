@@ -1,4 +1,4 @@
-plugins {
+    plugins {
     id 'com.android.application'
     id 'org.jetbrains.kotlin.android'
     id 'org.jetbrains.kotlin.kapt'
@@ -12,7 +12,7 @@ android {
 
     defaultConfig {
         applicationId "com.propdf.editor"
-        minSdk 21
+        minSdk 26
         targetSdk 34
         versionCode 4
         versionName "4.0.0"
