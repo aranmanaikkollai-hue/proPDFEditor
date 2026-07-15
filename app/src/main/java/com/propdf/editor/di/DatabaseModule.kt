@@ -2,8 +2,8 @@ package com.propdf.editor.di
 
 import android.content.Context
 import androidx.room.Room
-import com.propdf.core.data.database.ProPDFDatabase
-import com.propdf.core.data.local.dao.*
+import com.propdf.editor.data.local.AppDatabase
+import com.propdf.editor.data.local.ConversionTaskDao
 import dagger.Module
 import dagger.Provides
 import dagger.hilt.InstallIn
@@ -17,10 +17,10 @@ object DatabaseModule {
 
     @Provides
     @Singleton
-    fun provideDatabase(@ApplicationContext context: Context): ProPDFDatabase {
+    fun provideAppDatabase(@ApplicationContext context: Context): AppDatabase {
         return Room.databaseBuilder(
             context,
-            ProPDFDatabase::class.java,
+            AppDatabase::class.java,
             "propdf_database"
         )
             .fallbackToDestructiveMigration()
@@ -28,20 +28,8 @@ object DatabaseModule {
     }
 
     @Provides
-    fun providePdfDocumentDao(database: ProPDFDatabase): PdfDocumentDao = database.pdfDocumentDao()
-
-    @Provides
-    fun provideDocumentTagDao(database: ProPDFDatabase): DocumentTagDao = database.documentTagDao()
-
-    @Provides
-    fun provideDocumentCollectionDao(database: ProPDFDatabase): DocumentCollectionDao = database.documentCollectionDao()
-
-    @Provides
-    fun provideRecentActivityDao(database: ProPDFDatabase): RecentActivityDao = database.recentActivityDao()
-
-    @Provides
-    fun provideFormFieldDao(database: ProPDFDatabase): FormFieldDao = database.formFieldDao()
-
-    @Provides
-    fun provideFormDataDao(database: ProPDFDatabase): FormDataDao = database.formDataDao()
+    @Singleton
+    fun provideConversionTaskDao(database: AppDatabase): ConversionTaskDao {
+        return database.conversionTaskDao()
+    }
 }
