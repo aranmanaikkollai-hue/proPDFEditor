@@ -2,81 +2,31 @@
 <manifest xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:tools="http://schemas.android.com/tools">
 
-    <!-- Camera permission -->
-    <uses-permission android:name="android.permission.CAMERA" />
-    <uses-permission android:name="android.permission.RECEIVE_BOOT_COMPLETED" />
-    
-    <!-- Storage permissions for Android 6-15 -->
-    <uses-permission android:name="android.permission.READ_EXTERNAL_STORAGE" 
+    <uses-permission android:name="android.permission.READ_EXTERNAL_STORAGE"
         android:maxSdkVersion="32" />
-    <uses-permission android:name="android.permission.WRITE_EXTERNAL_STORAGE" 
+    <uses-permission android:name="android.permission.WRITE_EXTERNAL_STORAGE"
         android:maxSdkVersion="28" />
-    <uses-permission android:name="android.permission.READ_MEDIA_IMAGES" />
-    <uses-permission android:name="android.permission.READ_MEDIA_VIDEO" />
-    <uses-permission android:name="android.permission.READ_MEDIA_AUDIO" />
     <uses-permission android:name="android.permission.MANAGE_EXTERNAL_STORAGE"
         tools:ignore="ScopedStorage" />
-    <uses-permission android:name="android.permission.ACCESS_MEDIA_LOCATION" />
+    <uses-permission android:name="android.permission.INTERNET" />
+    <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE" />
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
-    <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
-
-    <!-- Hardware feature declaration -->
-    <uses-feature
-        android:name="android.hardware.camera"
-        android:required="false" />
-    <uses-feature
-        android:name="android.hardware.camera.autofocus"
-        android:required="false" />
-    <uses-feature
-        android:name="android.hardware.camera.flash"
-        android:required="false" />
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE_DATA_SYNC" />
 
     <application
         android:name=".ProPDFApp"
         android:allowBackup="true"
+        android:dataExtractionRules="@xml/data_extraction_rules"
+        android:fullBackupContent="@xml/backup_rules"
         android:icon="@mipmap/ic_launcher"
-        android:roundIcon="@mipmap/ic_launcher_round"
         android:label="@string/app_name"
+        android:roundIcon="@mipmap/ic_launcher_round"
         android:supportsRtl="true"
         android:theme="@style/Theme.ProPDFEditor"
-        android:requestLegacyExternalStorage="true">
-                <!-- Signature Activities -->
-        <activity
-            android:name=".ui.signature.SignatureManagerActivity"
-            android:exported="false"
-            android:theme="@style/Theme.ProPDFEditor"
-            android:parentActivityName=".ui.main.MainActivity" />
+        android:requestLegacyExternalStorage="true"
+        android:largeHeap="true"
+        tools:targetApi="34">
 
-        <activity
-            android:name=".ui.signature.DrawSignatureActivity"
-            android:exported="false"
-            android:theme="@style/Theme.ProPDFEditor"
-            android:parentActivityName=".ui.signature.SignatureManagerActivity" />
-
-        <activity
-            android:name=".ui.signature.TypeSignatureActivity"
-            android:exported="false"
-            android:theme="@style/Theme.ProPDFEditor"
-            android:parentActivityName=".ui.signature.SignatureManagerActivity" />
-
-        <activity
-            android:name=".ui.signature.ApplySignatureActivity"
-            android:exported="false"
-            android:theme="@style/Theme.ProPDFEditor" />
-
-        <activity
-            android:name=".ui.signature.CertificateManagerActivity"
-            android:exported="false"
-            android:theme="@style/Theme.ProPDFEditor"
-            android:parentActivityName=".ui.signature.SignatureManagerActivity" />
-
-        <activity
-            android:name=".ui.signature.SignatureVerificationActivity"
-            android:exported="false"
-            android:theme="@style/Theme.ProPDFEditor"
-            android:parentActivityName=".ui.signature.SignatureManagerActivity" />
-
-        <!-- Main / launcher activity -->
         <activity
             android:name=".ui.main.MainActivity"
             android:exported="true"
@@ -85,77 +35,32 @@
                 <action android:name="android.intent.action.MAIN" />
                 <category android:name="android.intent.category.LAUNCHER" />
             </intent-filter>
+            
+            <intent-filter>
+                <action android:name="android.intent.action.VIEW" />
+                <category android:name="android.intent.category.DEFAULT" />
+                <data android:mimeType="application/pdf" />
+                <data android:mimeType="text/plain" />
+                <data android:mimeType="text/html" />
+                <data android:mimeType="text/markdown" />
+                <data android:mimeType="image/*" />
+            </intent-filter>
+            
+            <intent-filter>
+                <action android:name="android.intent.action.SEND" />
+                <category android:name="android.intent.category.DEFAULT" />
+                <data android:mimeType="application/pdf" />
+                <data android:mimeType="image/*" />
+            </intent-filter>
+            
+            <intent-filter>
+                <action android:name="android.intent.action.SEND_MULTIPLE" />
+                <category android:name="android.intent.category.DEFAULT" />
+                <data android:mimeType="image/*" />
+            </intent-filter>
         </activity>
 
-        <activity
-            android:name=".ui.tools.ToolsActivity"
-            android:exported="false"
-            android:theme="@style/Theme.ProPDFEditor" />
-
-        <activity
-            android:name=".ui.viewer.ViewerActivity"
-            android:exported="false"
-            android:theme="@style/Theme.ProPDFEditor" />
-
-        <activity
-            android:name=".ui.security.SecurityActivity"
-            android:exported="false"
-            android:theme="@style/Theme.ProPDFEditor" />
-
-        <!-- OCR -->
-        <activity
-            android:name=".ui.ocr.OcrActivity"
-            android:exported="false"
-            android:theme="@style/Theme.ProPDFEditor" />
-
-        <activity
-            android:name=".ui.ocr.OcrCropActivity"
-            android:exported="false"
-            android:theme="@style/Theme.ProPDFEditor" />
-
-        <!-- Scanner Activities -->
-        <activity
-            android:name=".ui.scanner.DocumentScannerActivity"
-            android:exported="false"
-            android:screenOrientation="portrait"
-            android:theme="@style/Theme.AppCompat.NoActionBar"
-            android:windowSoftInputMode="stateAlwaysHidden" />
-
-        <activity
-            android:name=".ui.scanner.ModernScannerActivity"
-            android:exported="false"
-            android:screenOrientation="portrait"
-            android:theme="@style/Theme.AppCompat.NoActionBar"
-            android:windowSoftInputMode="stateAlwaysHidden" />
-        <!-- Signature Activities -->
-<activity android:name=".ui.signature.SignatureManagerActivity"
-    android:exported="false" android:theme="@style/Theme.ProPDFEditor"
-    android:parentActivityName=".ui.main.MainActivity" />
-<activity android:name=".ui.signature.DrawSignatureActivity"
-    android:exported="false" android:theme="@style/Theme.ProPDFEditor"
-    android:parentActivityName=".ui.signature.SignatureManagerActivity" />
-<activity android:name=".ui.signature.TypeSignatureActivity"
-    android:exported="false" android:theme="@style/Theme.ProPDFEditor"
-    android:parentActivityName=".ui.signature.SignatureManagerActivity" />
-<activity android:name=".ui.signature.ApplySignatureActivity"
-    android:exported="false" android:theme="@style/Theme.ProPDFEditor" />
-<activity android:name=".ui.signature.CertificateManagerActivity"
-    android:exported="false" android:theme="@style/Theme.ProPDFEditor"
-    android:parentActivityName=".ui.signature.SignatureManagerActivity" />
-<activity android:name=".ui.signature.SignatureVerificationActivity"
-    android:exported="false" android:theme="@style/Theme.ProPDFEditor"
-    android:parentActivityName=".ui.signature.SignatureManagerActivity" />
-
-        <!-- Boot receiver -->
-        <receiver
-            android:name=".receiver.BootReceiver"
-            android:exported="true">
-            <intent-filter>
-                <action android:name="android.intent.action.BOOT_COMPLETED" />
-            </intent-filter>
-        </receiver>
-
-        <!-- FileProvider -->
+        <!-- FileProvider for sharing output files -->
         <provider
             android:name="androidx.core.content.FileProvider"
             android:authorities="${applicationId}.fileprovider"
@@ -165,5 +70,18 @@
                 android:name="android.support.FILE_PROVIDER_PATHS"
                 android:resource="@xml/file_paths" />
         </provider>
+
+        <!-- WorkManager initialization -->
+        <provider
+            android:name="androidx.startup.InitializationProvider"
+            android:authorities="${applicationId}.androidx-startup"
+            android:exported="false"
+            tools:node="merge">
+            <meta-data
+                android:name="androidx.work.WorkManagerInitializer"
+                android:value="androidx.startup" />
+        </provider>
+
     </application>
+
 </manifest>
