@@ -1,7 +1,7 @@
 plugins {
     id 'com.android.library'
     id 'org.jetbrains.kotlin.android'
-    id 'kotlin-kapt'
+    id 'com.google.devtools.ksp'
     id 'kotlin-parcelize'
     id 'com.google.dagger.hilt.android'
 }
@@ -86,8 +86,8 @@ dependencies {
     implementation 'androidx.compose.ui:ui-viewbinding'
 
     // Hilt
-    implementation 'com.google.dagger:hilt-android:2.50'
-    kapt 'com.google.dagger:hilt-compiler:2.50'
+    implementation 'com.google.dagger:hilt-android:2.51.1'
+    ksp 'com.google.dagger:hilt-compiler:2.51.1'
     implementation 'androidx.hilt:hilt-navigation-compose:1.1.0'
 
     // Coroutines
@@ -106,7 +106,7 @@ dependencies {
     // Room
     implementation 'androidx.room:room-runtime:2.6.1'
     implementation 'androidx.room:room-ktx:2.6.1'
-    kapt 'androidx.room:room-compiler:2.6.1'
+    ksp 'androidx.room:room-compiler:2.6.1'
 
     // WorkManager for background tasks
     implementation 'androidx.work:work-runtime-ktx:2.9.0'
@@ -121,14 +121,4 @@ dependencies {
     androidTestImplementation 'androidx.compose.ui:ui-test-junit4'
     debugImplementation 'androidx.compose.ui:ui-tooling'
     debugImplementation 'androidx.compose.ui:ui-test-manifest'
-}
-
-// Fixes kapt "Could not load module <Error module>" (KT-70718: kapt reports this
-// generic error instead of a real diagnostic when it hits an error/unresolved type
-// while generating stubs for a data class component - common in multi-module Hilt
-// setups where kapt has to resolve types across module boundaries). No fix exists
-// in the 1.9.x compiler line, so correctErrorTypes tells kapt to resolve the real
-// type from source instead of substituting its NonExistentClass placeholder.
-kapt {
-    correctErrorTypes = true
 }
