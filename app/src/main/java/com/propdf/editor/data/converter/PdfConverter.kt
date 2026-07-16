@@ -101,8 +101,8 @@ class PdfConverter @Inject constructor(
             val tempFile = FileUtils.copyUriToTempFile(context, sourceUri)
                 ?: return@withContext ConversionResult(false, null, fileName, "Cannot access PDF")
             
-            tempFile.use { file ->
-                val reader = PdfReader(file.absolutePath)
+            try {
+                val reader = PdfReader(tempFile.absolutePath)
                 val pdfDoc = PdfDocument(reader)
                 val totalPages = pdfDoc.numberOfPages
                 val stringBuilder = StringBuilder()
@@ -136,6 +136,8 @@ class PdfConverter @Inject constructor(
                     "Extracted text from $totalPages pages",
                     totalBytes = outputFile.length()
                 )
+            } finally {
+                tempFile.delete()
             }
         } catch (e: Exception) {
             ConversionResult(false, null, fileName, e.message ?: "PDF to text failed")
