@@ -4,11 +4,9 @@ import android.net.Uri
 import androidx.room.Entity
 import androidx.room.PrimaryKey
 import androidx.room.TypeConverter
-import androidx.room.TypeConverters
 import java.util.Date
 
 @Entity(tableName = "conversion_tasks")
-@TypeConverters(ConversionTask.Converters::class)
 data class ConversionTask(
     @PrimaryKey
     val id: String,
