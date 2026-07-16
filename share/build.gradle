@@ -1,7 +1,7 @@
 plugins {
     id 'com.android.library'
     id 'org.jetbrains.kotlin.android'
-    id 'kotlin-kapt'
+    id 'com.google.devtools.ksp'
     id 'com.google.dagger.hilt.android'
 }
 
@@ -62,8 +62,8 @@ dependencies {
     implementation 'com.google.code.gson:gson:2.10.1'
 
     // Hilt
-    implementation 'com.google.dagger:hilt-android:2.50'
-    kapt 'com.google.dagger:hilt-compiler:2.50'
+    implementation 'com.google.dagger:hilt-android:2.51.1'
+    ksp 'com.google.dagger:hilt-compiler:2.51.1'
 
     // Coroutines
     implementation 'org.jetbrains.kotlinx:kotlinx-coroutines-android:1.7.3'
@@ -71,14 +71,4 @@ dependencies {
 
     testImplementation 'junit:junit:4.13.2'
     androidTestImplementation 'androidx.test.ext:junit:1.1.5'
-}
-
-// Fixes kapt "Could not load module <Error module>" (KT-70718: kapt reports this
-// generic error instead of a real diagnostic when it hits an error/unresolved type
-// while generating stubs for a data class component - common in multi-module Hilt
-// setups where kapt has to resolve types across module boundaries). No fix exists
-// in the 1.9.x compiler line, so correctErrorTypes tells kapt to resolve the real
-// type from source instead of substituting its NonExistentClass placeholder.
-kapt {
-    correctErrorTypes = true
 }
