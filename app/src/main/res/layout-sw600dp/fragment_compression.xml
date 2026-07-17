@@ -1,0 +1,53 @@
+<?xml version="1.0" encoding="utf-8"?>
+<androidx.coordinatorlayout.widget.CoordinatorLayout 
+    xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent">
+
+    <androidx.core.widget.NestedScrollView
+        android:layout_width="match_parent"
+        android:layout_height="match_parent"
+        android:fillViewport="true">
+
+        <androidx.constraintlayout.widget.ConstraintLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:padding="24dp">
+
+            <androidx.constraintlayout.helper.widget.Flow
+                android:id="@+id/flow"
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                app:layout_constraintTop_toTopOf="parent"
+                app:layout_constraintStart_toStartOf="parent"
+                app:layout_constraintEnd_toEndOf="parent"
+                app:flow_wrapMode="chain"
+                app:flow_maxElementsWrap="2"
+                app:flow_horizontalGap="16dp"
+                app:flow_verticalGap="16dp"
+                app:constraint_referenced_ids="selectFileCard,fileInfoCard,presetCard,settingsCard,previewCard,progressCard,resultCard" />
+
+            <!-- Same cards as phone layout but with adjusted widths for two-column flow -->
+
+            <com.google.android.material.card.MaterialCardView
+                android:id="@+id/selectFileCard"
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                app:cardElevation="2dp"
+                app:contentPadding="24dp">
+
+                <!-- Content same as phone -->
+            </com.google.android.material.card.MaterialCardView>
+
+            <!-- ... other cards with same IDs and content ... -->
+
+            <com.google.android.material.button.MaterialButton
+                android:id="@+id/compressButton"
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="24dp"
+                android:text="@string/compress_pdf"
+                app:layout_constraintTop_toBottomOf="@id/flow"
+                app:layout_constraintStart_toStartOf="parent"
+                app:layout_constraintEnd_toEndOf
