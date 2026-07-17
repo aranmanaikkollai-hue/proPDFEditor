@@ -3,8 +3,8 @@ package com.propdf.core.di
 import android.content.Context
 import androidx.room.Room
 import com.propdf.core.data.local.CompressionHistoryDao
-import com.propdf.core.data.local.ProPDFDatabase
-import com.propdf.core.data.local.RecentFileDao
+import com.propdf.core.data.local.RecentFilesDatabase
+import com.propdf.core.data.local.RecentFilesDao
 import dagger.Module
 import dagger.Provides
 import dagger.hilt.InstallIn
@@ -18,10 +18,10 @@ object DatabaseModule {
 
     @Provides
     @Singleton
-    fun provideDatabase(@ApplicationContext context: Context): ProPDFDatabase {
+    fun provideDatabase(@ApplicationContext context: Context): RecentFilesDatabase {
         return Room.databaseBuilder(
             context,
-            ProPDFDatabase::class.java,
+            RecentFilesDatabase::class.java,
             "propdf_database"
         )
             .addMigrations(MIGRATION_1_2)
@@ -29,12 +29,12 @@ object DatabaseModule {
     }
 
     @Provides
-    fun provideRecentFileDao(database: ProPDFDatabase): RecentFileDao {
+    fun provideRecentFileDao(database: RecentFilesDatabase): RecentFilesDao {
         return database.recentFileDao()
     }
 
     @Provides
-    fun provideCompressionHistoryDao(database: ProPDFDatabase): CompressionHistoryDao {
+    fun provideCompressionHistoryDao(database: RecentFilesDatabase): CompressionHistoryDao {
         return database.compressionHistoryDao()
     }
     
