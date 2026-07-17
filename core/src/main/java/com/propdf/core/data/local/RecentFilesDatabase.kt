@@ -13,8 +13,8 @@ import androidx.room.TypeConverters
     exportSchema = true
 )
 @TypeConverters(CompressionConverters::class, DateConverters::class)
-abstract class ProPDFDatabase : RoomDatabase() {
-    abstract fun recentFileDao(): RecentFileDao
+abstract class RecentFilesDatabase : RoomDatabase() {
+    abstract fun recentFileDao(): RecentFilesDao
     abstract fun compressionHistoryDao(): CompressionHistoryDao
 }
 
