@@ -515,7 +515,7 @@ class PdfBoxCompressionRepository @Inject constructor(
         when (base) {
             is COSObject -> {
                 used.add(base.objectNumber)
-                collectUsedObjects(base.object, used)
+                collectUsedObjects(base.`object`, used)
             }
             is COSDictionary -> {
                 for (key in base.keys) {
@@ -548,7 +548,7 @@ class PdfBoxCompressionRepository @Inject constructor(
         // Force recompression of all streams with optimal settings
         val objects = document.document.objects
         for (obj in objects) {
-            val base = obj.object
+            val base = obj.`object`
             if (base is COSStream) {
                 try {
                     // Ensure FlateDecode is used
