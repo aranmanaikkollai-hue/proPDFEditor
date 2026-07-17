@@ -213,9 +213,22 @@ class MarkdownConverter @Inject constructor(
                     progressScope.launch { updateProgress(processedCount, nodeCount, onProgress) }
                 }
                 
-                override fun visit(codeBlock: CodeBlock) {
+                override fun visit(fencedCodeBlock: FencedCodeBlock) {
                     processedCount++
-                    val text = codeBlock.literal
+                    val text = fencedCodeBlock.literal
+                    val paragraph = PdfParagraph(text)
+                        .setFont(fontMono)
+                        .setFontSize(FONT_SIZE_CODE)
+                        .setBackgroundColor(com.itextpdf.kernel.colors.ColorConstants.LIGHT_GRAY)
+                        .setPadding(8f)
+                        .setMarginBottom(8f)
+                    pdfDocument.add(paragraph)
+                    progressScope.launch { updateProgress(processedCount, nodeCount, onProgress) }
+                }
+                
+                override fun visit(indentedCodeBlock: IndentedCodeBlock) {
+                    processedCount++
+                    val text = indentedCodeBlock.literal
                     val paragraph = PdfParagraph(text)
                         .setFont(fontMono)
                         .setFontSize(FONT_SIZE_CODE)
