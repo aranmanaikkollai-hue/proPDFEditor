@@ -2,12 +2,9 @@ package com.propdf.core.di
 
 import android.content.Context
 import androidx.room.Room
-import com.propdf.core.data.database.SearchDao
-import com.propdf.core.data.database.SearchDatabase
-import com.propdf.core.data.local.OcrDatabase
-import com.propdf.core.data.local.OcrJobDao
-import com.propdf.core.data.local.RecentFilesDao
-import com.propdf.core.data.local.RecentFilesDatabase
+import com.propdf.core.data.local.CompressionHistoryDao
+import com.propdf.core.data.local.ProPDFDatabase
+import com.propdf.core.data.local.RecentFileDao
 import dagger.Module
 import dagger.Provides
 import dagger.hilt.InstallIn
@@ -21,40 +18,39 @@ object DatabaseModule {
 
     @Provides
     @Singleton
-    fun provideSearchDatabase(
-        @ApplicationContext context: Context
-    ): SearchDatabase = Room.databaseBuilder(
-        context,
-        SearchDatabase::class.java,
-        "search_database"
-    ).build()
+    fun provideDatabase(@ApplicationContext context: Context): ProPDFDatabase {
+        return Room.databaseBuilder(
+            context,
+            ProPDFDatabase::class.java,
+            "propdf_database"
+        )
+            .addMigrations(MIGRATION_1_2)
+            .build()
+    }
 
     @Provides
-    fun provideSearchDao(database: SearchDatabase): SearchDao = database.searchDao()
+    fun provideRecentFileDao(database: ProPDFDatabase): RecentFileDao {
+        return database.recentFileDao()
+    }
 
     @Provides
-    @Singleton
-    fun provideRecentFilesDatabase(
-        @ApplicationContext context: Context
-    ): RecentFilesDatabase = Room.databaseBuilder(
-        context,
-        RecentFilesDatabase::class.java,
-        "recent_files_database"
-    ).build()
-
-    @Provides
-    fun provideRecentFilesDao(database: RecentFilesDatabase): RecentFilesDao = database.recentFilesDao()
-
-    @Provides
-    @Singleton
-    fun provideOcrDatabase(
-        @ApplicationContext context: Context
-    ): OcrDatabase = Room.databaseBuilder(
-        context,
-        OcrDatabase::class.java,
-        "ocr_database"
-    ).build()
-
-    @Provides
-    fun provideOcrJobDao(database: OcrDatabase): OcrJobDao = database.ocrJobDao()
+    fun provideCompressionHistoryDao(database: ProPDFDatabase): CompressionHistoryDao {
+        return database.compressionHistoryDao()
+    }
+    
+    private val MIGRATION_1_2 = androidx.room.migration.Migration(1, 2) { database ->
+        database.execSQL("""
+            CREATE TABLE IF NOT EXISTS compression_history (
+                id INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL,
+                sourceUri TEXT NOT NULL,
+                outputUri TEXT NOT NULL,
+                originalSizeBytes INTEGER NOT NULL,
+                compressedSizeBytes INTEGER NOT NULL,
+                compressionRatio REAL NOT NULL,
+                config TEXT NOT NULL,
+                timestamp INTEGER NOT NULL,
+                fileName TEXT NOT NULL
+            )
+        """)
+    }
 }
