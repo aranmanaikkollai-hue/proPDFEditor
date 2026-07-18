@@ -172,7 +172,7 @@ class CompressionFragment : Fragment() {
                 QualityPreset.PRINTER -> chipPrinter.isChecked = true
                 QualityPreset.PREPRESS -> chipPrepress.isChecked = true
                 QualityPreset.ARCHIVE -> chipArchive.isChecked = true
-                null -> presetGroup.clearChecked()
+                null -> presetGroup.clearCheck()
             }
 
             // Custom controls reflect current config
