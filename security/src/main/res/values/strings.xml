@@ -1,0 +1,15 @@
+<!-- security/src/main/res/values/strings.xml -->
+<resources>
+    <string name="security_title">Document Security</string>
+    <string name="tab_encryption">Encryption</string>
+    <string name="tab_permissions">Permissions</string>
+    <string name="tab_redaction">Redaction</string>
+    <string name="tab_sanitization">Sanitization</string>
+    
+    <string name="encryption_settings">Encryption Settings</string>
+    <string name="hint_user_password">User Password (optional)</string>
+    <string name="hint_owner_password">Owner Password</string>
+    <string name="hint_confirm_password">Confirm Password</string>
+    <string name="encryption_type">Encryption Type</string>
+    <string name="encryption_aes_256">AES-256 (Recommended)</string>
+    <string name="encryption_aes_128">AES-128</string>
