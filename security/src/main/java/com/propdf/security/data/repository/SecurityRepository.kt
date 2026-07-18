@@ -601,4 +601,79 @@ class SecurityRepository @Inject constructor(
 
     fun getAllSecureDocuments(): Flow<List<SecureDocumentEntity>> = 
         secureDocumentDao.getAllSecureDocuments()
+        // Add these methods to SecurityRepository
+
+    suspend fun decryptPdf(
+        sourceUri: Uri,
+        password: String,
+        outputUri: Uri
+    ): Result<Uri> = withContext(Dispatchers.IO) {
+        try {
+            val tempFile = File.createTempFile("pdf_decrypt", ".pdf", context.cacheDir)
+            
+            context.contentResolver.openInputStream(sourceUri)?.use { input ->
+                FileOutputStream(tempFile).use { output ->
+                    input.copyTo(output)
+                }
+            }
+
+            val reader = PdfReader(
+                tempFile.absolutePath,
+                com.itextpdf.kernel.pdf.ReaderProperties()
+                    .setPassword(password.toByteArray())
+            )
+            val writer = PdfWriter(outputUri.path ?: throw IllegalStateException("Invalid output URI"))
+            
+            PdfDocument(reader, writer).use { pdfDoc ->
+                pdfDoc.close()
+            }
+
+            tempFile.delete()
+            Result.success(outputUri)
+        } catch (e: Exception) {
+            Result.failure(e)
+        }
+    }
+
+    suspend fun getDocumentInfo(uri: Uri): Result<DocumentInfo> = withContext(Dispatchers.IO) {
+        try {
+            val tempFile = File.createTempFile("pdf_info", ".pdf", context.cacheDir)
+            
+            context.contentResolver.openInputStream(uri)?.use { input ->
+                FileOutputStream(tempFile).use { output ->
+                    input.copyTo(output)
+                }
+            }
+
+            PdfDocument(PdfReader(tempFile.absolutePath)).use { pdfDoc ->
+                val info = DocumentInfo(
+                    isEncrypted = pdfDoc.reader.isEncrypted,
+                    numberOfPages = pdfDoc.numberOfPages,
+                    hasOwnerPassword = pdfDoc.reader.hasOwnerPassword(),
+                    permissions = if (pdfDoc.reader.isEncrypted) {
+                        pdfDoc.reader.getPermissions()
+                    } else -1,
+                    title = pdfDoc.documentInfo.title,
+                    author = pdfDoc.documentInfo.author,
+                    creator = pdfDoc.documentInfo.creator,
+                    producer = pdfDoc.documentInfo.producer
+                )
+                tempFile.delete()
+                Result.success(info)
+            }
+        } catch (e: Exception) {
+            Result.failure(e)
+        }
+    }
+
+    data class DocumentInfo(
+        val isEncrypted: Boolean,
+        val numberOfPages: Int,
+        val hasOwnerPassword: Boolean,
+        val permissions: Int,
+        val title: String?,
+        val author: String?,
+        val creator: String?,
+        val producer: String?
+    )
 }
