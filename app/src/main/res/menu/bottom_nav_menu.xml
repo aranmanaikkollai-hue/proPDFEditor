@@ -1,4 +1,0 @@
-<item
-    android:id="@+id/navigation_compress"
-    android:icon="@drawable/ic_compress"
-    android:title="@string/compress" />
