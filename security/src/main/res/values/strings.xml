@@ -1,0 +1,77 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- security/src/main/res/values/strings.xml -->
+<resources>
+    <string name="security_title">Document Security</string>
+    <string name="tab_encryption">Encryption</string>
+    <string name="tab_permissions">Permissions</string>
+    <string name="tab_redaction">Redaction</string>
+    <string name="tab_sanitization">Sanitization</string>
+    
+    <string name="encryption_settings">Encryption Settings</string>
+    <string name="hint_user_password">User Password (optional)</string>
+    <string name="hint_owner_password">Owner Password</string>
+    <string name="hint_confirm_password">Confirm Password</string>
+    <string name="encryption_type">Encryption Type</string>
+    <string name="encryption_aes_256">AES-256 (Recommended)</string>
+    <string name="encryption_aes_128">AES-128</string>
+    <string name="encryption_standard_128">Standard 128-bit</string>
+    
+    <string name="permissions">Document Permissions</string>
+    <string name="permission_print">Allow Printing</string>
+    <string name="permission_modify">Allow Modifying Contents</string>
+    <string name="permission_copy">Allow Copying Text/Images</string>
+    <string name="permission_annotate">Allow Annotations</string>
+    <string name="permission_fill_forms">Allow Filling Forms</string>
+    <string name="permission_assembly">Allow Document Assembly</string>
+    <string name="permission_degraded_print">Allow Degraded Printing</string>
+    
+    <string name="action_encrypt">Encrypt Document</string>
+    <string name="action_decrypt">Decrypt Document</string>
+    <string name="action_apply_permissions">Apply Permissions</string>
+    <string name="action_add_redaction">Add Redaction Area</string>
+    <string name="action_apply_redactions">Apply Redactions</string>
+    <string name="action_permanent_redaction">Permanent Redaction</string>
+    <string name="action_remove_metadata">Remove Metadata</string>
+    <string name="action_sanitize">Sanitize Document</string>
+    <string name="action_secure_delete">Secure Delete</string>
+    <string name="action_delete">Delete</string>
+    <string name="action_proceed">Proceed</string>
+    <string name="action_cancel">Cancel</string>
+    
+    <string name="redaction_instructions">Select areas on the PDF to redact. You can apply visual redactions (content hidden but recoverable) or permanent redactions (content permanently destroyed).</string>
+    <string name="no_redactions">No redactions added yet</string>
+    
+    <string name="sanitization_description">Remove sensitive information from your document:</string>
+    <string name="sanitize_warning">Sanitization removes JavaScript, embedded files, annotations, form fields, and other potentially harmful content.</string>
+    
+    <string name="dialog_confirm_operation">Confirm Operation</string>
+    <string name="dialog_sanitize_warning">This operation will permanently remove metadata, JavaScript, embedded files, and other hidden content from the document. This cannot be undone.</string>
+    <string name="dialog_secure_delete_title">Secure Delete</string>
+    <string name="dialog_secure_delete_warning">This will permanently delete the file by overwriting it with random data multiple times. This action cannot be undone.</string>
+    
+    <string name="error_password_required">At least one password is required</string>
+    <string name="error_passwords_dont_match">Passwords do not match</string>
+    <string name="error_no_document">No document selected</string>
+    <string name="error_invalid_password">Invalid password</string>
+    <string name="error_encryption_failed">Encryption failed</string>
+    <string name="error_decryption_failed">Decryption failed</string>
+    <string name="error_no_redactions">No redactions to apply</string>
+    
+    <string name="success_encrypted">Document encrypted successfully</string>
+    <string name="success_decrypted">Document decrypted successfully</string>
+    <string name="success_redacted">Redactions applied successfully</string>
+    <string name="success_sanitized">Document sanitized successfully</string>
+    <string name="success_metadata_removed">Metadata removed successfully</string>
+    <string name="success_secure_deleted">File securely deleted</string>
+    
+    <string name="menu_history">Operation History</string>
+    
+    <string name="history_title">Security Operation History</string>
+    <string name="history_empty">No operations performed yet</string>
+    
+    <string name="status_pending">Pending</string>
+    <string name="status_processing">Processing</string>
+    <string name="status_success">Success</string>
+    <string name="status_failed">Failed</string>
+    <string name="status_cancelled">Cancelled</string>
+</resources>
