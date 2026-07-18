@@ -1,4 +1,4 @@
-// security/src/main/java/com/propdf/security/ui/activity/SecurityActivity.kt
+// Updated SecurityActivity with history dialog
 package com.propdf.security.ui.activity
 
 import android.net.Uri
@@ -16,6 +16,7 @@ import com.google.android.material.tabs.TabLayoutMediator
 import com.propdf.security.R
 import com.propdf.security.databinding.ActivitySecurityBinding
 import com.propdf.security.ui.adapter.SecurityPagerAdapter
+import com.propdf.security.ui.fragment.HistoryDialogFragment
 import com.propdf.security.ui.viewmodel.SecurityViewModel
 import dagger.hilt.android.AndroidEntryPoint
 import kotlinx.coroutines.launch
@@ -102,12 +103,11 @@ class SecurityActivity : AppCompatActivity() {
     }
 
     private fun showHistoryDialog() {
-        // Implementation for showing security operation history
+        HistoryDialogFragment.newInstance().show(supportFragmentManager, "history_dialog")
     }
 
     override fun onDestroy() {
         super.onDestroy()
-        // Clean up sensitive data
         documentUri = null
     }
 }
