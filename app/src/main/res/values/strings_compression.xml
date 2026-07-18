@@ -1,0 +1,41 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="select_pdf_file">Select PDF File</string>
+    <string name="drag_or_select_pdf">Drag and drop a PDF file here, or browse to select</string>
+    <string name="browse_files">Browse Files</string>
+    <string name="quality_preset">Quality Preset</string>
+    <string name="preset_description">Choose a preset optimized for your use case</string>
+    <string name="preset_screen">Screen</string>
+    <string name="preset_ebook">eBook</string>
+    <string name="preset_printer">Printer</string>
+    <string name="preset_prepress">Prepress</string>
+    <string name="preset_archive">Archive</string>
+    <string name="advanced_settings">Advanced Settings</string>
+    <string name="image_quality">Image Quality</string>
+    <string name="max_dimension">Max Image Dimension</string>
+    <string name="max_image_dimension">Max Image Dimension</string>
+    <string name="remove_metadata">Remove Metadata</string>
+    <string name="optimize_fonts">Optimize Fonts</string>
+    <string name="remove_unused">Remove Unused Objects</string>
+    <string name="remove_unused_objects">Remove Unused Objects</string>
+    <string name="fast_web_view">Fast Web View (Linearization)</string>
+    <string name="enable_fast_web_view">Fast Web View (Linearization)</string>
+    <string name="compression_preview">Compression Preview</string>
+    <string name="will_downsample">Image Downsampling:</string>
+    <string name="will_optimize_fonts">Font Optimization:</string>
+    <string name="compress_pdf">Compress PDF</string>
+    <string name="compression_complete">Compression Complete!</string>
+    <string name="success">Success</string>
+    <string name="original">Original</string>
+    <string name="original_size">Original Size</string>
+    <string name="compressed">Compressed</string>
+    <string name="compressed_size">Compressed Size</string>
+    <string name="saved">Space Saved</string>
+    <string name="space_saved">Space Saved</string>
+    <string name="ratio">Ratio</string>
+    <string name="compression_ratio">Compression Ratio</string>
+    <string name="compress_another">Compress Another</string>
+    <string name="pdf_icon">PDF</string>
+    <string name="estimated_result">Estimated Result</string>
+    <string name="warnings">Warnings</string>
+</resources>
