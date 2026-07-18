@@ -1,0 +1,68 @@
+<!-- security/src/main/res/layout/fragment_redaction.xml -->
+<?xml version="1.0" encoding="utf-8"?>
+<androidx.constraintlayout.widget.ConstraintLayout 
+    xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:padding="16dp">
+
+    <TextView
+        android:id="@+id/tvInstructions"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:text="@string/redaction_instructions"
+        android:textAppearance="?attr/textAppearanceBodyMedium"
+        app:layout_constraintTop_toTopOf="parent" />
+
+    <com.google.android.material.button.MaterialButton
+        android:id="@+id/btnAddRedaction"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:text="@string/action_add_redaction"
+        app:layout_constraintTop_toBottomOf="@id/tvInstructions"
+        android:layout_marginTop="8dp" />
+
+    <androidx.recyclerview.widget.RecyclerView
+        android:id="@+id/rvRedactions"
+        android:layout_width="match_parent"
+        android:layout_height="0dp"
+        app:layout_constraintTop_toBottomOf="@id/btnAddRedaction"
+        app:layout_constraintBottom_toTopOf="@id/btnApplyRedactions"
+        android:layout_marginTop="8dp"
+        android:layout_marginBottom="8dp" />
+
+    <TextView
+        android:id="@+id/tvEmptyState"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:text="@string/no_redactions"
+        android:textAppearance="?attr/textAppearanceBodyLarge"
+        app:layout_constraintTop_toTopOf="@id/rvRedactions"
+        app:layout_constraintBottom_toBottomOf="@id/rvRedactions"
+        app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintEnd_toEndOf="parent"
+        android:visibility="visible" />
+
+    <com.google.android.material.button.MaterialButton
+        android:id="@+id/btnApplyRedactions"
+        android:layout_width="0dp"
+        android:layout_height="wrap_content"
+        android:text="@string/action_apply_redactions"
+        app:layout_constraintBottom_toBottomOf="parent"
+        app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintEnd_toStartOf="@id/btnApplyPermanent"
+        android:layout_marginEnd="4dp" />
+
+    <com.google.android.material.button.MaterialButton
+        android:id="@+id/btnApplyPermanent"
+        android:layout_width="0dp"
+        android:layout_height="wrap_content"
+        android:text="@string/action_permanent_redaction"
+        app:layout_constraintBottom_toBottomOf="parent"
+        app:layout_constraintStart_toEndOf="@id/btnApplyRedactions"
+        app:layout_constraintEnd_toEndOf="parent"
+        android:layout_marginStart="4dp"
+        style="?attr/materialButtonOutlinedStyle" />
+
+</androidx.constraintlayout.widget.ConstraintLayout>
