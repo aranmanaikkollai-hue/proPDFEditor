@@ -23,6 +23,8 @@ import androidx.recyclerview.widget.LinearLayoutManager
 import com.google.android.material.dialog.MaterialAlertDialogBuilder
 import com.propdfeditor.R
 import com.propdfeditor.batch.data.util.BatchJobType
+import com.propdfeditor.batch.ui.adapter.BatchFileAdapter
+import com.propdfeditor.batch.ui.adapter.BatchJobAdapter
 import com.propdfeditor.batch.viewmodel.BatchViewModel
 import com.propdfeditor.databinding.ActivityBatchBinding
 import dagger.hilt.android.AndroidEntryPoint
