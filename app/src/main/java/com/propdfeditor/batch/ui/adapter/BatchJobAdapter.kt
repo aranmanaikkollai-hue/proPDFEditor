@@ -6,11 +6,11 @@ import android.view.ViewGroup
 import androidx.recyclerview.widget.DiffUtil
 import androidx.recyclerview.widget.ListAdapter
 import androidx.recyclerview.widget.RecyclerView
-import com.propdfeditor.R
+import com.propdf.editor.R
 import com.propdfeditor.batch.data.entity.BatchJobEntity
 import com.propdfeditor.batch.data.util.BatchJobStatus
 import com.propdfeditor.batch.data.util.BatchJobType
-import com.propdfeditor.databinding.ItemBatchJobBinding
+import com.propdf.editor.databinding.ItemBatchJobBinding
 import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
