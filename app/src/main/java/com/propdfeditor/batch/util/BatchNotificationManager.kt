@@ -8,7 +8,7 @@ import android.content.Intent
 import android.os.Build
 import androidx.core.app.NotificationCompat
 import androidx.work.ForegroundInfo
-import com.propdfeditor.R
+import com.propdf.editor.R
 import com.propdfeditor.batch.data.entity.BatchJobEntity
 import com.propdfeditor.batch.data.util.BatchJobStatus
 import com.propdfeditor.batch.data.util.BatchJobType
