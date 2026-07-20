@@ -1,7 +1,6 @@
 package com.propdf.viewer.pdf.di
 
 import android.content.Context
-import com.propdf.core.saf.SafEngine
 import com.propdf.viewer.pdf.PdfExportManager
 import com.propdf.viewer.pdf.PdfToolEngine
 import com.propdf.viewer.pdf.TempFileManager
@@ -15,15 +14,6 @@ import javax.inject.Singleton
 @Module
 @InstallIn(SingletonComponent::class)
 object PdfToolsModule {
-
-    @Provides
-    @Singleton
-    fun providePdfToolEngine(
-        @ApplicationContext context: Context,
-        safEngine: SafEngine
-    ): PdfToolEngine {
-        return PdfToolEngine(context, safEngine)
-    }
 
     @Provides
     @Singleton
