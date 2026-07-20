@@ -46,19 +46,6 @@ class BatchWorkScheduler @Inject constructor(
             .setRequiresBatteryNotLow(true)
             .build()
 
-        val workRequest = OneTimeWorkRequestBuilder<MergeWorker>()
-            .setWorkerFactory(BatchWorkerFactory::class.java)
-            .setInputData(inputData)
-            .setConstraints(constraints)
-            .setBackoffCriteria(
-                BackoffPolicy.EXPONENTIAL,
-                WorkRequest.MIN_BACKOFF_MILLIS,
-                TimeUnit.MILLISECONDS
-            )
-            .addTag("batch_job_${job.id}")
-            .addTag("batch_type_${job.type.name}")
-            .build()
-
         // Actually use the correct worker class
         val actualRequest = OneTimeWorkRequest.Builder(workerClass)
             .setInputData(inputData)
