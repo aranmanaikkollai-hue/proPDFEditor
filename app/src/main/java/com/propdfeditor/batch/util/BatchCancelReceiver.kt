@@ -4,6 +4,7 @@ import android.content.BroadcastReceiver
 import android.content.Context
 import android.content.Intent
 import androidx.work.WorkManager
+import com.propdfeditor.batch.repository.BatchJobRepository
 import dagger.hilt.android.AndroidEntryPoint
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -35,3 +36,4 @@ class BatchCancelReceiver : BroadcastReceiver() {
         }
     }
 }
+
