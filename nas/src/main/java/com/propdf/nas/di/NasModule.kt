@@ -40,18 +40,6 @@ object NasModule {
 
     @Provides
     @Singleton
-    fun provideWebDavClient(dispatcherProvider: DispatcherProvider): WebDavClient {
-        return WebDavClient(dispatcherProvider)
-    }
-
-    @Provides
-    @Singleton
-    fun provideSmbClient(dispatcherProvider: DispatcherProvider): SmbClient {
-        return SmbClient(dispatcherProvider)
-    }
-
-    @Provides
-    @Singleton
     fun provideNasRepository(
         @ApplicationContext context: Context,
         webDavClient: WebDavClient,
