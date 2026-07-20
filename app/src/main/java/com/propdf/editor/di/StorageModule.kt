@@ -1,21 +1,13 @@
 package com.propdf.editor.di
 
-import android.content.Context
-import com.propdf.editor.data.storage.StorageManager
 import dagger.Module
-import dagger.Provides
 import dagger.hilt.InstallIn
-import dagger.hilt.android.qualifiers.ApplicationContext
 import dagger.hilt.components.SingletonComponent
-import javax.inject.Singleton
 
+/**
+ * StorageManager has its own @Inject constructor, so Hilt provides it automatically.
+ * No @Provides method needed here (a duplicate one previously caused KSP failures).
+ */
 @Module
 @InstallIn(SingletonComponent::class)
-object StorageModule {
-
-    @Provides
-    @Singleton
-    fun provideStorageManager(
-        @ApplicationContext context: Context
-    ): StorageManager = StorageManager(context)
-}
+object StorageModule
