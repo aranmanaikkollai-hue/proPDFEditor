@@ -82,6 +82,20 @@
                 android:value="androidx.startup" />
         </provider>
 
+
+    <!-- Batch Activity -->
+    <activity
+        android:name=".batch.ui.BatchActivity"
+        android:label="@string/batch_operations"
+        android:parentActivityName=".ui.MainActivity"
+        android:exported="false" />
+
+    <!-- Batch Cancel Receiver -->
+    <receiver
+        android:name=".batch.util.BatchCancelReceiver"
+        android:exported="false" />
+
+
     </application>
 
 </manifest>
