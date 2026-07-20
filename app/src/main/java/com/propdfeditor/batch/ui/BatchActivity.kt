@@ -21,12 +21,12 @@ import androidx.lifecycle.repeatOnLifecycle
 import androidx.recyclerview.widget.GridLayoutManager
 import androidx.recyclerview.widget.LinearLayoutManager
 import com.google.android.material.dialog.MaterialAlertDialogBuilder
-import com.propdfeditor.R
+import com.propdf.editor.R
 import com.propdfeditor.batch.data.util.BatchJobType
 import com.propdfeditor.batch.ui.adapter.BatchFileAdapter
 import com.propdfeditor.batch.ui.adapter.BatchJobAdapter
 import com.propdfeditor.batch.viewmodel.BatchViewModel
-import com.propdfeditor.databinding.ActivityBatchBinding
+import com.propdf.editor.databinding.ActivityBatchBinding
 import dagger.hilt.android.AndroidEntryPoint
 import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.launch
