@@ -58,7 +58,7 @@ class OcrWorker(
                     }
 
                     try {
-                        val outputFile = createOutputFile(outputDirUri, uri, "_ocr")
+                        val outputFile = createOutputFile(outputDirUri, uri, "_ocr", config.outputFormat)
                             ?: throw IllegalStateException("Cannot create output file")
 
                         processOcr(uri, outputFile, config)
@@ -147,14 +147,14 @@ class OcrWorker(
         }
     }
 
-    private fun createOutputFile(dirUri: Uri, sourceUri: Uri, suffix: String): Uri? {
+    private fun createOutputFile(dirUri: Uri, sourceUri: Uri, suffix: String, outputFormat: String): Uri? {
         val docFile = androidx.documentfile.provider.DocumentFile.fromSingleUri(applicationContext, sourceUri)
         val originalName = docFile?.name ?: "document.pdf"
         val nameWithoutExt = originalName.substringBeforeLast(".")
-        val ext = if (config.outputFormat == "TXT") "txt" else "pdf"
+        val ext = if (outputFormat == "TXT") "txt" else "pdf"
         val newName = "${nameWithoutExt}${suffix}.$ext"
 
-        val mimeType = if (config.outputFormat == "TXT") "text/plain" else "application/pdf"
+        val mimeType = if (outputFormat == "TXT") "text/plain" else "application/pdf"
         val parentDir = androidx.documentfile.provider.DocumentFile.fromTreeUri(applicationContext, dirUri)
         return parentDir?.createFile(mimeType, newName)?.uri
     }
