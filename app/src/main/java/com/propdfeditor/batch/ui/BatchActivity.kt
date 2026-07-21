@@ -14,6 +14,7 @@ import androidx.activity.result.contract.ActivityResultContracts
 import androidx.activity.viewModels
 import androidx.appcompat.app.AppCompatActivity
 import androidx.core.content.ContextCompat
+import androidx.core.view.children
 import androidx.core.view.isVisible
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.lifecycleScope
@@ -218,7 +219,8 @@ class BatchActivity : AppCompatActivity() {
         )
         // Store for use in operations
         pendingOutputDir = uri
-        executePendingOperation()
+        pendingOperation?.invoke()
+        pendingOperation = null
     }
 
     private var pendingOutputDir: Uri? = null
@@ -317,7 +319,7 @@ class BatchActivity : AppCompatActivity() {
         }
 
         MaterialAlertDialogBuilder(this)
-            .setTitle(R.string.split_every_n)
+            .setTitle(R.string.split_every_n_pages)
             .setView(input)
             .setPositiveButton(R.string.start) { _, _ ->
                 val n = input.text?.toString()?.toIntOrNull() ?: 1
