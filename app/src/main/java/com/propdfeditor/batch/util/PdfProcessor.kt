@@ -19,7 +19,7 @@ class PdfProcessor @Inject constructor() {
         context: Context,
         inputUris: List<Uri>,
         outputUri: Uri,
-        onProgress: (Int) -> Unit
+        onProgress: suspend (Int) -> Unit
     ) = withContext(Dispatchers.IO) {
         context.contentResolver.openOutputStream(outputUri)?.use { output ->
             val writer = PdfWriter(output)
@@ -55,7 +55,7 @@ class PdfProcessor @Inject constructor() {
         outputDirUri: Uri,
         pageRanges: List<String>?,
         splitEvery: Int?,
-        onProgress: (Int, Int) -> Unit
+        onProgress: suspend (Int, Int) -> Unit
     ): List<Uri> = withContext(Dispatchers.IO) {
         val resultUris = mutableListOf<Uri>()
         
@@ -77,7 +77,7 @@ class PdfProcessor @Inject constructor() {
                 ?.substringBeforeLast(".") ?: "document"
 
             ranges.forEachIndexed { index, range ->
-                if (!isActive) return@withContext
+                if (!isActive) return@withContext resultUris
 
                 val startPage = range.first
                 val endPage = range.last
