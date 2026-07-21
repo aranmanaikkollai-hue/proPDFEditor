@@ -43,7 +43,7 @@ class RenameWorker(
                 try {
                     val documentFile = DocumentFile.fromSingleUri(applicationContext, uri)
                     val parent = documentFile?.parentFile
-                    val extension = documentFile?.name?.substringAfterLast('.', 'pdf') ?: 'pdf'
+                    val extension = documentFile?.name?.substringAfterLast(".", "pdf") ?: "pdf"
                     
                     val newName = buildNewName(config, index + config.startIndex, extension)
                     
