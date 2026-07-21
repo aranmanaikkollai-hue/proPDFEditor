@@ -149,6 +149,7 @@ class WatermarkWorker(
             paragraph,
             x,
             y,
+            1,
             TextAlignment.CENTER,
             VerticalAlignment.MIDDLE,
             config.rotation
