@@ -66,13 +66,10 @@ class DecryptWorker(
     private fun decryptPdf(inputUri: Uri, outputUri: Uri, config: DecryptConfig) {
         applicationContext.contentResolver.openInputStream(inputUri)?.use { input ->
             applicationContext.contentResolver.openOutputStream(outputUri)?.use { output ->
-                val reader = PdfReader(input).apply {
+                val readerProperties = com.itextpdf.kernel.pdf.ReaderProperties()
+                    .setPassword(config.password.toByteArray(Charsets.UTF_8))
+                val reader = PdfReader(input, readerProperties).apply {
                     setUnethicalReading(true) // Required for removing encryption
-                }
-                
-                // Set password if needed
-                if (reader.isEncrypted) {
-                    reader.setPassword(config.password.toByteArray(Charsets.UTF_8))
                 }
 
                 val writer = PdfWriter(output)
