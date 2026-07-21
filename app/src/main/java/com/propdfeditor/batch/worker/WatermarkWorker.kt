@@ -125,7 +125,7 @@ class WatermarkWorker(
         canvas.saveState()
         canvas.setExtGState(gState)
 
-        val x = when (config.position) {
+        val x: Float = when (config.position) {
             "TOP_LEFT" -> pageSize.left + 50
             "TOP_RIGHT" -> pageSize.right - 50
             "BOTTOM_LEFT" -> pageSize.left + 50
@@ -133,7 +133,7 @@ class WatermarkWorker(
             else -> (pageSize.left + pageSize.right) / 2
         }
 
-        val y = when (config.position) {
+        val y: Float = when (config.position) {
             "TOP_LEFT", "TOP_RIGHT" -> pageSize.top - 50
             "BOTTOM_LEFT", "BOTTOM_RIGHT" -> pageSize.bottom + 50
             else -> (pageSize.top + pageSize.bottom) / 2
@@ -169,7 +169,7 @@ class WatermarkWorker(
             val imageData = com.itextpdf.io.image.ImageDataFactory.create(byteArrayOutputStream.toByteArray())
             
             val image = com.itextpdf.layout.element.Image(imageData)
-            image.setOpacity(config.opacity.toDouble())
+            image.setOpacity(config.opacity)
             image.setFixedPosition(
                 (pageSize.width - 200) / 2,
                 (pageSize.height - 200) / 2,
