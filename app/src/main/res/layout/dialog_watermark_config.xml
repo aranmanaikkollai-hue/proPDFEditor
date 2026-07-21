@@ -1,0 +1,92 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout
+    xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
+    android:layout_width="match_parent"
+    android:layout_height="wrap_content"
+    android:orientation="vertical"
+    android:padding="24dp">
+
+    <com.google.android.material.textfield.TextInputLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:hint="@string/watermark_text_hint">
+
+        <com.google.android.material.textfield.TextInputEditText
+            android:id="@+id/watermarkText"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:inputType="text" />
+
+    </com.google.android.material.textfield.TextInputLayout>
+
+    <TextView
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="16dp"
+        android:text="@string/watermark_opacity"
+        android:textAppearance="?attr/textAppearanceBody2" />
+
+    <com.google.android.material.slider.Slider
+        android:id="@+id/opacitySlider"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:valueFrom="0"
+        android:valueTo="100"
+        android:value="30" />
+
+    <TextView
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="8dp"
+        android:text="@string/watermark_position"
+        android:textAppearance="?attr/textAppearanceBody2" />
+
+    <com.google.android.material.button.MaterialButtonToggleGroup
+        android:id="@+id/positionGroup"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="4dp"
+        android:orientation="vertical"
+        app:singleSelection="true"
+        app:selectionRequired="true">
+
+        <com.google.android.material.button.MaterialButton
+            android:id="@+id/positionCenter"
+            style="@style/Widget.MaterialComponents.Button.OutlinedButton"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:checked="true"
+            android:text="@string/watermark_position_center" />
+
+        <com.google.android.material.button.MaterialButton
+            android:id="@+id/positionTopLeft"
+            style="@style/Widget.MaterialComponents.Button.OutlinedButton"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="@string/watermark_position_top_left" />
+
+        <com.google.android.material.button.MaterialButton
+            android:id="@+id/positionTopRight"
+            style="@style/Widget.MaterialComponents.Button.OutlinedButton"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="@string/watermark_position_top_right" />
+
+        <com.google.android.material.button.MaterialButton
+            android:id="@+id/positionBottomLeft"
+            style="@style/Widget.MaterialComponents.Button.OutlinedButton"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="@string/watermark_position_bottom_left" />
+
+        <com.google.android.material.button.MaterialButton
+            android:id="@+id/positionBottomRight"
+            style="@style/Widget.MaterialComponents.Button.OutlinedButton"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="@string/watermark_position_bottom_right" />
+
+    </com.google.android.material.button.MaterialButtonToggleGroup>
+
+</LinearLayout>
