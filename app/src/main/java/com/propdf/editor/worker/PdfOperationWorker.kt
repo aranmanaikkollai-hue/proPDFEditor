@@ -169,15 +169,15 @@ class PdfOperationWorker @AssistedInject constructor(
                 continuation?.getWorkInfos()?.get()?.lastOrNull()?.id 
             }
         }
-
-        data class OperationSpec(
-            val operation: String,
-            val inputFile: File,
-            val outputName: String,
-            val extraParam: String? = null,
-            val extraParam2: String? = null
-        )
     }
+
+    data class OperationSpec(
+        val operation: String,
+        val inputFile: File,
+        val outputName: String,
+        val extraParam: String? = null,
+        val extraParam2: String? = null
+    )
 
     override suspend fun doWork(): Result = withContext(Dispatchers.IO) {
         val operationType = inputData.getString(KEY_OPERATION_TYPE)
