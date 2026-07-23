@@ -11,6 +11,7 @@ import android.view.*
 import android.widget.*
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.appcompat.app.AppCompatActivity
+import androidx.lifecycle.asFlow
 import androidx.lifecycle.lifecycleScope
 import androidx.work.WorkInfo
 import androidx.work.WorkManager
@@ -233,6 +234,33 @@ class ToolsActivity : AppCompatActivity() {
                         extraParam = "$from-$to"
                     )
                     observeWork(workId, "Splitting $from-$to...")
+                }
+            }.setNegativeButton("Cancel", null).show()
+    }
+
+    private fun doExtract() {
+        val f = need() ?: return
+        val et = EditText(this).apply { 
+            hint = "Range e.g. 1-3"
+            setPadding(dp(20), dp(8), dp(20), dp(8))
+        }
+        AlertDialog.Builder(this).setTitle("Extract Pages").setView(et)
+            .setPositiveButton("Extract") { _, _ ->
+                val parts = et.text.toString().trim().split("-")
+                val from = parts.getOrNull(0)?.trim()?.toIntOrNull()
+                val to = parts.getOrNull(1)?.trim()?.toIntOrNull() ?: from
+                if (from == null || to == null || from > to) {
+                    toast("Enter range like: 1-3"); return@setPositiveButton
+                }
+                askFilename("extracted_${from}_$to") { name ->
+                    val workId = PdfOperationWorker.enqueue(
+                        this,
+                        PdfOperationWorker.OP_SPLIT,
+                        f,
+                        name,
+                        extraParam = "$from-$to"
+                    )
+                    observeWork(workId, "Extracting $from-$to...")
                 }
             }.setNegativeButton("Cancel", null).show()
     }
