@@ -136,10 +136,9 @@ dependencies {
     implementation 'org.apache.commons:commons-compress:1.26.0'
 
     // ── Document scanning / perspective correction (ScannerProcessor) ─
-    // NOTE: verify this resolves against your configured repositories before
-    // relying on it — OpenCV's official Maven Central publishing coordinates
-    // have changed across releases, and this wasn't previously declared at all.
-    implementation 'org.opencv:opencv:4.9.0'
+    // NOTE: OpenCV is provided transitively via the :scanner module
+    // (com.quickbirdstudios:opencv:4.5.3.0) — do not declare it here too,
+    // it caused a "Duplicate class org.opencv.BuildConfig" dexing failure.
 
     // ── Local feature modules ──────────────────────────────────────
     implementation project(':core')
