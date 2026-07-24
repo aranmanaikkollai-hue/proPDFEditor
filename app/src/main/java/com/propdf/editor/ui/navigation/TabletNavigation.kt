@@ -13,10 +13,14 @@ import androidx.compose.ui.unit.dp
 import androidx.navigation.NavHostController
 import androidx.navigation.compose.currentBackStackEntryAsState
 import androidx.navigation.compose.rememberNavController
+import com.propdf.editor.ui.home.HomeScreen
+import com.propdf.editor.ui.main.MainViewModel
+import com.propdf.editor.ui.settings.SettingsScreen
+import com.propdf.editor.ui.viewer.PdfViewerScreen
 
 @Composable
 fun TabletNavigation(
-    mainViewModel: com.propdf.editor.ui.main.MainViewModel,
+    mainViewModel: MainViewModel,
     navController: NavHostController = rememberNavController()
 ) {
     val isLandscape = LocalConfiguration.current.orientation == android.content.res.Configuration.ORIENTATION_LANDSCAPE
@@ -121,6 +125,59 @@ fun TabletNavigation(
                     mainViewModel = mainViewModel
                 )
             }
+        }
+    }
+}
+
+@Composable
+fun ProPDFNavHost(
+    navController: NavHostController,
+    mainViewModel: MainViewModel
+) {
+    androidx.navigation.compose.NavHost(
+        navController = navController,
+        startDestination = Screen.Home.route,
+        enterTransition = {
+            fadeIn(animationSpec = tween(300)) +
+            slideInHorizontally(initialOffsetX = { it / 4 }, animationSpec = tween(300))
+        },
+        exitTransition = {
+            fadeOut(animationSpec = tween(300)) +
+            slideOutHorizontally(targetOffsetX = { -it / 4 }, animationSpec = tween(300))
+        },
+        popEnterTransition = {
+            fadeIn(animationSpec = tween(300)) +
+            slideInHorizontally(initialOffsetX = { -it / 4 }, animationSpec = tween(300))
+        },
+        popExitTransition = {
+            fadeOut(animationSpec = tween(300)) +
+            slideOutHorizontally(targetOffsetX = { it / 4 }, animationSpec = tween(300))
+        }
+    ) {
+        composable(Screen.Home.route) {
+            HomeScreen(
+                navController = navController,
+                mainViewModel = mainViewModel,
+                onOpenPdf = { /* Open PDF picker */ }
+            )
+        }
+        composable(Screen.Files.route) {
+            // Files screen
+        }
+        composable(Screen.Scanner.route) {
+            // Scanner screen
+        }
+        composable(Screen.Tools.route) {
+            // Tools screen
+        }
+        composable(Screen.Settings.route) {
+            SettingsScreen(navController = navController)
+        }
+        composable("viewer/{fileName}") { backStackEntry ->
+            PdfViewerScreen(
+                navController = navController,
+                fileName = backStackEntry.arguments?.getString("fileName") ?: "Document.pdf"
+            )
         }
     }
 }
