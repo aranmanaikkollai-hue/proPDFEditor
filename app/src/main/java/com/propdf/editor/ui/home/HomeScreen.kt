@@ -1,85 +1,126 @@
 package com.propdf.editor.ui.home
 
 import androidx.compose.animation.*
-import androidx.compose.foundation.ExperimentalFoundationApi
+import androidx.compose.animation.core.*
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
-import androidx.compose.foundation.pager.HorizontalPager
-import androidx.compose.foundation.pager.rememberPagerState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.filled.*
 import androidx.compose.material.icons.filled.*
+import androidx.compose.material.icons.outlined.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.scale
+import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.input.nestedscroll.nestedScroll
+import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.navigation.NavController
-import com.propdf.core.domain.model.*
+import com.propdf.editor.domain.model.*
 import com.propdf.editor.ui.components.*
-import com.propdf.editor.utils.formatFileSize
+import com.propdf.editor.ui.main.MainViewModel
 import com.propdf.editor.ui.theme.*
-import java.text.SimpleDateFormat
-import java.util.*
 
-@OptIn(ExperimentalMaterial3Api::class, ExperimentalFoundationApi::class)
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun HomeScreen(
     navController: NavController,
-    onOpenDocument: (PdfDocument) -> Unit,
-    onNavigateToFiles: () -> Unit,
-    onNavigateToRecent: () -> Unit,
-    onNavigateToFavorites: () -> Unit,
-    onNavigateToTools: () -> Unit,
-    onOpenPdfPicker: () -> Unit,
-    onOpenScanner: () -> Unit,
+    mainViewModel: MainViewModel,
+    onOpenPdf: () -> Unit,
     viewModel: HomeViewModel = hiltViewModel()
 ) {
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
+    val scrollBehavior = TopAppBarDefaults.exitUntilCollapsedScrollBehavior()
+    val isTablet = LocalConfiguration.current.screenWidthDp >= 600
 
     Scaffold(
+        modifier = Modifier.nestedScroll(scrollBehavior.nestedScrollConnection),
         topBar = {
-            TopAppBar(
-                title = { Text("ProPDF Editor", style = MaterialTheme.typography.titleLarge) },
-                actions = {
-                    IconButton(onClick = { navController.navigate("search") }) {
-                        Icon(Icons.Default.Search, contentDescription = "Search")
-                    }
-                    IconButton(onClick = { navController.navigate("settings") }) {
-                        Icon(Icons.Default.Settings, contentDescription = "Settings")
+            LargeTopAppBar(
+                title = {
+                    Column {
+                        Text(
+                            "ProPDF Editor",
+                            style = MaterialTheme.typography.headlineMedium
+                        )
+                        Text(
+                            "Your professional PDF workspace",
+                            style = MaterialTheme.typography.bodyMedium,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
                     }
                 },
-                colors = TopAppBarDefaults.topAppBarColors(
-                    containerColor = MaterialTheme.colorScheme.surface
+                actions = {
+                    IconButton(onClick = { navController.navigate("search") }) {
+                        Icon(
+                            imageVector = Icons.Default.Search,
+                            contentDescription = "Search",
+                            tint = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                    }
+                    IconButton(onClick = { navController.navigate("settings") }) {
+                        Icon(
+                            imageVector = Icons.Default.Settings,
+                            contentDescription = "Settings",
+                            tint = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                    }
+                },
+                scrollBehavior = scrollBehavior,
+                colors = TopAppBarDefaults.largeTopAppBarColors(
+                    containerColor = MaterialTheme.colorScheme.surface,
+                    scrolledContainerColor = MaterialTheme.colorScheme.surface
                 )
             )
         },
         floatingActionButton = {
-            Column(horizontalAlignment = Alignment.End, verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                SmallFloatingActionButton(
-                    onClick = onOpenScanner,
-                    containerColor = MaterialTheme.colorScheme.secondaryContainer
+            AnimatedVisibility(
+                visible = true,
+                enter = scaleIn(animationSpec = spring(dampingRatio = Spring.DampingRatioMediumBouncy)),
+                exit = scaleOut()
+            ) {
+                Column(
+                    horizontalAlignment = Alignment.End,
+                    verticalArrangement = Arrangement.spacedBy(12.dp)
                 ) {
-                    Icon(Icons.Default.CameraAlt, contentDescription = "Scan")
-                }
-                FloatingActionButton(
-                    onClick = onOpenPdfPicker,
-                    containerColor = MaterialTheme.colorScheme.primaryContainer,
-                    contentColor = MaterialTheme.colorScheme.onPrimaryContainer
-                ) {
-                    Icon(Icons.Default.Add, contentDescription = "Add PDF")
+                    SmallFloatingActionButton(
+                        onClick = { navController.navigate("scanner") },
+                        containerColor = MaterialTheme.colorScheme.secondaryContainer,
+                        shape = CircleShape
+                    ) {
+                        Icon(
+                            imageVector = Icons.Default.DocumentScanner,
+                            contentDescription = "Scan Document"
+                        )
+                    }
+                    FloatingActionButton(
+                        onClick = onOpenPdf,
+                        containerColor = MaterialTheme.colorScheme.primaryContainer,
+                        contentColor = MaterialTheme.colorScheme.onPrimaryContainer,
+                        shape = CircleShape,
+                        elevation = FloatingActionButtonDefaults.elevation(
+                            defaultElevation = 6.dp,
+                            pressedElevation = 12.dp
+                        )
+                    ) {
+                        Icon(
+                            imageVector = Icons.Default.Add,
+                            contentDescription = "Add PDF"
+                        )
+                    }
                 }
             }
         }
@@ -90,24 +131,82 @@ fun HomeScreen(
             LazyColumn(
                 modifier = Modifier.fillMaxSize().padding(padding),
                 contentPadding = PaddingValues(16.dp),
-                verticalArrangement = Arrangement.spacedBy(16.dp)
+                verticalArrangement = Arrangement.spacedBy(20.dp)
             ) {
-                item { StorageOverviewCard(uiState.storageStats) }
-                item { QuickActionsRow(navController, onNavigateToFiles, onNavigateToRecent, onNavigateToFavorites, onNavigateToTools, onOpenScanner) }
-                item { SectionTitle("Collections") }
-                item { CollectionsRow(uiState.collections, navController) }
-                item { SectionTitle("Recent Files") }
-                items(uiState.recentFiles.take(5)) { doc ->
-                    HomeDocumentListItem(
-                        document = doc,
-                        onClick = { onOpenDocument(doc) },
-                        onFavoriteClick = { viewModel.toggleFavorite(doc.id, doc.isFavorite) }
+                item {
+                    AnimatedVisibility(
+                        visible = true,
+                        enter = fadeIn(animationSpec = tween(500)) + slideInVertically()
+                    ) {
+                        StorageOverviewCard(uiState.storageStats)
+                    }
+                }
+
+                item {
+                    AnimatedVisibility(
+                        visible = true,
+                        enter = fadeIn(animationSpec = tween(600, delayMillis = 100)) + slideInVertically()
+                    ) {
+                        QuickActionsRow(navController)
+                    }
+                }
+
+                item {
+                    AnimatedVisibility(
+                        visible = true,
+                        enter = fadeIn(animationSpec = tween(700, delayMillis = 200)) + slideInVertically()
+                    ) {
+                        SectionHeader(
+                            title = "Folders",
+                            actionLabel = "See All",
+                            onAction = { navController.navigate("folders") }
+                        )
+                    }
+                }
+
+                item {
+                    FoldersRow(folders = uiState.folders, navController = navController)
+                }
+
+                item {
+                    SectionHeader(
+                        title = "Recent Files",
+                        actionLabel = "See All",
+                        onAction = { navController.navigate("recent") }
                     )
                 }
-                item { SectionTitle("Tags") }
-                item { TagsRow(uiState.tags) }
-                item { SectionTitle("Categories") }
-                item { CategoriesGrid(navController) }
+
+                items(
+                    items = uiState.recentFiles.take(if (isTablet) 8 else 5),
+                    key = { it.id }
+                ) { doc ->
+                    AnimatedVisibility(
+                        visible = true,
+                        enter = fadeIn(animationSpec = tween(400)) + slideInHorizontally()
+                    ) {
+                        DocumentListItem(
+                            document = doc,
+                            onClick = { mainViewModel.openPdfString(doc.uri.toString()) },
+                            onFavoriteClick = { viewModel.toggleFavorite(doc.id, doc.isFavorite) }
+                        )
+                    }
+                }
+
+                item {
+                    SectionHeader(
+                        title = "Categories",
+                        actionLabel = null,
+                        onAction = null
+                    )
+                }
+
+                item {
+                    CategoriesGrid(navController)
+                }
+
+                item {
+                    Spacer(modifier = Modifier.height(80.dp))
+                }
             }
         }
     }
@@ -117,52 +216,60 @@ fun HomeScreen(
 fun StorageOverviewCard(stats: StorageStats) {
     Card(
         modifier = Modifier.fillMaxWidth(),
-        shape = RoundedCornerShape(20.dp),
-        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.primaryContainer),
+        shape = RoundedCornerShape(24.dp),
+        colors = CardDefaults.cardColors(
+            containerColor = MaterialTheme.colorScheme.primaryContainer
+        ),
         elevation = CardDefaults.cardElevation(defaultElevation = 0.dp)
     ) {
-        Column(modifier = Modifier.padding(20.dp)) {
-            Text(
-                "Storage Overview",
-                style = MaterialTheme.typography.titleSmall,
-                color = MaterialTheme.colorScheme.onPrimaryContainer
-            )
-            Spacer(modifier = Modifier.height(16.dp))
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.SpaceEvenly
-            ) {
-                StatItem("${stats.totalDocuments}", "Documents", pdf_blue)
-                StatItem(formatFileSize(stats.totalSize), "Total Size", pdf_green)
-                StatItem("${stats.favoriteCount}", "Favorites", pdf_amber)
-                StatItem("${stats.deletedCount}", "Recycle Bin", pdf_red)
-            }
-            
-            if (stats.duplicateWastedBytes > 0) {
-                Spacer(modifier = Modifier.height(12.dp))
-                Card(
-                    shape = RoundedCornerShape(12.dp),
-                    colors = CardDefaults.cardColors(
-                        containerColor = MaterialTheme.colorScheme.errorContainer.copy(alpha = 0.5f)
-                    ),
-                    modifier = Modifier.fillMaxWidth()
-                ) {
-                    Row(
-                        modifier = Modifier.padding(12.dp),
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
-                        Icon(Icons.Default.ContentCopy, null, tint = MaterialTheme.colorScheme.error)
-                        Spacer(modifier = Modifier.width(8.dp))
-                        Text(
-                            "${formatFileSize(stats.duplicateWastedBytes)} wasted in duplicates",
-                            style = MaterialTheme.typography.labelMedium,
-                            color = MaterialTheme.colorScheme.onErrorContainer,
-                            modifier = Modifier.weight(1f)
+        Box(
+            modifier = Modifier
+                .fillMaxWidth()
+                .background(
+                    brush = Brush.linearGradient(
+                        colors = listOf(
+                            MaterialTheme.colorScheme.primaryContainer,
+                            MaterialTheme.colorScheme.secondaryContainer.copy(alpha = 0.5f)
                         )
-                        TextButton(onClick = { /* Navigate to duplicate finder */ }) {
-                            Text("Clean Up", color = MaterialTheme.colorScheme.error)
-                        }
-                    }
+                    )
+                )
+                .padding(24.dp)
+        ) {
+            Column {
+                Text(
+                    "Storage Overview",
+                    style = MaterialTheme.typography.titleMedium,
+                    color = MaterialTheme.colorScheme.onPrimaryContainer
+                )
+                Spacer(modifier = Modifier.height(20.dp))
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceEvenly
+                ) {
+                    StatItem(
+                        value = "${stats.totalDocuments}",
+                        label = "Documents",
+                        color = pdf_blue,
+                        icon = Icons.Outlined.Description
+                    )
+                    StatItem(
+                        value = formatFileSize(stats.totalSize),
+                        label = "Total Size",
+                        color = pdf_green,
+                        icon = Icons.Outlined.Storage
+                    )
+                    StatItem(
+                        value = "${stats.favoriteCount}",
+                        label = "Favorites",
+                        color = pdf_amber,
+                        icon = Icons.Outlined.StarBorder
+                    )
+                    StatItem(
+                        value = "${stats.deletedCount}",
+                        label = "Recycle Bin",
+                        color = pdf_red,
+                        icon = Icons.Outlined.DeleteOutline
+                    )
                 }
             }
         }
@@ -170,29 +277,78 @@ fun StorageOverviewCard(stats: StorageStats) {
 }
 
 @Composable
-fun QuickActionsRow(
-    navController: NavController,
-    onNavigateToFiles: () -> Unit,
-    onNavigateToRecent: () -> Unit,
-    onNavigateToFavorites: () -> Unit,
-    onNavigateToTools: () -> Unit,
-    onOpenScanner: () -> Unit
+fun StatItem(
+    value: String,
+    label: String,
+    color: Color,
+    icon: ImageVector
 ) {
+    Column(
+        horizontalAlignment = Alignment.CenterHorizontally,
+        verticalArrangement = Arrangement.spacedBy(4.dp)
+    ) {
+        Surface(
+            shape = CircleShape,
+            color = color.copy(alpha = 0.15f),
+            modifier = Modifier.size(44.dp)
+        ) {
+            Box(contentAlignment = Alignment.Center) {
+                Icon(
+                    imageVector = icon,
+                    contentDescription = null,
+                    tint = color,
+                    modifier = Modifier.size(22.dp)
+                )
+            }
+        }
+        Text(
+            value,
+            style = MaterialTheme.typography.titleMedium,
+            color = MaterialTheme.colorScheme.onPrimaryContainer
+        )
+        Text(
+            label,
+            style = MaterialTheme.typography.labelSmall,
+            color = MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.7f)
+        )
+    }
+}
+
+@Composable
+fun QuickActionsRow(navController: NavController) {
     val actions = listOf(
-        QuickAction("Files", Icons.Default.FolderOpen, pdf_blue, onNavigateToFiles),
-        QuickAction("Favorites", Icons.Default.Star, pdf_amber, onNavigateToFavorites),
-        QuickAction("Scanner", Icons.Default.CameraAlt, pdf_teal, onOpenScanner),
-        QuickAction("Tools", Icons.Default.Build, pdf_red, onNavigateToTools)
+        QuickAction("All Files", Icons.Outlined.FolderOpen, pdf_blue, "files"),
+        QuickAction("Favorites", Icons.Outlined.StarBorder, pdf_amber, "favorites"),
+        QuickAction("Scanner", Icons.Outlined.DocumentScanner, pdf_teal, "scanner"),
+        QuickAction("Tools", Icons.Outlined.Build, pdf_purple, "tools")
     )
-    LazyRow(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+
+    LazyRow(
+        horizontalArrangement = Arrangement.spacedBy(12.dp),
+        contentPadding = PaddingValues(horizontal = 4.dp)
+    ) {
         items(actions) { action ->
+            val infiniteTransition = rememberInfiniteTransition(label = "idle")
+            val scale by infiniteTransition.animateFloat(
+                initialValue = 1f,
+                targetValue = 1.02f,
+                animationSpec = infiniteRepeatable(
+                    animation = tween(2000, easing = EaseInOutSine),
+                    repeatMode = RepeatMode.Reverse
+                ),
+                label = "breathing"
+            )
+
             Card(
                 modifier = Modifier
                     .width(85.dp)
-                    .aspectRatio(1f)
-                    .clickable(onClick = action.onClick),
-                shape = RoundedCornerShape(16.dp),
-                colors = CardDefaults.cardColors(containerColor = action.color.copy(alpha = 0.1f)),
+                    .aspectRatio(0.9f)
+                    .scale(scale)
+                    .clickable { navController.navigate(action.route) },
+                shape = RoundedCornerShape(20.dp),
+                colors = CardDefaults.cardColors(
+                    containerColor = action.color.copy(alpha = 0.08f)
+                ),
                 elevation = CardDefaults.cardElevation(defaultElevation = 0.dp)
             ) {
                 Column(
@@ -200,13 +356,21 @@ fun QuickActionsRow(
                     horizontalAlignment = Alignment.CenterHorizontally,
                     verticalArrangement = Arrangement.Center
                 ) {
-                    Icon(
-                        imageVector = action.icon,
-                        contentDescription = action.label,
-                        tint = action.color,
-                        modifier = Modifier.size(28.dp)
-                    )
-                    Spacer(modifier = Modifier.height(6.dp))
+                    Surface(
+                        shape = CircleShape,
+                        color = action.color.copy(alpha = 0.15f),
+                        modifier = Modifier.size(44.dp)
+                    ) {
+                        Box(contentAlignment = Alignment.Center) {
+                            Icon(
+                                imageVector = action.icon,
+                                contentDescription = action.label,
+                                tint = action.color,
+                                modifier = Modifier.size(24.dp)
+                            )
+                        }
+                    }
+                    Spacer(modifier = Modifier.height(8.dp))
                     Text(
                         text = action.label,
                         style = MaterialTheme.typography.labelSmall,
@@ -222,120 +386,102 @@ data class QuickAction(
     val label: String,
     val icon: ImageVector,
     val color: Color,
-    val onClick: () -> Unit
+    val route: String
 )
 
 @Composable
-fun CollectionsRow(
-    collections: List<DocumentCollection>,
+fun SectionHeader(
+    title: String,
+    actionLabel: String?,
+    onAction: (() -> Unit)?
+) {
+    Row(
+        modifier = Modifier.fillMaxWidth(),
+        horizontalArrangement = Arrangement.SpaceBetween,
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        Text(
+            text = title,
+            style = MaterialTheme.typography.titleMedium,
+            color = MaterialTheme.colorScheme.onSurface
+        )
+        if (actionLabel != null && onAction != null) {
+            TextButton(
+                onClick = onAction,
+                contentPadding = PaddingValues(horizontal = 8.dp, vertical = 4.dp)
+            ) {
+                Text(
+                    actionLabel,
+                    style = MaterialTheme.typography.labelMedium
+                )
+                Icon(
+                    imageVector = Icons.Default.ChevronRight,
+                    contentDescription = null,
+                    modifier = Modifier.size(16.dp)
+                )
+            }
+        }
+    }
+}
+
+@Composable
+fun FoldersRow(
+    folders: List<Folder>,
     navController: NavController
 ) {
-    if (collections.isEmpty()) {
+    if (folders.isEmpty()) {
         EmptyStateMini(
-            Icons.Default.CollectionsBookmark,
-            "No collections yet",
-            "Create collections to organize your PDFs"
+            icon = Icons.Outlined.FolderOpen,
+            title = "No folders yet",
+            subtitle = "Create folders to organize your PDFs"
         )
     } else {
-        LazyRow(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-            items(collections) { collection ->
-                CollectionCard(collection) {
-                    navController.navigate("collection/${collection.id}")
-                }
-            }
-        }
-    }
-}
-
-@Composable
-fun CollectionCard(
-    collection: DocumentCollection,
-    onClick: () -> Unit
-) {
-    Card(
-        modifier = Modifier
-            .width(160.dp)
-            .clickable(onClick = onClick),
-        shape = RoundedCornerShape(16.dp),
-        colors = CardDefaults.cardColors(
-            containerColor = Color(collection.color).copy(alpha = 0.15f)
-        ),
-        elevation = CardDefaults.cardElevation(defaultElevation = 1.dp)
-    ) {
-        Column(modifier = Modifier.padding(16.dp)) {
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.SpaceBetween,
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                Box(
-                    modifier = Modifier
-                        .size(40.dp)
-                        .clip(RoundedCornerShape(10.dp))
-                        .background(Color(collection.color).copy(alpha = 0.2f)),
-                    contentAlignment = Alignment.Center
-                ) {
-                    Icon(
-                        Icons.Default.CollectionsBookmark,
-                        null,
-                        tint = Color(collection.color),
-                        modifier = Modifier.size(24.dp)
-                    )
-                }
-                Text(
-                    "${collection.documentCount}",
-                    style = MaterialTheme.typography.titleMedium,
-                    color = Color(collection.color)
-                )
-            }
-            Spacer(modifier = Modifier.height(12.dp))
-            Text(
-                collection.name,
-                style = MaterialTheme.typography.labelLarge,
-                maxLines = 1,
-                overflow = TextOverflow.Ellipsis
-            )
-            collection.description?.let {
-                Text(
-                    it,
-                    style = MaterialTheme.typography.labelSmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    maxLines = 1,
-                    overflow = TextOverflow.Ellipsis
-                )
-            }
-        }
-    }
-}
-
-@OptIn(ExperimentalLayoutApi::class)
-@Composable
-fun TagsRow(tags: List<DocumentTag>) {
-    if (tags.isEmpty()) {
-        EmptyStateMini(
-            Icons.Default.Label,
-            "No tags yet",
-            "Add tags to categorize your files"
-        )
-    } else {
-        FlowRow(
-            modifier = Modifier.fillMaxWidth(),
-            horizontalArrangement = Arrangement.spacedBy(8.dp),
-            verticalArrangement = Arrangement.spacedBy(8.dp)
+        LazyRow(
+            horizontalArrangement = Arrangement.spacedBy(12.dp),
+            contentPadding = PaddingValues(horizontal = 4.dp)
         ) {
-            tags.forEach { tag ->
-                SuggestionChip(
-                    onClick = { /* Navigate to tag filter */ },
-                    label = { Text(tag.name) },
-                    icon = {
-                        Box(
-                            modifier = Modifier
-                                .size(8.dp)
-                                .clip(CircleShape)
-                                .background(Color(tag.color))
+            items(folders, key = { it.id }) { folder ->
+                Card(
+                    modifier = Modifier
+                        .width(150.dp)
+                        .clickable { navController.navigate("folder/${folder.id}") },
+                    shape = RoundedCornerShape(20.dp),
+                    colors = CardDefaults.cardColors(
+                        containerColor = Color(folder.color).copy(alpha = 0.12f)
+                    ),
+                    elevation = CardDefaults.cardElevation(defaultElevation = 1.dp)
+                ) {
+                    Column(
+                        modifier = Modifier.padding(16.dp),
+                        verticalArrangement = Arrangement.spacedBy(12.dp)
+                    ) {
+                        Surface(
+                            shape = RoundedCornerShape(12.dp),
+                            color = Color(folder.color).copy(alpha = 0.2f),
+                            modifier = Modifier.size(48.dp)
+                        ) {
+                            Box(contentAlignment = Alignment.Center) {
+                                Icon(
+                                    imageVector = Icons.Default.Folder,
+                                    contentDescription = null,
+                                    tint = Color(folder.color),
+                                    modifier = Modifier.size(28.dp)
+                                )
+                            }
+                        }
+                        Text(
+                            folder.name,
+                            style = MaterialTheme.typography.labelLarge,
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis
+                        )
+                        Text(
+                            "${folder.documentCount} files",
+                            style = MaterialTheme.typography.labelSmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
                         )
                     }
-                )
+                }
             }
         }
     }
@@ -343,204 +489,67 @@ fun TagsRow(tags: List<DocumentTag>) {
 
 @Composable
 fun CategoriesGrid(navController: NavController) {
-    val categories = listOf(
-        CategoryItem("All Files", Icons.Default.Folder, pdf_blue, "files"),
-        CategoryItem("Recent", Icons.Default.History, pdf_teal, "recent"),
-        CategoryItem("Large Files", Icons.Default.Storage, pdf_orange, "large_files"),
-        CategoryItem("Hidden", Icons.Default.VisibilityOff, pdf_purple, "hidden"),
-        CategoryItem("Recycle Bin", Icons.Default.DeleteOutline, pdf_red, "recycle_bin"),
-        CategoryItem("Storage Analyzer", Icons.Default.Analytics, pdf_green, "storage_analyzer")
-    )
+    val categories = DocumentCategory.values().filter { it != DocumentCategory.UNCATEGORIZED }
+    val colors = listOf(pdf_blue, pdf_green, pdf_orange, pdf_purple, pdf_teal, pdf_red, pdf_amber)
 
-    Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-        categories.chunked(2).forEach { rowCats ->
+    Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+        categories.chunked(2).forEachIndexed { rowIndex, rowCats ->
             Row(
                 modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.spacedBy(8.dp)
+                horizontalArrangement = Arrangement.spacedBy(10.dp)
             ) {
-                rowCats.forEach { cat ->
+                rowCats.forEachIndexed { index, cat ->
+                    val color = colors[(rowIndex * 2 + index) % colors.size]
                     CategoryChip(
-                        name = cat.name,
-                        icon = cat.icon,
-                        color = cat.color,
-                        modifier = Modifier.weight(1f),
-                        onClick = { navController.navigate(cat.route) }
-                    )
+                        name = cat.displayName,
+                        color = color,
+                        modifier = Modifier.weight(1f)
+                    ) {
+                        navController.navigate("category/${cat.name}")
+                    }
                 }
             }
         }
     }
 }
 
-data class CategoryItem(
-    val name: String,
-    val icon: ImageVector,
-    val color: Color,
-    val route: String
-)
-
 @Composable
 fun CategoryChip(
     name: String,
-    icon: ImageVector,
     color: Color,
     modifier: Modifier = Modifier,
     onClick: () -> Unit
 ) {
     Surface(
         modifier = modifier.clickable(onClick = onClick),
-        shape = RoundedCornerShape(12.dp),
-        color = color.copy(alpha = 0.1f)
-    ) {
-        Row(
-            modifier = Modifier.padding(horizontal = 16.dp, vertical = 12.dp),
-            verticalAlignment = Alignment.CenterVertically
-        ) {
-            Icon(icon, null, tint = color, modifier = Modifier.size(20.dp))
-            Spacer(modifier = Modifier.width(8.dp))
-            Text(name, style = MaterialTheme.typography.labelMedium, color = color)
-        }
-    }
-}
-
-@Composable
-fun HomeDocumentListItem(
-    document: PdfDocument,
-    onClick: () -> Unit,
-    onFavoriteClick: () -> Unit
-) {
-    val dateFormat = remember { SimpleDateFormat("MMM dd", Locale.getDefault()) }
-    val iconColor = when {
-        document.isFavorite -> pdf_amber
-        else -> pdf_blue
-    }
-
-    Card(
-        modifier = Modifier
-            .fillMaxWidth()
-            .clickable(onClick = onClick),
         shape = RoundedCornerShape(16.dp),
-        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
-        elevation = CardDefaults.cardElevation(defaultElevation = 1.dp)
+        color = color.copy(alpha = 0.08f)
     ) {
         Row(
-            modifier = Modifier.padding(16.dp),
+            modifier = Modifier.padding(horizontal = 16.dp, vertical = 14.dp),
             verticalAlignment = Alignment.CenterVertically
         ) {
             Box(
                 modifier = Modifier
-                    .size(48.dp)
-                    .clip(RoundedCornerShape(12.dp))
-                    .background(iconColor.copy(alpha = 0.12f)),
-                contentAlignment = Alignment.Center
-            ) {
-                Icon(
-                    imageVector = Icons.AutoMirrored.Filled.InsertDriveFile,
-                    contentDescription = null,
-                    tint = iconColor,
-                    modifier = Modifier.size(24.dp)
-                )
-            }
-            Spacer(modifier = Modifier.width(16.dp))
-            Column(modifier = Modifier.weight(1f)) {
-                Text(
-                    text = document.displayName,
-                    style = MaterialTheme.typography.bodyLarge,
-                    maxLines = 1,
-                    overflow = TextOverflow.Ellipsis
-                )
-                Row(
-                    verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.spacedBy(8.dp)
-                ) {
-                    Text(
-                        formatFileSize(document.sizeBytes),
-                        style = MaterialTheme.typography.labelSmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant
-                    )
-                    document.lastOpened?.let {
-                        Text(
-                            "• ${dateFormat.format(Date(it))}",
-                            style = MaterialTheme.typography.labelSmall,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant
-                        )
-                    }
-                }
-            }
-            IconButton(onClick = onFavoriteClick) {
-                Icon(
-                    imageVector = if (document.isFavorite) Icons.Default.Star else Icons.Default.StarBorder,
-                    contentDescription = null,
-                    tint = if (document.isFavorite) pdf_amber else MaterialTheme.colorScheme.onSurfaceVariant
-                )
-            }
+                    .size(10.dp)
+                    .clip(CircleShape)
+                    .background(color)
+            )
+            Spacer(modifier = Modifier.width(10.dp))
+            Text(
+                name,
+                style = MaterialTheme.typography.labelMedium,
+                color = color
+            )
         }
     }
 }
 
-@Composable
-fun StatItem(value: String, label: String, color: Color) {
-    Column(horizontalAlignment = Alignment.CenterHorizontally) {
-        Text(
-            value,
-            style = MaterialTheme.typography.titleMedium,
-            color = color
-        )
-        Text(
-            label,
-            style = MaterialTheme.typography.labelSmall,
-            color = MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.7f)
-        )
+fun formatFileSize(size: Long): String {
+    return when {
+        size >= 1024 * 1024 * 1024 -> "%.1f GB".format(size / (1024.0 * 1024.0 * 1024.0))
+        size >= 1024 * 1024 -> "%.1f MB".format(size / (1024.0 * 1024.0))
+        size >= 1024 -> "%.1f KB".format(size / 1024.0)
+        else -> "$size B"
     }
 }
-
-@Composable
-fun SectionTitle(title: String) {
-    Text(
-        text = title,
-        style = MaterialTheme.typography.titleMedium,
-        color = MaterialTheme.colorScheme.onSurface,
-        modifier = Modifier.padding(vertical = 8.dp)
-    )
-}
-
-@Composable
-fun EmptyStateMini(
-    icon: ImageVector,
-    title: String,
-    subtitle: String
-) {
-    Column(
-        modifier = Modifier
-            .fillMaxWidth()
-            .padding(32.dp),
-        horizontalAlignment = Alignment.CenterHorizontally
-    ) {
-        Icon(
-            icon,
-            null,
-            modifier = Modifier.size(48.dp),
-            tint = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.5f)
-        )
-        Spacer(modifier = Modifier.height(8.dp))
-        Text(
-            title,
-            style = MaterialTheme.typography.labelLarge,
-            color = MaterialTheme.colorScheme.onSurfaceVariant
-        )
-        Text(
-            subtitle,
-            style = MaterialTheme.typography.labelSmall,
-            color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f)
-        )
-    }
-}
-
-data class StorageStats(
-    val totalDocuments: Int = 0,
-    val totalSize: Long = 0,
-    val favoriteCount: Int = 0,
-    val deletedCount: Int = 0,
-    val duplicateWastedBytes: Long = 0,
-    val storageUsedPercent: Float = 0f
-)
