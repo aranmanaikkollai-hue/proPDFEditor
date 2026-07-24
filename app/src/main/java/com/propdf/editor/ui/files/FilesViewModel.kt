@@ -6,6 +6,7 @@ import com.propdf.core.domain.dispatcher.DispatcherProvider
 import com.propdf.core.domain.model.RecentFile
 import com.propdf.core.domain.repository.RecentFilesRepository
 import com.propdf.editor.domain.model.PdfDocument
+import com.propdf.editor.domain.model.DocumentCategory
 import com.propdf.editor.domain.model.ViewMode
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -95,7 +96,7 @@ class FilesViewModel @Inject constructor(
             lastModified = lastOpenedAt,
             isFavorite = isFavourite,
             isDeleted = false,
-            category = com.propdf.editor.domain.model.DocumentCategory.UNCATEGORIZED,
+            category = DocumentCategory.UNCATEGORIZED,
             cloudProvider = null
         )
     }
