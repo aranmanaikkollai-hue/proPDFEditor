@@ -1,145 +1,111 @@
 package com.propdf.editor.ui.files
 
-import android.net.Uri
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
-import com.propdf.editor.data.local.dao.*
-import com.propdf.editor.data.local.entity.*
-import com.propdf.editor.domain.usecase.AutoRenameDocumentUseCase
+import com.propdf.core.domain.dispatcher.DispatcherProvider
+import com.propdf.core.domain.model.RecentFile
+import com.propdf.core.domain.repository.RecentFilesRepository
+import com.propdf.editor.domain.model.PdfDocument
+import com.propdf.editor.domain.model.ViewMode
 import dagger.hilt.android.lifecycle.HiltViewModel
-import kotlinx.coroutines.flow.*
+import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.collectLatest
+import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import javax.inject.Inject
 
 @HiltViewModel
 class FilesViewModel @Inject constructor(
-    private val pdfDocumentDao: PdfDocumentDao,
-    private val collectionDao: CollectionDao,
-    private val tagDao: TagDao,
-    private val fileHashDao: FileHashDao,
-    private val searchIndexDao: SearchIndexDao,
-    private val autoRenameUseCase: AutoRenameDocumentUseCase
+    private val recentFilesRepo: RecentFilesRepository,
+    private val dispatchers: DispatcherProvider
 ) : ViewModel() {
 
-    val collections: StateFlow<List<CollectionEntity>> = collectionDao.getRootCollections()
-        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
+    private val _uiState = MutableStateFlow(FilesUiState())
+    val uiState: StateFlow<FilesUiState> = _uiState.asStateFlow()
 
-    val tags: StateFlow<List<TagEntity>> = tagDao.getAllTags()
-        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
-
-    val duplicateGroups: StateFlow<Map<String, List<FileHashDao.DuplicateGroupItem>>> = 
-        fileHashDao.getAllDuplicateGroups()
-            .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyMap())
-
-    val indexingProgress: StateFlow<IndexingProgress> = 
-        searchIndexDao.getByStatus(IndexingStatus.PROCESSING)
-            .map { IndexingProgress(processing = it.size) }
-            .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), IndexingProgress())
-
-    data class IndexingProgress(val processing: Int = 0, val pending: Int = 0, val completed: Int = 0)
-
-    // ── Collection Operations ──────────────────────────────────────────
-
-    fun createCollection(name: String, description: String? = null, parentId: String? = null) {
-        viewModelScope.launch {
-            val collection = CollectionEntity(
-                id = java.util.UUID.randomUUID().toString(),
-                name = name.trim(),
-                description = description?.trim(),
-                parentId = parentId
-            )
-            collectionDao.insertCollection(collection)
-        }
+    init {
+        loadFiles()
     }
 
-    fun addToCollection(documentId: String, collectionId: String) {
-        viewModelScope.launch {
-            collectionDao.addDocumentToCollection(
-                DocumentCollectionCrossRef(documentId = documentId, collectionId = collectionId)
-            )
-        }
-    }
-
-    fun removeFromCollection(documentId: String, collectionId: String) {
-        viewModelScope.launch {
-            collectionDao.removeDocumentFromCollection(documentId, collectionId)
-        }
-    }
-
-    fun deleteCollection(collectionId: String) {
-        viewModelScope.launch {
-            collectionDao.getById(collectionId)?.let {
-                collectionDao.deleteCollection(it)
+    private fun loadFiles() {
+        viewModelScope.launch(dispatchers.io) {
+            recentFilesRepo.observeAll().collectLatest { files ->
+                applyFilters(files)
             }
         }
     }
 
-    fun getDocumentsInCollection(collectionId: String): Flow<List<PdfDocumentEntity>> {
-        return collectionDao.getDocumentsInCollection(collectionId)
-    }
+    private fun applyFilters(files: List<RecentFile>) {
+        val state = _uiState.value
+        var filtered = files.map { it.toPdfDocument() }
 
-    // ── Tag Operations ─────────────────────────────────────────────────
-
-    fun createTag(name: String, color: Int? = null) {
-        viewModelScope.launch {
-            val existing = tagDao.getByName(name.trim())
-            if (existing == null) {
-                tagDao.insertTag(
-                    TagEntity(
-                        id = java.util.UUID.randomUUID().toString(),
-                        name = name.trim(),
-                        color = color
-                    )
-                )
+        // Apply search
+        if (state.searchQuery.isNotEmpty()) {
+            filtered = filtered.filter {
+                it.displayName.contains(state.searchQuery, ignoreCase = true)
             }
         }
+
+        // Apply sort
+        filtered = when (state.sortField) {
+            SortField.DATE -> if (state.sortAsc) filtered.sortedBy { it.lastModified }
+            else filtered.sortedByDescending { it.lastModified }
+            SortField.NAME -> if (state.sortAsc) filtered.sortedBy { it.displayName.lowercase() }
+            else filtered.sortedByDescending { it.displayName.lowercase() }
+            SortField.SIZE -> if (state.sortAsc) filtered.sortedBy { it.fileSize }
+            else filtered.sortedByDescending { it.fileSize }
+        }
+
+        _uiState.update { it.copy(files = filtered) }
     }
 
-    fun tagDocument(documentId: String, tagId: String) {
-        viewModelScope.launch {
-            tagDao.tagDocument(DocumentTagCrossRef(documentId = documentId, tagId = tagId))
-            tagDao.updateUsageCount(tagId)
+    fun setSearchQuery(query: String) {
+        _uiState.update { it.copy(searchQuery = query) }
+    }
+
+    fun setSort(field: SortField, asc: Boolean) {
+        _uiState.update { it.copy(sortField = field, sortAsc = asc) }
+    }
+
+    fun setViewMode(mode: ViewMode) {
+        _uiState.update { it.copy(viewMode = mode) }
+    }
+
+    fun toggleFavorite(id: String) {
+        viewModelScope.launch(dispatchers.io) {
+            // Implementation depends on repository
         }
     }
 
-    fun untagDocument(documentId: String, tagId: String) {
-        viewModelScope.launch {
-            tagDao.untagDocument(documentId, tagId)
-            tagDao.updateUsageCount(tagId)
+    fun moveToRecycleBin(id: String) {
+        viewModelScope.launch(dispatchers.io) {
+            // Implementation depends on repository
         }
     }
 
-    fun deleteTag(tag: TagEntity) {
-        viewModelScope.launch {
-            tagDao.deleteTag(tag)
-        }
-    }
-
-    fun getTagsForDocument(documentId: String): Flow<List<TagEntity>> {
-        return tagDao.getTagsForDocument(documentId)
-    }
-
-    // ── Smart Rename ───────────────────────────────────────────────────
-
-    fun smartRename(documentId: String, uri: Uri, currentName: String) {
-        viewModelScope.launch {
-            val existingNames = pdfDocumentDao.getAllDocuments().map { it.fileName }.toSet()
-            autoRenameUseCase(
-                AutoRenameDocumentUseCase.Params(
-                    documentId = documentId,
-                    documentUri = uri,
-                    currentFileName = currentName,
-                    existingNamesInFolder = existingNames
-                )
-            )
-        }
-    }
-
-    // ── Duplicate Actions ──────────────────────────────────────────────
-
-    fun deleteDuplicate(documentId: String) {
-        viewModelScope.launch {
-            pdfDocumentDao.softDelete(documentId, System.currentTimeMillis())
-        }
+    private fun RecentFile.toPdfDocument(): PdfDocument {
+        return PdfDocument(
+            id = uri,
+            uri = android.net.Uri.parse(uri),
+            displayName = displayName,
+            fileSize = fileSizeBytes,
+            pageCount = pageCount,
+            lastModified = lastOpenedAt,
+            isFavorite = isFavourite,
+            isDeleted = false,
+            category = com.propdf.editor.domain.model.DocumentCategory.UNCATEGORIZED,
+            cloudProvider = null
+        )
     }
 }
+
+data class FilesUiState(
+    val files: List<PdfDocument> = emptyList(),
+    val searchQuery: String = "",
+    val sortField: SortField = SortField.DATE,
+    val sortAsc: Boolean = false,
+    val viewMode: ViewMode = ViewMode.LIST,
+    val isLoading: Boolean = false
+)
