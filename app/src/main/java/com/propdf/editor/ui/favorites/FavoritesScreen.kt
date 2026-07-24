@@ -1,71 +1,86 @@
 package com.propdf.editor.ui.favorites
 
-import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.*
+import androidx.compose.material.icons.outlined.*
 import androidx.compose.material3.*
-import androidx.compose.runtime.Composable
-import androidx.compose.runtime.getValue
-import androidx.compose.ui.Alignment
+import androidx.compose.runtime.*
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.input.nestedscroll.nestedScroll
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.navigation.NavController
-import com.propdf.editor.ui.home.HomeViewModel
+import com.propdf.editor.ui.components.DocumentListItem
+import com.propdf.editor.ui.components.EmptyState
+import com.propdf.editor.ui.main.MainViewModel
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun FavoritesScreen(
     navController: NavController,
-    viewModel: HomeViewModel,
-    onNavigateToViewer: (String) -> Unit,
-    onNavigateToMerge: () -> Unit,
-    onNavigateToSplit: () -> Unit,
-    onNavigateToFolder: () -> Unit
+    mainViewModel: MainViewModel,
+    viewModel: FavoritesViewModel = hiltViewModel()
 ) {
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
+    val scrollBehavior = TopAppBarDefaults.pinnedScrollBehavior()
 
     Scaffold(
+        modifier = Modifier.nestedScroll(scrollBehavior.nestedScrollConnection),
         topBar = {
             TopAppBar(
-                title = { Text("Favorites") },
+                title = {
+                    Column {
+                        Text("Favorites", style = MaterialTheme.typography.titleLarge)
+                        Text(
+                            "${uiState.favorites.size} documents",
+                            style = MaterialTheme.typography.labelSmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                    }
+                },
                 navigationIcon = {
                     IconButton(onClick = { navController.popBackStack() }) {
                         Icon(Icons.Default.ArrowBack, contentDescription = "Back")
                     }
-                }
+                },
+                scrollBehavior = scrollBehavior,
+                colors = TopAppBarDefaults.topAppBarColors(
+                    containerColor = MaterialTheme.colorScheme.surface
+                )
             )
         }
     ) { padding ->
-        LazyColumn(
-            modifier = Modifier.fillMaxSize().padding(padding),
-            contentPadding = PaddingValues(16.dp),
-            verticalArrangement = Arrangement.spacedBy(12.dp)
-        ) {
-            val favorites = uiState.recentFiles.filter { it.isFavorite }
-            if (favorites.isEmpty()) {
-                item {
-                    Column(
-                        modifier = Modifier.fillMaxSize(),
-                        horizontalAlignment = Alignment.CenterHorizontally,
-                        verticalArrangement = Arrangement.Center
-                    ) {
-                        Text("No favorites yet", style = MaterialTheme.typography.titleMedium)
-                        Text("Star files to see them here", style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                    }
-                }
+        Box(modifier = Modifier.fillMaxSize().padding(padding)) {
+            if (uiState.favorites.isEmpty()) {
+                EmptyState(
+                    icon = Icons.Outlined.StarBorder,
+                    title = "No favorites yet",
+                    subtitle = "Star your most important documents to access them quickly",
+                    actionLabel = "Browse Files",
+                    onAction = { navController.navigate("files") }
+                )
             } else {
-                items(favorites) { file ->
-                    ListItem(
-                        headlineContent = { Text(file.displayName) },
-                        supportingContent = { Text("${file.sizeBytes} bytes · ${file.pageCount} pages") },
-                        leadingContent = { Icon(Icons.Default.PictureAsPdf, null) },
-                        modifier = Modifier.clickable { onNavigateToViewer(file.uriString) }
-                    )
+                LazyColumn(
+                    modifier = Modifier.fillMaxSize(),
+                    contentPadding = PaddingValues(16.dp),
+                    verticalArrangement = Arrangement.spacedBy(12.dp)
+                ) {
+                    items(
+                        items = uiState.favorites,
+                        key = { it.id }
+                    ) { doc ->
+                        DocumentListItem(
+                            document = doc,
+                            onClick = { mainViewModel.openPdfString(doc.uri.toString()) },
+                            onFavoriteClick = { viewModel.removeFavorite(doc.id) },
+                            onDeleteClick = { viewModel.moveToRecycleBin(doc.id) }
+                        )
+                    }
+                    item { Spacer(modifier = Modifier.height(80.dp)) }
                 }
             }
         }
