@@ -1,57 +1,34 @@
 package com.propdf.editor.ui.tools
 
+import androidx.compose.animation.*
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.filled.*
 import androidx.compose.material.icons.filled.*
+import androidx.compose.material.icons.outlined.*
 import androidx.compose.material3.*
-import androidx.compose.runtime.Composable
+import androidx.compose.runtime.*
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.input.nestedscroll.nestedScroll
 import androidx.compose.ui.unit.dp
-
-data class ToolItem(
-    val name: String,
-    val description: String,
-    val icon: ImageVector,
-    val route: String? = null,
-    val isNew: Boolean = false
-)
+import androidx.navigation.NavController
+import com.propdf.editor.ui.theme.*
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun ToolsScreen(
-    onOpenScanner: () -> Unit,
-    onOpenStorageAnalyzer: () -> Unit,
-    onOpenDuplicateFinder: () -> Unit,
-    onOpenRecentActivity: () -> Unit,
-    openLegacyTools: () -> Unit
-) {
-    val documentTools = listOf(
-        ToolItem("Storage Analyzer", "Analyze storage usage and find large files", Icons.Default.Analytics, "storage_analyzer"),
-        ToolItem("Duplicate Finder", "Find and remove duplicate PDFs", Icons.Default.ContentCopy, "duplicate_finder", isNew = true),
-        ToolItem("Recent Activity", "View all document activities", Icons.Default.History, "recent_activity"),
-        ToolItem("Hidden Files", "Manage hidden documents", Icons.Default.VisibilityOff, "hidden_files"),
-        ToolItem("Folder Browser", "Browse files by folder", Icons.Default.Folder, "folder_browser")
-    )
-
-    val pdfTools = listOf(
-        ToolItem("Merge PDFs", "Combine multiple PDFs into one", Icons.Default.MergeType),
-        ToolItem("Split PDF", "Extract pages from a PDF", Icons.Default.CallSplit),
-        ToolItem("Compress PDF", "Reduce file size", Icons.Default.Compress),
-        ToolItem("Watermark", "Add text or image watermarks", Icons.Default.WaterDrop),
-        ToolItem("Page Numbers", "Add page numbering", Icons.Default.FormatListNumbered),
-        ToolItem("Encrypt PDF", "Password protect your PDFs", Icons.Default.Lock),
-        ToolItem("Extract Text", "OCR and text extraction", Icons.Default.TextFields)
-    )
+fun ToolsScreen(navController: NavController) {
+    val scrollBehavior = TopAppBarDefaults.pinnedScrollBehavior()
 
     Scaffold(
+        modifier = Modifier.nestedScroll(scrollBehavior.nestedScrollConnection),
         topBar = {
             TopAppBar(
-                title = { Text("Tools") },
+                title = { Text("Tools", style = MaterialTheme.typography.titleLarge) },
+                scrollBehavior = scrollBehavior,
                 colors = TopAppBarDefaults.topAppBarColors(
                     containerColor = MaterialTheme.colorScheme.surface
                 )
@@ -59,78 +36,108 @@ fun ToolsScreen(
         }
     ) { padding ->
         LazyColumn(
-            modifier = Modifier
-                .fillMaxSize()
-                .padding(padding),
+            modifier = Modifier.fillMaxSize().padding(padding),
             contentPadding = PaddingValues(16.dp),
             verticalArrangement = Arrangement.spacedBy(12.dp)
         ) {
             item {
                 Text(
-                    "Document Manager",
+                    "PDF Tools",
                     style = MaterialTheme.typography.titleMedium,
                     modifier = Modifier.padding(bottom = 8.dp)
                 )
             }
-            items(documentTools) { tool ->
-                ToolCard(tool) {
-                    when (tool.route) {
-                        "storage_analyzer" -> onOpenStorageAnalyzer()
-                        "duplicate_finder" -> onOpenDuplicateFinder()
-                        "recent_activity" -> onOpenRecentActivity()
-                        "hidden_files" -> { /* Navigate to hidden files */ }
-                        "folder_browser" -> { /* Navigate to folder browser */ }
-                        else -> {}
-                    }
-                }
+
+            val pdfTools = listOf(
+                ToolItem("Merge PDFs", "Combine multiple PDFs into one", Icons.Outlined.MergeType, pdf_blue),
+                ToolItem("Split PDF", "Extract pages from a PDF", Icons.Outlined.ContentCut, pdf_green),
+                ToolItem("Compress PDF", "Reduce file size", Icons.Outlined.Compress, pdf_orange),
+                ToolItem("Convert to Images", "Export PDF pages as images", Icons.Outlined.Image, pdf_purple),
+                ToolItem("Add Password", "Protect with encryption", Icons.Outlined.Lock, pdf_teal),
+                ToolItem("Remove Password", "Decrypt protected PDFs", Icons.Outlined.LockOpen, pdf_red),
+                ToolItem("Rotate Pages", "Change page orientation", Icons.Outlined.RotateRight, pdf_amber),
+                ToolItem("Reorder Pages", "Change page order", Icons.Outlined.Reorder, pdf_blue)
+            )
+
+            items(pdfTools.size) { index ->
+                ToolCard(tool = pdfTools[index], onClick = { /* Navigate to tool */ })
             }
 
             item {
+                Spacer(modifier = Modifier.height(24.dp))
                 Text(
-                    "PDF Tools",
+                    "Document Tools",
                     style = MaterialTheme.typography.titleMedium,
-                    modifier = Modifier.padding(top = 16.dp, bottom = 8.dp)
+                    modifier = Modifier.padding(bottom = 8.dp)
                 )
             }
-            items(pdfTools) { tool ->
-                ToolCard(tool) {
-                    openLegacyTools()
-                }
+
+            val docTools = listOf(
+                ToolItem("OCR Text", "Extract text from images", Icons.Outlined.TextFields, pdf_green),
+                ToolItem("Sign Document", "Add digital signature", Icons.Outlined.Gesture, pdf_blue),
+                ToolItem("Watermark", "Add text or image watermark", Icons.Outlined.WaterDrop, pdf_teal),
+                ToolItem("Page Numbers", "Add page numbering", Icons.Outlined.FormatListNumbered, pdf_purple)
+            )
+
+            items(docTools.size) { index ->
+                ToolCard(tool = docTools[index], onClick = { /* Navigate to tool */ })
             }
         }
     }
 }
 
+data class ToolItem(
+    val name: String,
+    val description: String,
+    val icon: ImageVector,
+    val color: androidx.compose.ui.graphics.Color
+)
+
 @Composable
 fun ToolCard(tool: ToolItem, onClick: () -> Unit) {
     Card(
-        onClick = onClick,
-        modifier = Modifier.fillMaxWidth(),
-        shape = RoundedCornerShape(18.dp),
-        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
+        modifier = Modifier
+            .fillMaxWidth()
+            .clickable(onClick = onClick),
+        shape = RoundedCornerShape(16.dp),
+        colors = CardDefaults.cardColors(
+            containerColor = MaterialTheme.colorScheme.surface
+        ),
         elevation = CardDefaults.cardElevation(defaultElevation = 1.dp)
     ) {
-        ListItem(
-            headlineContent = {
-                Row {
-                    Text(tool.name)
-                    if (tool.isNew) {
-                        Spacer(modifier = Modifier.width(8.dp))
-                        Badge(
-                            containerColor = MaterialTheme.colorScheme.primaryContainer
-                        ) {
-                            Text("NEW", style = MaterialTheme.typography.labelSmall)
-                        }
-                    }
+        Row(
+            modifier = Modifier.padding(16.dp),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(16.dp)
+        ) {
+            Surface(
+                shape = RoundedCornerShape(12.dp),
+                color = tool.color.copy(alpha = 0.12f),
+                modifier = Modifier.size(48.dp)
+            ) {
+                Box(contentAlignment = Alignment.Center) {
+                    Icon(
+                        tool.icon,
+                        null,
+                        tint = tool.color,
+                        modifier = Modifier.size(24.dp)
+                    )
                 }
-            },
-            supportingContent = { Text(tool.description) },
-            leadingContent = {
-                Icon(tool.icon, null, tint = MaterialTheme.colorScheme.primary)
-            },
-            trailingContent = {
-                Icon(Icons.AutoMirrored.Filled.KeyboardArrowRight, null)
             }
-        )
+            Column(modifier = Modifier.weight(1f)) {
+                Text(tool.name, style = MaterialTheme.typography.labelLarge)
+                Text(
+                    tool.description,
+                    style = MaterialTheme.typography.labelSmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+            }
+            Icon(
+                Icons.Default.ChevronRight,
+                null,
+                tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                modifier = Modifier.size(20.dp)
+            )
+        }
     }
 }
