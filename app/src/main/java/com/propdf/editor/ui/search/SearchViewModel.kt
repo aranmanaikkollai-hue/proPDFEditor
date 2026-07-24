@@ -3,8 +3,10 @@ package com.propdf.editor.ui.search
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.propdf.core.domain.dispatcher.DispatcherProvider
+import com.propdf.core.domain.model.RecentFile
 import com.propdf.core.domain.repository.RecentFilesRepository
 import com.propdf.editor.domain.model.PdfDocument
+import com.propdf.editor.domain.model.DocumentCategory
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -40,7 +42,7 @@ class SearchViewModel @Inject constructor(
                         lastModified = file.lastOpenedAt,
                         isFavorite = file.isFavourite,
                         isDeleted = false,
-                        category = com.propdf.editor.domain.model.DocumentCategory.UNCATEGORIZED,
+                        category = DocumentCategory.UNCATEGORIZED,
                         cloudProvider = null
                     )
                 }
