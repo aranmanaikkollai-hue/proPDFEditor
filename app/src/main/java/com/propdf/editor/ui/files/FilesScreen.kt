@@ -20,7 +20,6 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.clip
 import androidx.compose.ui.input.nestedscroll.nestedScroll
 import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.text.style.TextOverflow
@@ -30,7 +29,8 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.navigation.NavController
 import com.propdf.editor.domain.model.PdfDocument
 import com.propdf.editor.domain.model.ViewMode
-import com.propdf.editor.ui.components.*
+import com.propdf.editor.ui.components.DocumentListItem
+import com.propdf.editor.ui.components.EmptyState
 import com.propdf.editor.ui.home.formatFileSize
 import com.propdf.editor.ui.main.MainViewModel
 import com.propdf.editor.ui.theme.*
@@ -239,12 +239,11 @@ fun FilesScreen(
                     modifier = Modifier.padding(bottom = 16.dp)
                 )
                 val viewModes = listOf(
-                    "List" to ViewMode.LIST to Icons.Outlined.ViewList,
-                    "Grid" to ViewMode.GRID to Icons.Outlined.GridView,
-                    "Compact" to ViewMode.TILE to Icons.Outlined.ViewCompact
+                    Triple("List", ViewMode.LIST, Icons.Outlined.ViewList),
+                    Triple("Grid", ViewMode.GRID, Icons.Outlined.GridView),
+                    Triple("Compact", ViewMode.TILE, Icons.Outlined.ViewCompact)
                 )
-                viewModes.forEach { (pair, icon) ->
-                    val (label, mode) = pair
+                viewModes.forEach { (label, mode, icon) ->
                     ListItem(
                         headlineContent = { Text(label) },
                         leadingContent = { Icon(icon, null) },
@@ -312,18 +311,17 @@ fun FilesScreen(
                     }
                 }
                 val actions = listOf(
-                    "Open" to Icons.Outlined.OpenInNew to { mainViewModel.openPdfString(doc.uri.toString()); showContextMenu = null },
-                    if (doc.isFavorite) "Remove from Favorites" to Icons.Outlined.Star else "Add to Favorites" to Icons.Outlined.StarBorder to {
+                    Triple("Open", Icons.Outlined.OpenInNew) { mainViewModel.openPdfString(doc.uri.toString()); showContextMenu = null },
+                    Triple(if (doc.isFavorite) "Remove from Favorites" else "Add to Favorites", if (doc.isFavorite) Icons.Outlined.Star else Icons.Outlined.StarBorder) {
                         viewModel.toggleFavorite(doc.id); showContextMenu = null
                     },
-                    "Categorize" to Icons.Outlined.Label to { /* Show categorize dialog */ },
-                    "Rename" to Icons.Outlined.Edit to { /* Show rename dialog */ },
-                    "Share" to Icons.Outlined.Share to { /* Share file */ },
-                    "Properties" to Icons.Outlined.Info to { /* Show properties */ },
-                    "Move to Recycle Bin" to Icons.Outlined.Delete to { viewModel.moveToRecycleBin(doc.id); showContextMenu = null }
+                    Triple("Categorize", Icons.Outlined.Label) { /* Show categorize dialog */ },
+                    Triple("Rename", Icons.Outlined.Edit) { /* Show rename dialog */ },
+                    Triple("Share", Icons.Outlined.Share) { /* Share file */ },
+                    Triple("Properties", Icons.Outlined.Info) { /* Show properties */ },
+                    Triple("Move to Recycle Bin", Icons.Outlined.Delete) { viewModel.moveToRecycleBin(doc.id); showContextMenu = null }
                 )
-                actions.forEach { (pair, action) ->
-                    val (label, icon) = pair
+                actions.forEach { (label, icon, action) ->
                     ListItem(
                         headlineContent = { Text(label) },
                         leadingContent = { Icon(icon, null) },
