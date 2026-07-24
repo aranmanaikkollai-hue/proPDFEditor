@@ -1,6 +1,5 @@
 package com.propdf.editor.ui.main
 
-import android.content.Context
 import android.content.Intent
 import android.net.Uri
 import android.os.Bundle
@@ -14,9 +13,11 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
 import androidx.core.splashscreen.SplashScreen.Companion.installSplashScreen
 import androidx.lifecycle.Lifecycle
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.lifecycleScope
 import androidx.lifecycle.repeatOnLifecycle
 import com.propdf.editor.ui.navigation.ProPDFNavigation
+import com.propdf.editor.ui.navigation.TabletNavigation
 import com.propdf.editor.ui.theme.ProPDFTheme
 import dagger.hilt.android.AndroidEntryPoint
 import kotlinx.coroutines.flow.collectLatest
@@ -25,10 +26,10 @@ import kotlinx.coroutines.launch
 @AndroidEntryPoint
 class MainActivity : ComponentActivity() {
 
-    private val viewModel: MainViewModel by viewModels()
+    val viewModel: MainViewModel by viewModels()
     private var isReady by mutableStateOf(false)
 
-    private val pdfPicker = registerForActivityResult(ActivityResultContracts.OpenDocument()) { uri: Uri? ->
+    val pdfPicker = registerForActivityResult(ActivityResultContracts.OpenDocument()) { uri: Uri? ->
         uri ?: return@registerForActivityResult
         try {
             contentResolver.takePersistableUriPermission(
@@ -45,19 +46,26 @@ class MainActivity : ComponentActivity() {
 
         splashScreen.setKeepOnScreenCondition { !isReady }
 
-        // Handle incoming PDF intents
         if (intent?.action == Intent.ACTION_VIEW) {
             intent.data?.let { viewModel.openPdf(it) }
         }
 
         setContent {
-            val darkTheme = viewModel.isDarkMode.collectAsStateWithLifecycle(initialValue = isSystemInDarkTheme())
-            
+            val darkTheme by viewModel.isDarkMode.collectAsStateWithLifecycle()
+            val dynamicColors by viewModel.useDynamicColors.collectAsStateWithLifecycle()
+
+            val isDark = darkTheme ?: isSystemInDarkTheme()
+
             ProPDFTheme(
-                darkTheme = darkTheme.value,
-                dynamicColor = viewModel.useDynamicColors.collectAsStateWithLifecycle(initialValue = true).value
+                darkTheme = isDark,
+                dynamicColor = dynamicColors
             ) {
-                ProPDFNavigation(mainViewModel = viewModel)
+                val isTablet = resources.configuration.screenWidthDp >= 600
+                if (isTablet) {
+                    TabletNavigation(mainViewModel = viewModel)
+                } else {
+                    ProPDFNavigation(mainViewModel = viewModel)
+                }
             }
         }
 
@@ -65,7 +73,6 @@ class MainActivity : ComponentActivity() {
             repeatOnLifecycle(Lifecycle.State.STARTED) {
                 viewModel.uiState.collectLatest { state ->
                     if (state.launchViewerUri != null) {
-                        // Navigate to viewer
                         viewModel.onViewerLaunched()
                     }
                     isReady = true
