@@ -51,6 +51,26 @@ dependencies {
     implementation 'androidx.core:core-ktx:1.12.0'
     implementation 'androidx.appcompat:appcompat:1.6.1'
 
+    // Fragment/Activity KTX (required by SecurityActivity.kt, all fragments — viewModels/activityViewModels delegates)
+    implementation 'androidx.fragment:fragment-ktx:1.6.2'
+    implementation 'androidx.activity:activity-ktx:1.8.2'
+
+    // RecyclerView + ListAdapter/DiffUtil (required by HistoryAdapter.kt, RedactionAdapter.kt, HistoryDialogFragment.kt, RedactionFragment.kt)
+    implementation 'androidx.recyclerview:recyclerview:1.3.2'
+
+    // ViewPager2 (required by SecurityActivity.kt, SecurityPagerAdapter.kt)
+    implementation 'androidx.viewpager2:viewpager2:1.0.0'
+
+    // Material Components (required by MaterialToolbar, MaterialButton, MaterialCheckBox, TextInputLayout,
+    // TextInputEditText, MaterialAlertDialogBuilder, Snackbar, TabLayout, TabLayoutMediator, MaterialCardView)
+    implementation 'com.google.android.material:material:1.11.0'
+
+    // ConstraintLayout (required by RedactionFragment.kt)
+    implementation 'androidx.constraintlayout:constraintlayout:2.1.4'
+
+    // Security-crypto (required by SecurityUtils.kt — MasterKey, EncryptedFile)
+    implementation 'androidx.security:security-crypto:1.1.0-alpha06'
+
     // Biometric authentication (required by BiometricAuthManager)
     implementation 'androidx.biometric:biometric:1.1.0'
 
