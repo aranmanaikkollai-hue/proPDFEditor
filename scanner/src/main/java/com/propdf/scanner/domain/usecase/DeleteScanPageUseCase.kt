@@ -1,7 +1,7 @@
-package com.propdfeditor.scanner.domain.usecase
+package com.propdf.scanner.domain.usecase
 
-import com.propdfeditor.scanner.domain.model.ScannedPage
-import com.propdfeditor.scanner.domain.repository.ScannerRepository
+import com.propdf.scanner.domain.model.ScannedPage
+import com.propdf.scanner.domain.repository.ScannerRepository
 import javax.inject.Inject
 
 /**
