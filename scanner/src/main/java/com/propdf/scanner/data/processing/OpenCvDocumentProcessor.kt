@@ -1,10 +1,10 @@
-package com.propdfeditor.scanner.data.processing
+package com.propdf.scanner.data.processing
 
 import android.graphics.Bitmap
 import android.util.Log
-import com.propdfeditor.scanner.domain.model.EdgeDetectionResult
-import com.propdfeditor.scanner.domain.model.EnhancementParams
-import com.propdfeditor.scanner.domain.model.PointF
+import com.propdf.scanner.domain.model.EdgeDetectionResult
+import com.propdf.scanner.domain.model.EnhancementParams
+import com.propdf.scanner.domain.model.PointF
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.isActive
 import kotlinx.coroutines.withContext
