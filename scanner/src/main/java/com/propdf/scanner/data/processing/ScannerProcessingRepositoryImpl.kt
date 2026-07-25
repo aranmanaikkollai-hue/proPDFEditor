@@ -1,4 +1,4 @@
-package com.propdfeditor.scanner.data.processing
+package com.propdf.scanner.data.processing
 
 import android.app.ActivityManager
 import android.content.Context
@@ -6,15 +6,15 @@ import android.graphics.Bitmap
 import android.net.Uri
 import android.util.Size
 import androidx.core.content.FileProvider
-import com.propdfeditor.scanner.domain.model.EdgeDetectionResult
-import com.propdfeditor.scanner.domain.model.EnhancementParams
-import com.propdfeditor.scanner.domain.model.PointF
-import com.propdfeditor.scanner.domain.model.ProcessingState
-import com.propdfeditor.scanner.domain.model.ScanMode
-import com.propdfeditor.scanner.domain.model.ScannedPage
-import com.propdfeditor.scanner.domain.repository.BatchProcessingProgress
-import com.propdfeditor.scanner.domain.repository.ProcessingProgress
-import com.propdfeditor.scanner.domain.repository.ScannerRepository
+import com.propdf.scanner.domain.model.EdgeDetectionResult
+import com.propdf.scanner.domain.model.EnhancementParams
+import com.propdf.scanner.domain.model.PointF
+import com.propdf.scanner.domain.model.ProcessingState
+import com.propdf.scanner.domain.model.ScanMode
+import com.propdf.scanner.domain.model.ScannedPage
+import com.propdf.scanner.domain.repository.BatchProcessingProgress
+import com.propdf.scanner.domain.repository.ProcessingProgress
+import com.propdf.scanner.domain.repository.ScannerRepository
 import dagger.hilt.android.qualifiers.ApplicationContext
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.flow
