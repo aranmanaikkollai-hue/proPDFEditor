@@ -47,6 +47,8 @@ dependencies {
     implementation 'com.google.android.material:material:1.11.0'
     implementation 'androidx.constraintlayout:constraintlayout:2.1.4'
     implementation 'androidx.lifecycle:lifecycle-viewmodel-ktx:2.7.0'
+    implementation 'androidx.lifecycle:lifecycle-runtime-ktx:2.7.0'
+    implementation 'androidx.activity:activity-ktx:1.8.2'
 
     // Hilt
     implementation 'com.google.dagger:hilt-android:2.51.1'
@@ -77,6 +79,11 @@ dependencies {
     // PDF generation from scanned images
     implementation 'com.tom-roush:pdfbox-android:2.0.27.0'
     implementation 'org.bouncycastle:bcprov-jdk15to18:1.72'
+
+    // iText7 (required by PdfCreator.kt)
+    implementation 'com.itextpdf:kernel:7.2.5'
+    implementation 'com.itextpdf:io:7.2.5'
+    implementation 'com.itextpdf:layout:7.2.5'
 
     // OpenCV (required by OpenCvDocumentProcessor.kt, ScanModeDetector.kt)
     // Official Android AAR on Maven Central since OpenCV 4.9.0 — no JitPack needed
