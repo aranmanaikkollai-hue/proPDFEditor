@@ -1,10 +1,10 @@
-package com.propdfeditor.scanner.domain.repository
+package com.propdf.scanner.domain.repository
 
 import android.content.Context
 import android.graphics.Bitmap
 import android.net.Uri
 import android.util.Size
-import com.propdfeditor.scanner.domain.model.*
+import com.propdf.scanner.domain.model.*
 import kotlinx.coroutines.flow.Flow
 
 /**
