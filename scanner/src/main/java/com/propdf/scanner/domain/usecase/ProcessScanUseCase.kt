@@ -1,10 +1,10 @@
-package com.propdfeditor.scanner.domain.usecase
+package com.propdf.scanner.domain.usecase
 
 import android.content.Context
 import android.graphics.Bitmap
-import com.propdfeditor.scanner.domain.model.ScanMode
-import com.propdfeditor.scanner.domain.repository.ProcessingProgress
-import com.propdfeditor.scanner.domain.repository.ScannerRepository
+import com.propdf.scanner.domain.model.ScanMode
+import com.propdf.scanner.domain.repository.ProcessingProgress
+import com.propdf.scanner.domain.repository.ScannerRepository
 import kotlinx.coroutines.flow.Flow
 import javax.inject.Inject
 
