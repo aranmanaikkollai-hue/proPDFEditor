@@ -1,4 +1,4 @@
-package com.propdfeditor.scanner.presentation.components
+package com.propdf.scanner.presentation.components
 
 import android.content.Context
 import android.graphics.Canvas
@@ -7,8 +7,8 @@ import android.graphics.Paint
 import android.graphics.Path
 import android.util.AttributeSet
 import android.view.View
-import com.propdfeditor.scanner.domain.model.EdgeDetectionResult
-import com.propdfeditor.scanner.domain.model.PointF
+import com.propdf.scanner.domain.model.EdgeDetectionResult
+import com.propdf.scanner.domain.model.PointF
 
 /**
  * Custom view that draws detected document edges over camera preview.
