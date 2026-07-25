@@ -7,7 +7,7 @@ import com.propdf.scanner.data.local.ScannedDocumentDao
 import com.propdf.scanner.data.repository.ScannerRepository
 import com.propdf.scanner.data.repository.ScannerRepositoryImpl
 import com.propdf.scanner.processing.*
-import com.propdfeditor.scanner.data.processing.ScannerProcessingRepositoryImpl
+import com.propdf.scanner.data.processing.ScannerProcessingRepositoryImpl
 import dagger.Binds
 import dagger.Module
 import dagger.Provides
@@ -23,7 +23,7 @@ abstract class ScannerBindingsModule {
 }
 
 // NOTE: this binds a DIFFERENT interface than ScannerBindingsModule above -
-// com.propdfeditor.scanner.domain.repository.ScannerRepository (image-processing
+// com.propdf.scanner.domain.repository.ScannerRepository (image-processing
 // contract used by ScannerViewModel's use cases) vs com.propdf.scanner.data.repository.
 // ScannerRepository (document/page persistence contract) bound above. They share a
 // simple name but are unrelated interfaces.
@@ -34,7 +34,7 @@ abstract class ScannerDomainBindingsModule {
     @Singleton
     abstract fun bindDomainScannerRepository(
         impl: ScannerProcessingRepositoryImpl
-    ): com.propdfeditor.scanner.domain.repository.ScannerRepository
+    ): com.propdf.scanner.domain.repository.ScannerRepository
 }
 
 @Module
