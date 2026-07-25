@@ -78,6 +78,10 @@ dependencies {
     implementation 'com.tom-roush:pdfbox-android:2.0.27.0'
     implementation 'org.bouncycastle:bcprov-jdk15to18:1.72'
 
+    // OpenCV (required by OpenCvDocumentProcessor.kt, ScanModeDetector.kt)
+    // Official Android AAR on Maven Central since OpenCV 4.9.0 — no JitPack needed
+    implementation 'org.opencv:opencv:4.10.0'
+
     // Tests
     testImplementation 'junit:junit:4.13.2'
     androidTestImplementation 'androidx.test.ext:junit:1.1.5'
