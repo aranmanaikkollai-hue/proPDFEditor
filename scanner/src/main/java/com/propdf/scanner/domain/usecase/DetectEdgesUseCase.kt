@@ -1,8 +1,8 @@
-package com.propdfeditor.scanner.domain.usecase
+package com.propdf.scanner.domain.usecase
 
 import android.graphics.Bitmap
-import com.propdfeditor.scanner.domain.model.EdgeDetectionResult
-import com.propdfeditor.scanner.domain.repository.ScannerRepository
+import com.propdf.scanner.domain.model.EdgeDetectionResult
+import com.propdf.scanner.domain.repository.ScannerRepository
 import javax.inject.Inject
 
 /**
