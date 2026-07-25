@@ -1,4 +1,4 @@
-package com.propdfeditor.scanner.domain.model
+package com.propdf.scanner.domain.model
 
 import android.graphics.RectF
 import android.net.Uri
