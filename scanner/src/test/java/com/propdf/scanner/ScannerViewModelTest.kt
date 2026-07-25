@@ -1,2 +1,2 @@
-package com.propdfeditor.scanner
+package com.propdf.scanner
 // Moved to src/test/java — this file intentionally left empty
