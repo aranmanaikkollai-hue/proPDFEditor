@@ -1,4 +1,4 @@
-package com.propdfeditor.scanner.presentation
+package com.propdf.scanner.presentation
 
 import android.Manifest
 import android.content.pm.PackageManager
@@ -27,9 +27,9 @@ import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.lifecycleScope
 import androidx.lifecycle.repeatOnLifecycle
 import com.google.common.util.concurrent.ListenableFuture
-import com.propdfeditor.scanner.R
-import com.propdfeditor.scanner.domain.model.*
-import com.propdfeditor.scanner.presentation.components.EdgeOverlayView
+import com.propdf.scanner.R
+import com.propdf.scanner.domain.model.*
+import com.propdf.scanner.presentation.components.EdgeOverlayView
 import dagger.hilt.android.AndroidEntryPoint
 import androidx.activity.viewModels
 import kotlinx.coroutines.*
