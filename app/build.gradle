@@ -106,6 +106,9 @@ dependencies {
     // PDF
     implementation 'com.tom-roush:pdfbox-android:2.0.27.0'
     
+    // OpenCV (required by ScannerProcessor.kt)
+    implementation 'org.opencv:opencv:4.10.0'
+    
     // Image
     implementation 'io.coil-kt:coil-compose:2.5.0'
     
