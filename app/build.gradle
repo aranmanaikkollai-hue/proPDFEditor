@@ -4,6 +4,7 @@ plugins {
     id 'com.google.dagger.hilt.android'
     id 'com.google.devtools.ksp'
     id 'kotlin-parcelize'
+    id 'org.jetbrains.kotlin.plugin.serialization'
 }
 
 android {
@@ -98,6 +99,9 @@ dependencies {
     implementation 'androidx.work:work-runtime-ktx:2.9.0'
     implementation 'androidx.hilt:hilt-work:1.1.0'
     ksp 'androidx.hilt:hilt-compiler:1.1.0'
+    
+    // Serialization (required by PageEditorViewModel.kt, SmartFolderEngine.kt)
+    implementation 'org.jetbrains.kotlinx:kotlinx-serialization-json:1.6.2'
     
     // PDF
     implementation 'com.tom-roush:pdfbox-android:2.0.27.0'
