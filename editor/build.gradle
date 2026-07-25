@@ -4,6 +4,7 @@ plugins {
     id 'org.jetbrains.kotlin.plugin.parcelize'
     id 'com.google.devtools.ksp'
     id 'com.google.dagger.hilt.android'
+    id 'org.jetbrains.kotlin.plugin.serialization'
 }
 
 android {
@@ -53,6 +54,9 @@ dependencies {
     implementation 'androidx.work:work-runtime-ktx:2.9.0'
     implementation 'androidx.hilt:hilt-work:1.1.0'
     ksp 'androidx.hilt:hilt-compiler:1.1.0'
+
+    // Serialization (required by PdfOperationWorker.kt's Json usage)
+    implementation 'org.jetbrains.kotlinx:kotlinx-serialization-json:1.6.2'
 
     implementation('com.itextpdf:itext7-core:7.2.5') {
         exclude group: 'org.bouncycastle', module: 'bcprov-jdk15on'
