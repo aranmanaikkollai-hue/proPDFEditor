@@ -21,6 +21,7 @@ import com.propdf.editor.core.dispatch.ThreadPoolManager
 import com.propdf.editor.data.repository.PdfOperationsManager
 import com.propdf.editor.ui.viewer.ViewerActivity
 import com.propdf.editor.utils.FileHelper
+import com.propdf.editor.worker.OperationSpec
 import com.propdf.editor.worker.PdfOperationWorker
 import dagger.hilt.android.AndroidEntryPoint
 import kotlinx.coroutines.*
@@ -539,7 +540,7 @@ class ToolsActivity : AppCompatActivity() {
 
     private fun runBatchPipeline(inputFile: File, operations: List<String>) {
         val specs = operations.map { op ->
-            PdfOperationWorker.OperationSpec(
+            OperationSpec(
                 operation = when (op) {
                     "Add Page Numbers" -> PdfOperationWorker.OP_PAGE_NUMBERS
                     "Add Header/Footer" -> PdfOperationWorker.OP_HEADER_FOOTER
