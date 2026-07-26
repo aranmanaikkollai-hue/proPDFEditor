@@ -15,6 +15,24 @@ import dagger.assisted.AssistedInject
 import java.io.File
 import java.util.UUID
 
+/**
+ * A single step in a batch pipeline. See [PdfOperationWorker.enqueuePipeline].
+ *
+ * NOTE: This is intentionally a top-level class rather than nested inside
+ * PdfOperationWorker's companion object. A class nested in a companion
+ * object of a Hilt @AssistedInject worker has previously caused
+ * "Unresolved reference" errors for consumers in other files/modules
+ * (KSP/Hilt processing order issue), so it is kept top-level to guarantee
+ * stable cross-file resolution.
+ */
+data class OperationSpec(
+    val operation: String,
+    val inputFile: File,
+    val outputName: String,
+    val extraParam: String? = null,
+    val extraParam2: String? = null
+)
+
 @HiltWorker
 class PdfOperationWorker @AssistedInject constructor(
     @Assisted context: Context,
@@ -70,17 +88,6 @@ class PdfOperationWorker @AssistedInject constructor(
         const val OP_ADD_WATERMARK = "add_watermark"
         const val OP_ADD_BACKGROUND = "add_background"
         const val OP_OPTIMIZE = "optimize"
-
-        /**
-         * A single step in a batch pipeline. See [enqueuePipeline].
-         */
-        data class OperationSpec(
-            val operation: String,
-            val inputFile: File,
-            val outputName: String,
-            val extraParam: String? = null,
-            val extraParam2: String? = null
-        )
 
         private fun buildInputData(operation: String, inputFile: File, outputName: String, extraParam: String?, extraParam2: String? = null): Data {
             val outputFile = File(inputFile.parentFile ?: inputFile, "$outputName.pdf")
