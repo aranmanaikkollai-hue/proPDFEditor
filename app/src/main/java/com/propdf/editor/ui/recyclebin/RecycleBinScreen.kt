@@ -1,4 +1,4 @@
-package com.propdf.editor.ui.recycle
+package com.propdf.editor.ui.recyclebin
 
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
@@ -36,7 +36,7 @@ fun RecycleBinScreen(
                     Column {
                         Text("Recycle Bin", style = MaterialTheme.typography.titleLarge)
                         Text(
-                            "${uiState.deletedFiles.size} documents",
+                            "${uiState.files.size} documents",
                             style = MaterialTheme.typography.labelSmall,
                             color = MaterialTheme.colorScheme.onSurfaceVariant
                         )
@@ -48,8 +48,8 @@ fun RecycleBinScreen(
                     }
                 },
                 actions = {
-                    if (uiState.deletedFiles.isNotEmpty()) {
-                        TextButton(onClick = { viewModel.emptyRecycleBin() }) {
+                    if (uiState.files.isNotEmpty()) {
+                        TextButton(onClick = { viewModel.emptyBin() }) {
                             Text("Empty All")
                         }
                     }
@@ -62,7 +62,7 @@ fun RecycleBinScreen(
         }
     ) { padding ->
         Box(modifier = Modifier.fillMaxSize().padding(padding)) {
-            if (uiState.deletedFiles.isEmpty()) {
+            if (uiState.files.isEmpty()) {
                 EmptyState(
                     icon = Icons.Outlined.DeleteOutline,
                     title = "Recycle bin is empty",
@@ -75,14 +75,15 @@ fun RecycleBinScreen(
                     verticalArrangement = Arrangement.spacedBy(12.dp)
                 ) {
                     items(
-                        items = uiState.deletedFiles,
+                        items = uiState.files,
                         key = { it.id }
                     ) { doc ->
                         DocumentListItem(
                             document = doc,
                             onClick = { /* Preview deleted file */ },
-                            onRestoreClick = { viewModel.restoreFile(doc.id) },
-                            onDeleteClick = { viewModel.permanentlyDelete(doc.id) }
+                            onFavoriteClick = { },
+                            onRestoreClick = { viewModel.restore(doc.id) },
+                            onDeleteClick = { viewModel.permanentDelete(doc.id) }
                         )
                     }
                     item { Spacer(modifier = Modifier.height(80.dp)) }
