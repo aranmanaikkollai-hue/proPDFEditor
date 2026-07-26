@@ -36,7 +36,7 @@ fun FavoritesScreen(
                     Column {
                         Text("Favorites", style = MaterialTheme.typography.titleLarge)
                         Text(
-                            "${uiState.favorites.size} documents",
+                            "${uiState.files.size} documents",
                             style = MaterialTheme.typography.labelSmall,
                             color = MaterialTheme.colorScheme.onSurfaceVariant
                         )
@@ -55,7 +55,7 @@ fun FavoritesScreen(
         }
     ) { padding ->
         Box(modifier = Modifier.fillMaxSize().padding(padding)) {
-            if (uiState.favorites.isEmpty()) {
+            if (uiState.files.isEmpty()) {
                 EmptyState(
                     icon = Icons.Outlined.StarBorder,
                     title = "No favorites yet",
@@ -70,7 +70,7 @@ fun FavoritesScreen(
                     verticalArrangement = Arrangement.spacedBy(12.dp)
                 ) {
                     items(
-                        items = uiState.favorites,
+                        items = uiState.files,
                         key = { it.id }
                     ) { doc ->
                         DocumentListItem(
