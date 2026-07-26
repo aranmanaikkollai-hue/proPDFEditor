@@ -4,6 +4,7 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.propdf.editor.domain.model.PdfDocument
 import com.propdf.editor.domain.usecase.GetFavoritesUseCase
+import com.propdf.editor.domain.usecase.MoveToRecycleBinUseCase
 import com.propdf.editor.domain.usecase.ToggleFavoriteUseCase
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.*
@@ -13,7 +14,8 @@ import javax.inject.Inject
 @HiltViewModel
 class FavoritesViewModel @Inject constructor(
     private val getFavorites: GetFavoritesUseCase,
-    private val toggleFavorite: ToggleFavoriteUseCase
+    private val toggleFavorite: ToggleFavoriteUseCase,
+    private val moveToRecycleBinUseCase: MoveToRecycleBinUseCase
 ) : ViewModel() {
 
     private val _uiState = MutableStateFlow(FavoritesUiState())
@@ -34,6 +36,12 @@ class FavoritesViewModel @Inject constructor(
     fun removeFavorite(id: Long) {
         viewModelScope.launch {
             toggleFavorite(id, true)
+        }
+    }
+
+    fun moveToRecycleBin(id: Long) {
+        viewModelScope.launch {
+            moveToRecycleBinUseCase(id)
         }
     }
 }
