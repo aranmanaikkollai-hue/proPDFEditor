@@ -34,16 +34,17 @@ class SearchViewModel @Inject constructor(
             recentFilesRepo.observeAll().collectLatest { files ->
                 val docs = files.map { file ->
                     PdfDocument(
-                        id = file.uri,
+                        id = file.uri.hashCode().toLong(),
                         uri = android.net.Uri.parse(file.uri),
                         displayName = file.displayName,
                         fileSize = file.fileSizeBytes,
-                        pageCount = file.pageCount,
-                        lastModified = file.lastOpenedAt,
+                        dateModified = file.lastOpenedAt,
+                        dateAdded = file.lastOpenedAt,
                         isFavorite = file.isFavourite,
                         isDeleted = false,
                         category = DocumentCategory.UNCATEGORIZED,
-                        cloudProvider = null
+                        cloudProvider = null,
+                        pageCount = file.pageCount
                     )
                 }
                 _uiState.update { it.copy(allFiles = docs) }
