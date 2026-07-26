@@ -51,8 +51,8 @@ class FilesViewModel @Inject constructor(
 
         // Apply sort
         filtered = when (state.sortField) {
-            SortField.DATE -> if (state.sortAsc) filtered.sortedBy { it.lastModified }
-            else filtered.sortedByDescending { it.lastModified }
+            SortField.DATE -> if (state.sortAsc) filtered.sortedBy { it.dateModified }
+            else filtered.sortedByDescending { it.dateModified }
             SortField.NAME -> if (state.sortAsc) filtered.sortedBy { it.displayName.lowercase() }
             else filtered.sortedByDescending { it.displayName.lowercase() }
             SortField.SIZE -> if (state.sortAsc) filtered.sortedBy { it.fileSize }
@@ -88,16 +88,17 @@ class FilesViewModel @Inject constructor(
 
     private fun RecentFile.toPdfDocument(): PdfDocument {
         return PdfDocument(
-            id = uri,
+            id = uri.hashCode().toLong(),
             uri = android.net.Uri.parse(uri),
             displayName = displayName,
             fileSize = fileSizeBytes,
-            pageCount = pageCount,
-            lastModified = lastOpenedAt,
+            dateModified = lastOpenedAt,
+            dateAdded = lastOpenedAt,
             isFavorite = isFavourite,
             isDeleted = false,
             category = DocumentCategory.UNCATEGORIZED,
-            cloudProvider = null
+            cloudProvider = null,
+            pageCount = pageCount
         )
     }
 }
