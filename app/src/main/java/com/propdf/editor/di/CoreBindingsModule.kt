@@ -1,14 +1,64 @@
 package com.propdf.editor.di
 
-/**
- * Provides stub bindings for :core module repository interfaces
- * that are injected by existing ViewModels but have no implementations.
- *
- * RecentFilesRepository no longer needs a stub here — it's bound to the real
- * Room-backed com.propdf.core.data.local.RecentFilesRepositoryImpl in
- * CoreRepositoryBindingsModule.
- *
- * PdfViewerRepository also has a real implementation
- * (com.propdf.viewer.data.repository.PdfViewerRepositoryImpl, bound via
- * com.propdf.viewer.di.ViewerBindsModule), so no stub is needed for it here.
- */
+import com.propdf.core.data.local.RecentFilesRepositoryImpl
+import com.propdf.core.domain.repository.CollectionRepository
+import com.propdf.core.domain.repository.RecentFilesRepository
+import com.propdf.core.domain.repository.TagRepository
+import com.propdf.editor.data.repository.CollectionRepositoryImpl
+import com.propdf.editor.data.repository.DocumentRepositoryImpl
+import com.propdf.editor.data.repository.EditorDocumentRepositoryImpl
+import com.propdf.editor.data.repository.FolderRepositoryImpl
+import com.propdf.editor.data.repository.TagRepositoryImpl
+import com.propdf.editor.domain.repository.FolderRepository
+import dagger.Binds
+import dagger.Module
+import dagger.hilt.InstallIn
+import dagger.hilt.components.SingletonComponent
+import javax.inject.Singleton
+
+@Module
+@InstallIn(SingletonComponent::class)
+abstract class CoreRepositoryBindingsModule {
+
+    @Binds
+    @Singleton
+    abstract fun bindRecentFilesRepository(
+        impl: RecentFilesRepositoryImpl
+    ): RecentFilesRepository
+
+    @Binds
+    @Singleton
+    abstract fun bindDocumentRepository(
+        impl: DocumentRepositoryImpl
+    ): com.propdf.core.domain.repository.DocumentRepository
+
+    @Binds
+    @Singleton
+    abstract fun bindEditorDocumentRepository(
+        impl: EditorDocumentRepositoryImpl
+    ): com.propdf.editor.domain.repository.DocumentRepository
+
+    @Binds
+    @Singleton
+    abstract fun bindCollectionRepository(
+        impl: CollectionRepositoryImpl
+    ): CollectionRepository
+
+    @Binds
+    @Singleton
+    abstract fun bindTagRepository(
+        impl: TagRepositoryImpl
+    ): TagRepository
+
+    @Binds
+    @Singleton
+    abstract fun bindFolderRepository(
+        impl: FolderRepositoryImpl
+    ): FolderRepository
+
+    // PdfViewerRepository is bound in com.propdf.viewer.di.ViewerBindsModule
+    // (to PdfViewerRepositoryImpl). A duplicate @Binds for it used to live
+    // here pointing at StubPdfViewerRepository, which caused a
+    // [Dagger/DuplicateBindings] error once the real :viewer implementation
+    // was wired up.
+}
