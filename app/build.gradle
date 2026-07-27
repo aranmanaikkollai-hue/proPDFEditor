@@ -61,6 +61,16 @@ android {
     }
 }
 
+// KSP incremental compilation has a known bug (google/ksp#1610) where, combined
+// with Gradle's build cache, the Hilt "aggregated deps" annotation processor can
+// try to regenerate a hilt_aggregated_deps/*.java file that a stale cached task
+// output already produced, raising kotlin.io.FileAlreadyExistsException for
+// _com_propdf_editor_di_CoreRepositoryBindingsModule.java (or similar Hilt module
+// files). Disabling KSP incrementality avoids the stale-cache collision.
+ksp {
+    incremental = false
+}
+
 dependencies {
     // Core
     implementation 'androidx.core:core-ktx:1.12.0'
