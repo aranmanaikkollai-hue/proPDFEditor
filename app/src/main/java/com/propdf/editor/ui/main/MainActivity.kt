@@ -19,6 +19,7 @@ import androidx.lifecycle.repeatOnLifecycle
 import com.propdf.editor.ui.navigation.ProPDFNavigation
 import com.propdf.editor.ui.navigation.TabletNavigation
 import com.propdf.editor.ui.theme.ProPDFTheme
+import com.propdf.editor.ui.viewer.ViewerActivity
 import dagger.hilt.android.AndroidEntryPoint
 import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.launch
@@ -62,9 +63,15 @@ class MainActivity : ComponentActivity() {
             ) {
                 val isTablet = resources.configuration.screenWidthDp >= 600
                 if (isTablet) {
-                    TabletNavigation(mainViewModel = viewModel)
+                    TabletNavigation(
+                        mainViewModel = viewModel,
+                        onOpenPdf = { pdfPicker.launch(arrayOf("application/pdf")) }
+                    )
                 } else {
-                    ProPDFNavigation(mainViewModel = viewModel)
+                    ProPDFNavigation(
+                        mainViewModel = viewModel,
+                        onOpenPdf = { pdfPicker.launch(arrayOf("application/pdf")) }
+                    )
                 }
             }
         }
@@ -72,7 +79,8 @@ class MainActivity : ComponentActivity() {
         lifecycleScope.launch {
             repeatOnLifecycle(Lifecycle.State.STARTED) {
                 viewModel.uiState.collectLatest { state ->
-                    if (state.launchViewerUri != null) {
+                    state.launchViewerUri?.let { uri ->
+                        startActivity(ViewerActivity.createIntent(this@MainActivity, Uri.parse(uri)))
                         viewModel.onViewerLaunched()
                     }
                     isReady = true

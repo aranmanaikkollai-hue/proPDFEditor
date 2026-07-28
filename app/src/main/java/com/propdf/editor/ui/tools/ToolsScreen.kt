@@ -60,7 +60,7 @@ fun ToolsScreen(navController: NavController) {
             )
 
             items(pdfTools.size) { index ->
-                ToolCard(tool = pdfTools[index], onClick = { /* Navigate to tool */ })
+                ToolCard(tool = pdfTools[index], onClick = { navController.navigate("toolsActivity") })
             }
 
             item {
@@ -80,7 +80,7 @@ fun ToolsScreen(navController: NavController) {
             )
 
             items(docTools.size) { index ->
-                ToolCard(tool = docTools[index], onClick = { /* Navigate to tool */ })
+                ToolCard(tool = docTools[index], onClick = { if (docTools[index].name == "OCR Text") navController.navigate("ocr") else navController.navigate("toolsActivity") })
             }
         }
     }

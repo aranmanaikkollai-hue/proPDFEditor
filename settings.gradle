@@ -30,3 +30,8 @@ include ':scanner'
 include ':security'
 include ':ads'
 include ':annotations'
+
+include ':storage'
+include ':sync'
+include ':backup'
+include ':ocr'

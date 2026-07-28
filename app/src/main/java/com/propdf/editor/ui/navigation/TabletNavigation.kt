@@ -10,13 +10,20 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalConfiguration
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
 import androidx.navigation.NavHostController
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.currentBackStackEntryAsState
 import androidx.navigation.compose.rememberNavController
+import com.propdf.editor.ui.files.FilesScreen
 import com.propdf.editor.ui.home.HomeScreen
+import com.propdf.editor.ui.ocr.OcrActivity
+import com.propdf.editor.ui.scanner.ModernScannerActivity
+import com.propdf.editor.ui.search.SearchScreen
+import com.propdf.editor.ui.tools.ToolsActivity
+import com.propdf.editor.ui.tools.ToolsScreen
 import com.propdf.editor.ui.main.MainViewModel
 import com.propdf.editor.ui.settings.SettingsScreen
 import com.propdf.editor.ui.viewer.PdfViewerScreen
@@ -24,6 +31,7 @@ import com.propdf.editor.ui.viewer.PdfViewerScreen
 @Composable
 fun TabletNavigation(
     mainViewModel: MainViewModel,
+    onOpenPdf: () -> Unit,
     navController: NavHostController = rememberNavController()
 ) {
     val isLandscape = LocalConfiguration.current.orientation == android.content.res.Configuration.ORIENTATION_LANDSCAPE
@@ -45,7 +53,7 @@ fun TabletNavigation(
                 containerColor = MaterialTheme.colorScheme.surface,
                 header = {
                     FloatingActionButton(
-                        onClick = { /* Open PDF picker */ },
+                        onClick = onOpenPdf,
                         shape = androidx.compose.foundation.shape.CircleShape,
                         containerColor = MaterialTheme.colorScheme.primaryContainer,
                         modifier = Modifier.padding(vertical = 16.dp)
@@ -84,7 +92,8 @@ fun TabletNavigation(
             Box(modifier = Modifier.weight(1f)) {
                 ProPDFNavHost(
                     navController = navController,
-                    mainViewModel = mainViewModel
+                    mainViewModel = mainViewModel,
+                    onOpenPdf = onOpenPdf
                 )
             }
         }
@@ -125,7 +134,8 @@ fun TabletNavigation(
             Box(modifier = Modifier.padding(padding)) {
                 ProPDFNavHost(
                     navController = navController,
-                    mainViewModel = mainViewModel
+                    mainViewModel = mainViewModel,
+                    onOpenPdf = onOpenPdf
                 )
             }
         }
@@ -135,7 +145,8 @@ fun TabletNavigation(
 @Composable
 fun ProPDFNavHost(
     navController: NavHostController,
-    mainViewModel: MainViewModel
+    mainViewModel: MainViewModel,
+    onOpenPdf: () -> Unit
 ) {
     androidx.navigation.compose.NavHost(
         navController = navController,
@@ -161,17 +172,41 @@ fun ProPDFNavHost(
             HomeScreen(
                 navController = navController,
                 mainViewModel = mainViewModel,
-                onOpenPdf = { /* Open PDF picker */ }
+                onOpenPdf = onOpenPdf
             )
         }
         composable(Screen.Files.route) {
-            // Files screen
+            FilesScreen(navController = navController, mainViewModel = mainViewModel)
         }
         composable(Screen.Scanner.route) {
-            // Scanner screen
+            val context = LocalContext.current
+            LaunchedEffect(Unit) {
+                context.startActivity(android.content.Intent(context, ModernScannerActivity::class.java))
+                navController.popBackStack()
+            }
         }
         composable(Screen.Tools.route) {
-            // Tools screen
+            ToolsScreen(navController = navController)
+        }
+        composable("search") {
+            SearchScreen(navController = navController, mainViewModel = mainViewModel)
+        }
+        composable("recent") {
+            FilesScreen(navController = navController, mainViewModel = mainViewModel)
+        }
+        composable("ocr") {
+            val context = LocalContext.current
+            LaunchedEffect(Unit) {
+                context.startActivity(android.content.Intent(context, OcrActivity::class.java))
+                navController.popBackStack()
+            }
+        }
+        composable("toolsActivity") {
+            val context = LocalContext.current
+            LaunchedEffect(Unit) {
+                context.startActivity(android.content.Intent(context, ToolsActivity::class.java))
+                navController.popBackStack()
+            }
         }
         composable(Screen.Settings.route) {
             SettingsScreen(navController = navController)

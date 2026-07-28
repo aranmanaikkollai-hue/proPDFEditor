@@ -15,7 +15,7 @@
         android:required="false" />
 
     <application
-        android:name=".ProPDFApplication"
+        android:name=".ProPDFApp"
         android:allowBackup="true"
         android:dataExtractionRules="@xml/data_extraction_rules"
         android:fullBackupContent="@xml/backup_rules"
@@ -52,6 +52,22 @@
 
         <activity
             android:name=".ui.scanner.DocumentScannerActivity"
+            android:exported="false" />
+
+        <activity
+            android:name=".ui.scanner.ModernScannerActivity"
+            android:exported="false" />
+
+        <activity
+            android:name=".ui.ocr.OcrActivity"
+            android:exported="false" />
+
+        <activity
+            android:name=".ui.ocr.OcrCropActivity"
+            android:exported="false" />
+
+        <activity
+            android:name=".ui.security.SecurityActivity"
             android:exported="false" />
 
         <activity

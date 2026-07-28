@@ -10,13 +10,20 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalConfiguration
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
 import androidx.navigation.NavHostController
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.currentBackStackEntryAsState
 import androidx.navigation.compose.rememberNavController
+import com.propdf.editor.ui.files.FilesScreen
 import com.propdf.editor.ui.home.HomeScreen
+import com.propdf.editor.ui.ocr.OcrActivity
+import com.propdf.editor.ui.scanner.ModernScannerActivity
+import com.propdf.editor.ui.search.SearchScreen
+import com.propdf.editor.ui.tools.ToolsActivity
+import com.propdf.editor.ui.tools.ToolsScreen
 import com.propdf.editor.ui.main.MainViewModel
 import com.propdf.editor.ui.settings.SettingsScreen
 import com.propdf.editor.ui.viewer.PdfViewerScreen
@@ -37,9 +44,11 @@ sealed class Screen(
 @Composable
 fun ProPDFNavigation(
     mainViewModel: MainViewModel,
+    onOpenPdf: () -> Unit,
     navController: NavHostController = rememberNavController()
 ) {
     val isTablet = LocalConfiguration.current.screenWidthDp >= 600
+    val context = LocalContext.current
     val navBackStackEntry by navController.currentBackStackEntryAsState()
     val currentRoute = navBackStackEntry?.destination?.route
 
@@ -114,17 +123,38 @@ fun ProPDFNavigation(
                 HomeScreen(
                     navController = navController,
                     mainViewModel = mainViewModel,
-                    onOpenPdf = { /* Open PDF picker */ }
+                    onOpenPdf = onOpenPdf
                 )
             }
             composable(Screen.Files.route) {
-                // Files screen implementation
+                FilesScreen(navController = navController, mainViewModel = mainViewModel)
             }
             composable(Screen.Scanner.route) {
-                // Scanner screen implementation
+                LaunchedEffect(Unit) {
+                    context.startActivity(android.content.Intent(context, ModernScannerActivity::class.java))
+                    navController.popBackStack()
+                }
             }
             composable(Screen.Tools.route) {
-                // Tools screen implementation
+                ToolsScreen(navController = navController)
+            }
+            composable("search") {
+                SearchScreen(navController = navController, mainViewModel = mainViewModel)
+            }
+            composable("recent") {
+                FilesScreen(navController = navController, mainViewModel = mainViewModel)
+            }
+            composable("ocr") {
+                LaunchedEffect(Unit) {
+                    context.startActivity(android.content.Intent(context, OcrActivity::class.java))
+                    navController.popBackStack()
+                }
+            }
+            composable("toolsActivity") {
+                LaunchedEffect(Unit) {
+                    context.startActivity(android.content.Intent(context, ToolsActivity::class.java))
+                    navController.popBackStack()
+                }
             }
             composable(Screen.Settings.route) {
                 SettingsScreen(navController = navController)
