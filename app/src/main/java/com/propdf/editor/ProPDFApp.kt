@@ -17,6 +17,7 @@ import com.propdf.editor.core.pool.BitmapPool
 import com.propdf.editor.worker.CleanupWorker
 import com.tom_roush.pdfbox.android.PDFBoxResourceLoader
 import dagger.hilt.android.HiltAndroidApp
+import java.util.concurrent.Executors
 import javax.inject.Inject
 
 @HiltAndroidApp
@@ -28,20 +29,24 @@ class ProPDFApp : Application(), Configuration.Provider {
     companion object {
         private const val TAG = "ProPDFApp"
         private var initialized = false
+        private val backgroundExecutor = Executors.newSingleThreadExecutor { runnable ->
+            Thread(runnable, "propdf-startup").apply { isDaemon = true }
+        }
     }
 
     override fun onCreate() {
         // Fast startup: defer non-critical initialization
         super.onCreate()
 
-        // Critical path: PDFBox init (required before any PDF operation)
-        PDFBoxResourceLoader.init(applicationContext)
+        // Crash prevention must be installed before any optional startup work.
+        safeStartup("CrashGuard") { CrashGuard.initialize(this) }
 
-        // Crash prevention
-        CrashGuard.initialize()
+        // Critical path: PDFBox init (required before any PDF operation). Keep this
+        // non-fatal so a bad/missing PDFBox asset never blocks the Home screen.
+        safeStartup("PDFBox") { PDFBoxResourceLoader.init(applicationContext) }
 
-        // GPU capability detection
-        GpuOptimizer.initialize(this)
+        // GPU capability detection is useful but optional for first draw.
+        safeStartup("GPU optimizer") { GpuOptimizer.initialize(this) }
 
         // Restore theme (fast, no I/O blocking)
         restoreTheme()
@@ -49,17 +54,17 @@ class ProPDFApp : Application(), Configuration.Provider {
         // Defer heavy initialization to background
         if (!initialized) {
             initialized = true
-            applicationContext.mainExecutor.execute {
+            backgroundExecutor.execute {
                 initializeBackground()
             }
         }
 
         // Register memory pressure callbacks
-        registerComponentCallbacks(MemoryPressureCallbacks())
+        safeStartup("memory callbacks") { registerComponentCallbacks(MemoryPressureCallbacks()) }
 
         // Enable StrictMode in debug builds for ANR detection
         if (BuildConfig.DEBUG) {
-            enableStrictMode()
+            safeStartup("StrictMode") { enableStrictMode() }
         }
     }
 
@@ -85,15 +90,22 @@ class ProPDFApp : Application(), Configuration.Provider {
     }
 
     private fun initializeBackground() {
-        // Initialize caches (can be slow)
-        BitmapPool.getDefaultInstance()
-        LruBitmapCache.getInstance(this)
-
-        // Schedule periodic cleanup
-        CleanupWorker.schedulePeriodic(this)
-
-        // Reduce process priority for background work
         Process.setThreadPriority(Process.THREAD_PRIORITY_BACKGROUND)
+
+        safeStartup("bitmap pool") { BitmapPool.getDefaultInstance() }
+        safeStartup("bitmap cache") { LruBitmapCache.getInstance(this) }
+        safeStartup("cleanup worker") { CleanupWorker.schedulePeriodic(this) }
+    }
+
+    private fun safeStartup(name: String, block: () -> Unit) {
+        try {
+            block()
+        } catch (oom: OutOfMemoryError) {
+            Log.e(TAG, "Startup step failed because of low memory: $name", oom)
+            CrashGuard.emergencyCleanup(this)
+        } catch (throwable: Throwable) {
+            Log.e(TAG, "Startup step failed and was deferred/skipped: $name", throwable)
+        }
     }
 
     private fun enableStrictMode() {
@@ -119,7 +131,7 @@ class ProPDFApp : Application(), Configuration.Provider {
     inner class MemoryPressureCallbacks : ComponentCallbacks2 {
         override fun onTrimMemory(level: Int) {
             Log.w(TAG, "onTrimMemory level=$level")
-            LruBitmapCache.getInstance(this@ProPDFApp).trimMemory(level)
+            safeStartup("trim bitmap cache") { LruBitmapCache.getInstance(this@ProPDFApp).trimMemory(level) }
 
             when (level) {
                 ComponentCallbacks2.TRIM_MEMORY_RUNNING_CRITICAL,
@@ -137,7 +149,7 @@ class ProPDFApp : Application(), Configuration.Provider {
 
         override fun onLowMemory() {
             Log.e(TAG, "onLowMemory — emergency cleanup")
-            CrashGuard.emergencyCleanup()
+            CrashGuard.emergencyCleanup(this@ProPDFApp)
         }
     }
 }
