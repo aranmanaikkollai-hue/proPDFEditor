@@ -55,6 +55,22 @@
             android:exported="false" />
 
         <activity
+            android:name=".ui.scanner.ModernScannerActivity"
+            android:exported="false" />
+
+        <activity
+            android:name=".ui.ocr.OcrActivity"
+            android:exported="false" />
+
+        <activity
+            android:name=".ui.ocr.OcrCropActivity"
+            android:exported="false" />
+
+        <activity
+            android:name=".ui.security.SecurityActivity"
+            android:exported="false" />
+
+        <activity
             android:name=".ui.tools.ToolsActivity"
             android:exported="false" />
 

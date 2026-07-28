@@ -194,4 +194,8 @@ dependencies {
     implementation project(':annotations')
     implementation project(':scanner')
     implementation project(':security')
+    implementation project(':storage')
+    implementation project(':sync')
+    implementation project(':backup')
+    implementation project(':ocr')
 }
