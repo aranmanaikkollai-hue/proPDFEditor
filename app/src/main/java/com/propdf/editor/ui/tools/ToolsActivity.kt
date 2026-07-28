@@ -510,7 +510,7 @@ class ToolsActivity : AppCompatActivity() {
         val f = need() ?: return
         try {
             val uri = androidx.core.content.FileProvider.getUriForFile(
-                this, "$packageName.provider", f
+                this, "$packageName.fileprovider", f
             )
             startActivity(Intent.createChooser(Intent(Intent.ACTION_SEND).apply {
                 type = "application/pdf"
@@ -600,7 +600,7 @@ class ToolsActivity : AppCompatActivity() {
                 .setPositiveButton("Open") { _, _ ->
                     val openUri = try {
                         androidx.core.content.FileProvider.getUriForFile(
-                            this@ToolsActivity, "$packageName.provider", fileForOpen
+                            this@ToolsActivity, "$packageName.fileprovider", fileForOpen
                         )
                     } catch (_: Exception) { Uri.fromFile(fileForOpen) }
                     ViewerActivity.start(this@ToolsActivity, openUri)
@@ -608,7 +608,7 @@ class ToolsActivity : AppCompatActivity() {
                 .setNeutralButton("Share") { _, _ ->
                     try {
                         val uri = androidx.core.content.FileProvider.getUriForFile(
-                            this@ToolsActivity, "$packageName.provider", fileForOpen
+                            this@ToolsActivity, "$packageName.fileprovider", fileForOpen
                         )
                         startActivity(Intent.createChooser(Intent(Intent.ACTION_SEND).apply {
                             type = "application/pdf"

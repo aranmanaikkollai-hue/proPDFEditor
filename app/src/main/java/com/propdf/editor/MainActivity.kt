@@ -331,7 +331,7 @@ class MainActivity : AppCompatActivity() {
     private fun shareFile(file: File) {
         try {
             val uri = androidx.core.content.FileProvider.getUriForFile(
-                this, "$packageName.provider", file
+                this, "$packageName.fileprovider", file
             )
             startActivity(Intent.createChooser(Intent(Intent.ACTION_SEND).apply {
                 type = "application/pdf"
