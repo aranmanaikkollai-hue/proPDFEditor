@@ -19,12 +19,28 @@ import androidx.lifecycle.repeatOnLifecycle
 import com.propdf.editor.ui.navigation.ProPDFNavigation
 import com.propdf.editor.ui.navigation.TabletNavigation
 import com.propdf.editor.ui.theme.ProPDFTheme
+import com.propdf.editor.ui.viewer.ViewerActivity
 import dagger.hilt.android.AndroidEntryPoint
 import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.launch
 
 @AndroidEntryPoint
 class MainActivity : ComponentActivity() {
+
+    private companion object {
+        val SUPPORTED_OPEN_MIME_TYPES = arrayOf(
+            "application/pdf",
+            "image/*",
+            "text/plain",
+            "text/html",
+            "application/msword",
+            "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+            "application/vnd.ms-excel",
+            "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+            "application/vnd.ms-powerpoint",
+            "application/vnd.openxmlformats-officedocument.presentationml.presentation"
+        )
+    }
 
     val viewModel: MainViewModel by viewModels()
     private var isReady by mutableStateOf(false)
@@ -64,7 +80,10 @@ class MainActivity : ComponentActivity() {
                 if (isTablet) {
                     TabletNavigation(mainViewModel = viewModel)
                 } else {
-                    ProPDFNavigation(mainViewModel = viewModel)
+                    ProPDFNavigation(
+                        mainViewModel = viewModel,
+                        onOpenPdf = { pdfPicker.launch(SUPPORTED_OPEN_MIME_TYPES) }
+                    )
                 }
             }
         }
@@ -72,7 +91,12 @@ class MainActivity : ComponentActivity() {
         lifecycleScope.launch {
             repeatOnLifecycle(Lifecycle.State.STARTED) {
                 viewModel.uiState.collectLatest { state ->
-                    if (state.launchViewerUri != null) {
+                    state.launchViewerUri?.let { uriString ->
+                        ViewerActivity.start(
+                            this@MainActivity,
+                            Uri.parse(uriString),
+                            displayName = null
+                        )
                         viewModel.onViewerLaunched()
                     }
                     isReady = true
