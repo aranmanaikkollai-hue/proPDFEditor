@@ -197,4 +197,17 @@ dependencies {
     implementation project(':storage')
     implementation project(':sync')
     implementation project(':backup')
+        // Project modules
+    implementation project(':core')
+    implementation project(':editor')
+    implementation project(':annotations')
+    implementation project(':scanner')
+    implementation project(':security')
+    implementation project(':storage')
+    implementation project(':sync')
+    implementation project(':backup')
+    implementation project(':ocr')
+    implementation project(':share')
+    implementation project(':nas')
+    implementation project(':viewer') // Also missing!
 }
