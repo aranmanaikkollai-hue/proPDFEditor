@@ -44,4 +44,8 @@ class SignatureRepositoryImpl @Inject constructor(
     override suspend fun deleteSignature(id: String) {
         signatureDao.delete(id)
     }
+    class SignatureRepositoryImpl @Inject constructor(
+    private val signatureDao: SignatureDao,
+    private val signaturesDir: File
+) : SignatureRepository {
 }
