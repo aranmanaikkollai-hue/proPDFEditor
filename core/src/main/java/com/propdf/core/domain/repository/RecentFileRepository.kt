@@ -14,4 +14,5 @@ interface RecentFileRepository {
     suspend fun pinFile(uri: String, pin: Boolean)
     suspend fun favoriteFile(uri: String, favorite: Boolean)
     suspend fun deleteFile(uri: String)
+    fun searchFiles(query: String): Flow<List<RecentFile>>
 }
