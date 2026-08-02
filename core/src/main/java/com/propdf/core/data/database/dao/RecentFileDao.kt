@@ -21,6 +21,9 @@ interface RecentFileDao {
     @Query("SELECT * FROM recent_files WHERE uri = :uri LIMIT 1")
     suspend fun getByUri(uri: String): RecentFileEntity?
 
+    @Query("SELECT * FROM recent_files WHERE name LIKE '%' || :query || '%' ORDER BY lastOpened DESC")
+    fun search(query: String): Flow<List<RecentFileEntity>>
+
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun insert(file: RecentFileEntity)
 
