@@ -1,45 +1,42 @@
 # ProPDF Editor ProGuard Rules
 
-# Keep Compose
--keep class androidx.compose.** { *; }
--keep class androidx.compose.material3.** { *; }
-
 # Keep Hilt
--keep class dagger.hilt.** { *; }
--keep class * extends dagger.hilt.internal.GeneratedComponent { *; }
+-keepclassmembers class * {
+    @dagger.hilt.android.lifecycle.HiltViewModel <init>(...);
+}
 
-# Keep Room
--keep class * extends androidx.room.RoomDatabase
--keep @androidx.room.Entity class *
--dontwarn androidx.room.paging.**
+# Keep Room entities
+-keep class com.propdf.core.data.database.entity.** { *; }
+-keep class com.propdf.core.domain.model.** { *; }
 
-# Keep PDFBox
+# Keep Parcelize
+-keepclassmembers class * implements android.os.Parcelable {
+    public static final android.os.Parcelable$Creator CREATOR;
+}
+
+# PDFBox
+-dontwarn com.tom_roush.pdfbox.**
 -keep class com.tom_roush.pdfbox.** { *; }
--keep class org.apache.pdfbox.** { *; }
 
-# Keep Kotlinx Coroutines
--keep class kotlinx.coroutines.** { *; }
+# iText
+-dontwarn com.itextpdf.**
+-keep class com.itextpdf.** { *; }
 
-# Keep Parcelables
--keep class * implements android.os.Parcelable {
-    public static final android.os.Parcelable$Creator *;
+# BouncyCastle
+-dontwarn org.bouncycastle.**
+-keep class org.bouncycastle.** { *; }
+
+# ML Kit
+-keep class com.google.mlkit.** { *; }
+
+# Gson (for Room TypeConverters)
+-keepclassmembers class * {
+    @com.google.gson.annotations.SerializedName <fields>;
 }
 
-# Keep Serializable
--keepclassmembers class * implements java.io.Serializable {
-    static final long serialVersionUID;
-    private static final java.io.ObjectStreamField[] serialPersistentFields;
-    private void writeObject(java.io.ObjectOutputStream);
-    private void readObject(java.io.ObjectInputStream);
-    java.lang.Object writeReplace();
-    java.lang.Object readResolve();
-}
+# Coroutines
+-keepnames class kotlinx.coroutines.internal.MainDispatcherFactory {}
+-keepnames class kotlinx.coroutines.CoroutineExceptionHandler {}
 
-# Remove logs in release
--assumenosideeffects class android.util.Log {
-    public static *** d(...);
-    public static *** v(...);
-    public static *** i(...);
-    public static *** w(...);
-    public static *** e(...);
-}
+# Navigation
+-keep class androidx.navigation.** { *; }
