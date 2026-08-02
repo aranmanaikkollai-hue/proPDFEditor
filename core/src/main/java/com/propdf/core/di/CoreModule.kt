@@ -37,4 +37,9 @@ object CoreModule {
     fun provideApplicationScope(
         dispatcherProvider: DispatcherProvider
     ): CoroutineScope = CoroutineScope(SupervisorJob() + dispatcherProvider.io)
+        @Provides
+    @Singleton
+    fun provideSignaturesDir(@ApplicationContext context: Context): File {
+        return File(context.filesDir, "signatures").apply { mkdirs() }
+    }
 }
