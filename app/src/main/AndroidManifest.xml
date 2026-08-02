@@ -2,20 +2,33 @@
 <manifest xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:tools="http://schemas.android.com/tools">
 
+    <!-- Core permissions -->
     <uses-permission android:name="android.permission.INTERNET" />
+    <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE" />
     <uses-permission android:name="android.permission.READ_EXTERNAL_STORAGE"
         android:maxSdkVersion="32" />
     <uses-permission android:name="android.permission.WRITE_EXTERNAL_STORAGE"
-        android:maxSdkVersion="28" />
+        android:maxSdkVersion="29"
+        tools:ignore="ScopedStorage" />
+    <uses-permission android:name="android.permission.MANAGE_EXTERNAL_STORAGE"
+        tools:ignore="ScopedStorage" />
     <uses-permission android:name="android.permission.CAMERA" />
-    <uses-permission android:name="android.permission.RECORD_AUDIO" />
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE_DATA_SYNC" />
+    <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
+    <uses-permission android:name="android.permission.WAKE_LOCK" />
+    <uses-permission android:name="android.permission.REQUEST_INSTALL_PACKAGES" />
 
+    <!-- Hardware features -->
     <uses-feature
         android:name="android.hardware.camera"
         android:required="false" />
+    <uses-feature
+        android:name="android.hardware.touchscreen"
+        android:required="true" />
 
     <application
-        android:name=".ProPDFApp"
+        android:name=".ProPDFApplication"
         android:allowBackup="true"
         android:dataExtractionRules="@xml/data_extraction_rules"
         android:fullBackupContent="@xml/backup_rules"
@@ -23,105 +36,81 @@
         android:label="@string/app_name"
         android:roundIcon="@mipmap/ic_launcher_round"
         android:supportsRtl="true"
-        android:theme="@style/Theme.ProPDF.Starting"
+        android:theme="@style/Theme.ProPDF"
+        android:largeHeap="true"
+        android:hardwareAccelerated="true"
         tools:targetApi="34">
 
+        <!-- Main Entry -->
         <activity
             android:name=".ui.main.MainActivity"
             android:exported="true"
-            android:theme="@style/Theme.ProPDF.Starting"
+            android:theme="@style/Theme.ProPDF.Splash"
+            android:launchMode="singleTask"
             android:windowSoftInputMode="adjustResize">
             <intent-filter>
                 <action android:name="android.intent.action.MAIN" />
                 <category android:name="android.intent.category.LAUNCHER" />
             </intent-filter>
+
+            <!-- PDF Deep Link / Open With -->
+            <intent-filter>
+                <action android:name="android.intent.action.VIEW" />
+                <category android:name="android.intent.category.DEFAULT" />
+                <category android:name="android.intent.category.BROWSABLE" />
+                <data android:scheme="content" android:mimeType="application/pdf" />
+                <data android:scheme="file" android:mimeType="application/pdf" />
+            </intent-filter>
+
+            <!-- File extension fallback -->
             <intent-filter>
                 <action android:name="android.intent.action.VIEW" />
                 <category android:name="android.intent.category.DEFAULT" />
                 <category android:name="android.intent.category.BROWSABLE" />
                 <data android:scheme="content" />
-                <data android:mimeType="application/pdf" />
-            </intent-filter>
-            <intent-filter>
-                <action android:name="android.intent.action.VIEW" />
-                <category android:name="android.intent.category.DEFAULT" />
                 <data android:scheme="file" />
-                <data android:mimeType="application/pdf" />
+                <data android:host="*" />
+                <data android:pathPattern=".*\\.pdf" />
+                <data android:pathPattern=".*\\..*\\.pdf" />
+                <data android:pathPattern=".*\\..*\\..*\\.pdf" />
             </intent-filter>
         </activity>
 
+        <!-- Legacy Signature Activities (keep existing) -->
         <activity
-            android:name=".ui.scanner.DocumentScannerActivity"
+            android:name=".ui.signature.SignatureManagerActivity"
             android:exported="false"
-            android:theme="@style/Theme.ProPDF.Classic" />
-
+            android:label="@string/title_signature_manager" />
         <activity
-            android:name=".ui.scanner.ModernScannerActivity"
+            android:name=".ui.signature.ApplySignatureActivity"
             android:exported="false"
-            android:theme="@style/Theme.ProPDF.Classic" />
-
+            android:label="@string/title_apply_signature" />
         <activity
-            android:name=".ui.ocr.OcrActivity"
+            android:name=".ui.signature.SignatureVerificationActivity"
             android:exported="false"
-            android:theme="@style/Theme.ProPDF.Classic" />
-
+            android:label="@string/title_verify_signature" />
         <activity
-            android:name=".ui.ocr.OcrCropActivity"
-            android:exported="false"
-            android:theme="@style/Theme.ProPDF.Classic" />
-
+            android:name=".ui.signature.DrawSignatureActivity"
+            android:exported="false" />
         <activity
-            android:name=".ui.tools.ToolsActivity"
-            android:exported="false"
-            android:theme="@style/Theme.ProPDF.Classic" />
-
+            android:name=".ui.signature.TypeSignatureActivity"
+            android:exported="false" />
         <activity
-            android:name=".ui.viewer.ViewerActivity"
-            android:exported="false"
-            android:theme="@style/Theme.ProPDF.Classic"
-            android:configChanges="orientation|screenSize|smallestScreenSize" />
+            android:name=".ui.signature.CertificateManagerActivity"
+            android:exported="false" />
 
-        <!-- Legacy-namespace signature suite (com.propdfeditor.ui.signature.*).
-             Previously undeclared here, making the whole signature feature dead
-             code (any Intent targeting these would crash with
-             ActivityNotFoundException). This is the most complete of the three
-             signature implementations found in the codebase — it's the only one
-             backed by a real PdfSignatureEngine (iText7 PdfSigner for genuine
-             PKCS#7 certificate-based signing, plus visual-stamp signing, history,
-             and favorites) — so it was chosen as canonical over the other two
-             (SecurityActivity's built-in tab, and the forms flow's
-             SignatureCaptureDialog). Namespace migration to com.propdf.editor is
-             tracked separately (P1); this only makes the feature reachable. -->
-        <activity
-            android:name="com.propdfeditor.ui.signature.SignatureManagerActivity"
+        <!-- WorkManager initialization -->
+        <provider
+            android:name="androidx.startup.InitializationProvider"
+            android:authorities="${applicationId}.androidx-startup"
             android:exported="false"
-            android:theme="@style/Theme.ProPDF.Classic" />
+            tools:node="merge">
+            <meta-data
+                android:name="androidx.work.WorkManagerInitializer"
+                android:value="androidx.startup" />
+        </provider>
 
-        <activity
-            android:name="com.propdfeditor.ui.signature.ApplySignatureActivity"
-            android:exported="false"
-            android:theme="@style/Theme.ProPDF.Classic" />
-
-        <activity
-            android:name="com.propdfeditor.ui.signature.DrawSignatureActivity"
-            android:exported="false"
-            android:theme="@style/Theme.ProPDF.Classic" />
-
-        <activity
-            android:name="com.propdfeditor.ui.signature.TypeSignatureActivity"
-            android:exported="false"
-            android:theme="@style/Theme.ProPDF.Classic" />
-
-        <activity
-            android:name="com.propdfeditor.ui.signature.CertificateManagerActivity"
-            android:exported="false"
-            android:theme="@style/Theme.ProPDF.Classic" />
-
-        <activity
-            android:name="com.propdfeditor.ui.signature.SignatureVerificationActivity"
-            android:exported="false"
-            android:theme="@style/Theme.ProPDF.Classic" />
-
+        <!-- FileProvider for sharing -->
         <provider
             android:name="androidx.core.content.FileProvider"
             android:authorities="${applicationId}.fileprovider"
