@@ -3,30 +3,31 @@ package com.propdf.core.data.database
 import androidx.room.Database
 import androidx.room.RoomDatabase
 import androidx.room.TypeConverters
-import com.propdf.core.data.entity.*
-import com.propdf.core.data.local.dao.*
+import com.propdf.core.data.database.dao.*
+import com.propdf.core.data.database.entity.*
 
 @Database(
     entities = [
-        PdfDocumentEntity::class,
-        DocumentTagEntity::class,
-        DocumentTagCrossRef::class,
-        DocumentCollectionEntity::class,
-        RecentActivityEntity::class,
-        FormFieldEntity::class,
-        FormDataEntity::class,
-        BookmarkEntity::class
+        RecentFileEntity::class,
+        BookmarkEntity::class,
+        OcrRecordEntity::class,
+        SignatureEntity::class,
+        ScanRecordEntity::class,
+        CollectionEntity::class,
+        ReadingProgressEntity::class,
+        RecycleBinEntity::class
     ],
-    version = 4,
-    exportSchema = true
+    version = 1,
+    exportSchema = false
 )
 @TypeConverters(Converters::class)
 abstract class ProPDFDatabase : RoomDatabase() {
-    abstract fun pdfDocumentDao(): PdfDocumentDao
-    abstract fun documentTagDao(): DocumentTagDao
-    abstract fun documentCollectionDao(): DocumentCollectionDao
-    abstract fun recentActivityDao(): RecentActivityDao
-    abstract fun formFieldDao(): FormFieldDao
-    abstract fun formDataDao(): FormDataDao
+    abstract fun recentFileDao(): RecentFileDao
     abstract fun bookmarkDao(): BookmarkDao
+    abstract fun ocrRecordDao(): OcrRecordDao
+    abstract fun signatureDao(): SignatureDao
+    abstract fun scanRecordDao(): ScanRecordDao
+    abstract fun collectionDao(): CollectionDao
+    abstract fun readingProgressDao(): ReadingProgressDao
+    abstract fun recycleBinDao(): RecycleBinDao
 }
