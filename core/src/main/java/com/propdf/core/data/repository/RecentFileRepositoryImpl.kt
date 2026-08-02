@@ -60,6 +60,12 @@ class RecentFileRepositoryImpl @Inject constructor(
         recentFileDao.delete(uri)
     }
 
+    override fun searchFiles(query: String): Flow<List<RecentFile>> {
+        return recentFileDao.search(query).map { list ->
+            list.map { it.toDomain() }
+        }
+    }
+
     private fun RecentFileEntity.toDomain() = RecentFile(
         uri = uri,
         name = name,
