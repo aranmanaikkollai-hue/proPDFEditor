@@ -8,6 +8,16 @@ class Converters {
     private val gson = Gson()
 
     @TypeConverter
+    fun fromTimestamp(value: Long?): java.util.Date? {
+        return value?.let { java.util.Date(it) }
+    }
+
+    @TypeConverter
+    fun dateToTimestamp(date: java.util.Date?): Long? {
+        return date?.time
+    }
+
+    @TypeConverter
     fun fromStringList(value: String?): List<String> {
         if (value == null) return emptyList()
         val type = object : TypeToken<List<String>>() {}.type
