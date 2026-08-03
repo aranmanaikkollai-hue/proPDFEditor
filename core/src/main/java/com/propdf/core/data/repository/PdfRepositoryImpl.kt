@@ -6,6 +6,7 @@ import android.net.Uri
 import com.propdf.core.domain.repository.PdfRepository
 import com.tom_roush.pdfbox.android.PDFBoxResourceLoader
 import com.tom_roush.pdfbox.pdmodel.PDDocument
+import com.tom_roush.pdfbox.rendering.ImageType
 import com.tom_roush.pdfbox.rendering.PDFRenderer
 import dagger.hilt.android.qualifiers.ApplicationContext
 import kotlinx.coroutines.Dispatchers
@@ -36,7 +37,7 @@ class PdfRepositoryImpl @Inject constructor(
             context.contentResolver.openInputStream(uri)?.use { stream ->
                 PDDocument.load(stream).use { doc ->
                     val renderer = PDFRenderer(doc)
-                    renderer.renderImage(page, width / doc.getPage(page).mediaBox.width, Bitmap.Config.ARGB_8888)
+                    renderer.renderImage(page, width / doc.getPage(page).mediaBox.width, ImageType.ARGB)
                 }
             }
         }.getOrNull()
