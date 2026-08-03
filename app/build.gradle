@@ -95,6 +95,9 @@ dependencies {
     implementation 'androidx.compose.material3:material3'
     implementation 'androidx.compose.material3:material3-window-size-class'
     implementation 'androidx.compose.animation:animation'
+
+    // Accompanist Placeholder (loading-skeleton shimmer, DashboardSkeleton.kt)
+    implementation 'com.google.accompanist:accompanist-placeholder:0.34.0'
     
     // Navigation
     implementation 'androidx.navigation:navigation-compose:2.7.7'
