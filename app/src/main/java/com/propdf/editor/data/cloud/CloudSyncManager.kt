@@ -95,9 +95,9 @@ class CloudSyncManager @Inject constructor(
                         recentFilesRepository.add(
                             com.propdf.core.domain.model.RecentFile(
                                 uri = doc.uri.toString(),
-                                displayName = doc.displayName,
-                                fileSizeBytes = doc.fileSize,
-                                lastOpenedAt = doc.dateModified,
+                                name = doc.displayName,
+                                size = doc.fileSize,
+                                lastOpened = doc.dateModified,
                                 pageCount = doc.pageCount
                             )
                         )
