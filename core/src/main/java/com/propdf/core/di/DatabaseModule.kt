@@ -2,6 +2,8 @@ package com.propdf.core.di
 
 import android.content.Context
 import androidx.room.Room
+import com.propdf.core.data.database.MIGRATION_2_3
+import com.propdf.core.data.database.MIGRATION_3_4
 import com.propdf.core.data.database.ProPDFDatabase
 import com.propdf.core.data.database.dao.*
 import dagger.Module
@@ -23,6 +25,7 @@ object DatabaseModule {
             ProPDFDatabase::class.java,
             "propdf_database"
         )
+            .addMigrations(MIGRATION_2_3, MIGRATION_3_4)
             .fallbackToDestructiveMigration()
             .build()
     }
