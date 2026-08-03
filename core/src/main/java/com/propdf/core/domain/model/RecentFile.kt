@@ -9,5 +9,6 @@ data class RecentFile(
     val isPinned: Boolean = false,
     val isFavorite: Boolean = false,
     val pageCount: Int = 0,
-    val lastPageRead: Int = 0
+    val lastPageRead: Int = 0,
+    val category: String = ""
 )
