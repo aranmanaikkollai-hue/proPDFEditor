@@ -3,6 +3,7 @@ package com.propdfeditor.ui.home.components
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Card
+import androidx.compose.material3.MaterialTheme
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -26,8 +27,11 @@ fun DashboardSkeleton(modifier: Modifier = Modifier) {
                     .height(120.dp)
                     .placeholder(
                         visible = true,
+                        color = MaterialTheme.colorScheme.surfaceVariant,
                         shape = RoundedCornerShape(12.dp),
-                        highlight = PlaceholderHighlight.shimmer()
+                        highlight = PlaceholderHighlight.shimmer(
+                            highlightColor = MaterialTheme.colorScheme.surface
+                        )
                     )
             ) { }
         }
