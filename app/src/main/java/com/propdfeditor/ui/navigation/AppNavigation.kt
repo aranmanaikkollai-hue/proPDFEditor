@@ -61,24 +61,10 @@ fun AppNavigation(
                 navDeepLink { uriPattern = "file://.*\\.pdf" }
             )
         ) { backStackEntry ->
-            val encodedUri = backStackEntry.arguments?.getString("uri") ?: ""
-            val page = backStackEntry.arguments?.getString("page")?.toIntOrNull() ?: 0
+            val decodedUri = (backStackEntry.arguments?.getString("uri") ?: "").decode()
             PDFViewerScreen(
-                documentUri = encodedUri.decode(),
-                initialPage = page,
-                onNavigateBack = { navController.popBackStack() },
-                onNavigateToEditor = { uri ->
-                    navController.navigate("editor/${uri.encode()}")
-                },
-                onNavigateToAnnotations = { uri ->
-                    navController.navigate("annotate/${uri.encode()}")
-                },
-                onNavigateToShare = { uri ->
-                    navController.navigate("share/${uri.encode()}")
-                },
-                onNavigateToSecurity = { uri ->
-                    navController.navigate("security/${uri.encode()}")
-                }
+                documentUri = android.net.Uri.parse(decodedUri),
+                documentId = decodedUri
             )
         }
 
