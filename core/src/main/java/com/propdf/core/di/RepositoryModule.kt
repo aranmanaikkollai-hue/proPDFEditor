@@ -22,10 +22,6 @@ abstract class RepositoryModule {
 
     @Binds
     @Singleton
-    abstract fun bindBookmarkRepository(impl: BookmarkRepositoryImpl): BookmarkRepository
-
-    @Binds
-    @Singleton
     abstract fun bindOcrRepository(impl: OcrRepositoryImpl): OcrRepository
 
     @Binds
