@@ -73,24 +73,24 @@ class RecentFilesRepositoryImpl @Inject constructor(
             if (existing != null) {
                 pdfDocumentDao.update(
                     existing.copy(
-                        fileName = file.displayName,
-                        sizeBytes = file.fileSizeBytes,
+                        fileName = file.name,
+                        sizeBytes = file.size,
                         pageCount = if (file.pageCount > 0) file.pageCount else existing.pageCount,
-                        lastOpened = file.lastOpenedAt,
-                        isFavorite = file.isFavourite
+                        lastOpened = file.lastOpened,
+                        isFavorite = file.isFavorite
                     )
                 )
             } else {
                 pdfDocumentDao.insert(
                     PdfDocumentEntity(
                         uriString = file.uri,
-                        fileName = file.displayName,
+                        fileName = file.name,
                         filePath = file.uri,
-                        sizeBytes = file.fileSizeBytes,
+                        sizeBytes = file.size,
                         pageCount = file.pageCount,
-                        lastModified = file.lastOpenedAt,
-                        lastOpened = file.lastOpenedAt,
-                        isFavorite = file.isFavourite
+                        lastModified = file.lastOpened,
+                        lastOpened = file.lastOpened,
+                        isFavorite = file.isFavorite
                     )
                 )
             }
@@ -176,21 +176,21 @@ class RecentFilesRepositoryImpl @Inject constructor(
 
     private fun RecentFileEntity.toDomain() = RecentFile(
         uri = uri,
-        displayName = displayName,
-        fileSizeBytes = fileSizeBytes,
-        lastOpenedAt = lastOpenedAt,
+        name = displayName,
+        size = fileSizeBytes,
+        lastOpened = lastOpenedAt,
         pageCount = pageCount,
-        isFavourite = isFavourite,
+        isFavorite = isFavourite,
         category = category
     )
 
     private fun RecentFile.toEntity() = RecentFileEntity(
         uri = uri,
-        displayName = displayName,
-        fileSizeBytes = fileSizeBytes,
-        lastOpenedAt = lastOpenedAt,
+        displayName = name,
+        fileSizeBytes = size,
+        lastOpenedAt = lastOpened,
         pageCount = pageCount,
-        isFavourite = isFavourite,
+        isFavourite = isFavorite,
         category = category
     )
 }
