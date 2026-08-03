@@ -2,8 +2,6 @@ package com.propdf.editor.di
 
 import android.content.Context
 import androidx.room.Room
-import com.propdf.core.data.database.MIGRATION_2_3
-import com.propdf.core.data.database.MIGRATION_3_4
 import com.propdf.core.data.database.ProPDFDatabase
 import com.propdf.core.data.local.dao.BookmarkDao
 import com.propdf.core.data.local.dao.DocumentCollectionDao
@@ -49,18 +47,11 @@ object DatabaseModule {
         return database.conversionTaskDao()
     }
 
-    @Provides
-    @Singleton
-    fun provideProPDFDatabase(@ApplicationContext context: Context): ProPDFDatabase {
-        return Room.databaseBuilder(
-            context,
-            ProPDFDatabase::class.java,
-            "propdf_core_database"
-        )
-            .addMigrations(MIGRATION_2_3, MIGRATION_3_4)
-            .fallbackToDestructiveMigration()
-            .build()
-    }
+    // ProPDFDatabase itself is already provided as a @Singleton by
+    // core/di/DatabaseModule.kt — a second @Provides here for the same type
+    // would be a duplicate Hilt binding. These functions just expose the
+    // additional DAOs that database's own entity list didn't have accessors
+    // for until now (see ProPDFDatabase.kt).
 
     @Provides
     fun providePdfDocumentDao(database: ProPDFDatabase): PdfDocumentDao =
