@@ -1,12 +1,14 @@
 package com.propdfeditor.ui.home.components
 
 import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.layout.ExperimentalLayoutApi
 import androidx.compose.material3.*
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import com.propdf.core.domain.model.SmartSuggestion
 
+@OptIn(ExperimentalLayoutApi::class)
 @Composable
 fun SuggestionsChips(
     suggestions: List<SmartSuggestion>,
