@@ -38,3 +38,11 @@ data class OpenedDocument(
     val name: String,
     val size: Long
 )
+
+fun OpenedDocument.toRecentFile(): com.propdf.core.domain.model.RecentFile =
+    com.propdf.core.domain.model.RecentFile(
+        uri = uri,
+        name = name,
+        size = size,
+        lastOpened = System.currentTimeMillis()
+    )
