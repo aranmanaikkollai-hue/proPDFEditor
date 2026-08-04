@@ -1,17 +1,11 @@
-package com.propdf.editor.di
+package com.propdf.core.di
 
 import android.content.Context
 import androidx.room.Room
+import com.propdf.core.data.database.MIGRATION_2_3
+import com.propdf.core.data.database.MIGRATION_3_4
 import com.propdf.core.data.database.ProPDFDatabase
-import com.propdf.core.data.local.dao.BookmarkDao
-import com.propdf.core.data.local.dao.DocumentCollectionDao
-import com.propdf.core.data.local.dao.DocumentTagDao
-import com.propdf.core.data.local.dao.FormDataDao
-import com.propdf.core.data.local.dao.FormFieldDao
-import com.propdf.core.data.local.dao.PdfDocumentDao
-import com.propdf.core.data.local.dao.RecentActivityDao
-import com.propdf.editor.data.local.AppDatabase
-import com.propdf.editor.data.local.ConversionTaskDao
+import com.propdf.core.data.database.dao.*
 import dagger.Module
 import dagger.Provides
 import dagger.hilt.InstallIn
@@ -25,59 +19,38 @@ object DatabaseModule {
 
     @Provides
     @Singleton
-    fun provideAppDatabase(@ApplicationContext context: Context): AppDatabase {
+    fun provideDatabase(@ApplicationContext context: Context): ProPDFDatabase {
         return Room.databaseBuilder(
             context,
-            AppDatabase::class.java,
-            // Was "propdf_database" — identical to the SQLite filename used by
-            // core.RecentFilesDatabase (see core/di/DatabaseModule.kt). Two
-            // unrelated Room @Database classes with different entity sets
-            // were opening the same physical file, which fails Room's schema
-            // validation and crashes whichever one opens second. Renamed to
-            // a name unique to this single-entity (ConversionTask) database.
-            "conversion_tasks_database"
+            ProPDFDatabase::class.java,
+            "propdf_database"
         )
+            .addMigrations(MIGRATION_2_3, MIGRATION_3_4)
             .fallbackToDestructiveMigration()
             .build()
     }
 
     @Provides
-    @Singleton
-    fun provideConversionTaskDao(database: AppDatabase): ConversionTaskDao {
-        return database.conversionTaskDao()
-    }
-
-    // ProPDFDatabase itself is already provided as a @Singleton by
-    // core/di/DatabaseModule.kt — a second @Provides here for the same type
-    // would be a duplicate Hilt binding. These functions just expose the
-    // additional DAOs that database's own entity list didn't have accessors
-    // for until now (see ProPDFDatabase.kt).
+    fun provideRecentFileDao(db: ProPDFDatabase) = db.recentFileDao()
 
     @Provides
-    fun providePdfDocumentDao(database: ProPDFDatabase): PdfDocumentDao =
-        database.pdfDocumentDao()
+    fun provideBookmarkDao(db: ProPDFDatabase) = db.bookmarkDao()
 
     @Provides
-    fun provideDocumentTagDao(database: ProPDFDatabase): DocumentTagDao =
-        database.documentTagDao()
+    fun provideOcrRecordDao(db: ProPDFDatabase) = db.ocrRecordDao()
 
     @Provides
-    fun provideDocumentCollectionDao(database: ProPDFDatabase): DocumentCollectionDao =
-        database.documentCollectionDao()
+    fun provideSignatureDao(db: ProPDFDatabase) = db.signatureDao()
 
     @Provides
-    fun provideRecentActivityDao(database: ProPDFDatabase): RecentActivityDao =
-        database.recentActivityDao()
+    fun provideScanRecordDao(db: ProPDFDatabase) = db.scanRecordDao()
 
     @Provides
-    fun provideFormFieldDao(database: ProPDFDatabase): FormFieldDao =
-        database.formFieldDao()
+    fun provideCollectionDao(db: ProPDFDatabase) = db.collectionDao()
 
     @Provides
-    fun provideFormDataDao(database: ProPDFDatabase): FormDataDao =
-        database.formDataDao()
+    fun provideReadingProgressDao(db: ProPDFDatabase) = db.readingProgressDao()
 
     @Provides
-    fun provideBookmarkDao(database: ProPDFDatabase): BookmarkDao =
-        database.bookmarkDao()
+    fun provideRecycleBinDao(db: ProPDFDatabase) = db.recycleBinDao()
 }
