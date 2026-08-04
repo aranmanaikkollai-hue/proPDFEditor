@@ -12,7 +12,6 @@ import dagger.hilt.android.qualifiers.ApplicationContext
 import dagger.hilt.components.SingletonComponent
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.SupervisorJob
-import java.io.File
 import javax.inject.Qualifier
 import javax.inject.Singleton
 
@@ -26,6 +25,10 @@ object CoreModule {
 
     @Provides
     @Singleton
+    fun provideDispatcherProvider(): DispatcherProvider = DispatcherProviderImpl()
+
+    @Provides
+    @Singleton
     fun provideLogger(): ProPDFLogger = TimberLogger()
 
     @Provides
@@ -34,9 +37,4 @@ object CoreModule {
     fun provideApplicationScope(
         dispatcherProvider: DispatcherProvider
     ): CoroutineScope = CoroutineScope(SupervisorJob() + dispatcherProvider.io)
-        @Provides
-    @Singleton
-    fun provideSignaturesDir(@ApplicationContext context: Context): File {
-        return File(context.filesDir, "signatures").apply { mkdirs() }
-    }
 }
