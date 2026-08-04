@@ -187,9 +187,11 @@ class DocumentScannerEngine @Inject constructor(@ApplicationContext private val 
     fun applyFilter(bitmap: Bitmap, mode: ColorMode): Bitmap {
         return when (mode) {
             ColorMode.AUTO -> bitmap
+            ColorMode.ORIGINAL -> bitmap
             ColorMode.COLOR -> bitmap
             ColorMode.GRAYSCALE -> applyColorMatrix(bitmap, ColorMatrix().apply { setSaturation(0f) })
             ColorMode.BLACK_WHITE -> applyBlackAndWhite(bitmap)
+            ColorMode.MAGIC_COLOR -> autoEnhance(bitmap)
             ColorMode.SEPIA -> applyColorMatrix(bitmap, ColorMatrix().apply {
                 set(floatArrayOf(
                     0.393f, 0.769f, 0.189f, 0f, 0f,
@@ -378,5 +380,5 @@ data class ScanOptions(
 )
 
 enum class ColorMode {
-    AUTO, COLOR, GRAYSCALE, BLACK_WHITE, SEPIA, HIGH_CONTRAST
+    AUTO, ORIGINAL, COLOR, GRAYSCALE, BLACK_WHITE, SEPIA, HIGH_CONTRAST, MAGIC_COLOR
 }
