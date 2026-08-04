@@ -26,10 +26,6 @@ object CoreModule {
 
     @Provides
     @Singleton
-    fun provideDispatcherProvider(): DispatcherProvider = DispatcherProviderImpl()
-
-    @Provides
-    @Singleton
     fun provideLogger(): ProPDFLogger = TimberLogger()
 
     @Provides
