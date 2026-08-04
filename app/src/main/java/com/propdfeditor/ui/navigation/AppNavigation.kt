@@ -3,13 +3,18 @@ package com.propdfeditor.ui.navigation
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
 import androidx.navigation.NavHostController
+import androidx.navigation.NavType
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
+import androidx.navigation.navArgument
 import androidx.navigation.navDeepLink
-import com.propdf.viewer.ui.PDFViewerScreen
-import com.propdfeditor.ui.home.HomeDashboardScreen
+import com.propdf.editor.ui.PdfEditorScreen
+import com.propdf.scanner.ui.ScannerScreen
+import com.propdf.viewer.ui.IntegratedPDFViewerScreen
 import com.propdfeditor.ui.filemanager.FileManagerScreen
-import com.propdfeditor.ui.scanner.ScannerLauncherScreen
+import com.propdfeditor.ui.home.HomeDashboardScreen
+import com.propdfeditor.ui.ocr.OcrHubScreen
+import com.propdfeditor.ui.security.SecurityHubScreen
 import com.propdfeditor.ui.settings.SettingsScreen
 import com.propdfeditor.ui.tools.ToolsHubScreen
 
@@ -24,6 +29,7 @@ fun AppNavigation(
         startDestination = startDestination,
         modifier = modifier
     ) {
+        // Home Dashboard
         composable("home") {
             HomeDashboardScreen(
                 onOpenFile = { uri ->
@@ -43,6 +49,7 @@ fun AppNavigation(
             )
         }
 
+        // File Manager
         composable("files") {
             FileManagerScreen(
                 onOpenPdf = { uri ->
@@ -54,22 +61,70 @@ fun AppNavigation(
             )
         }
 
+        // PDF Viewer with deep links
         composable(
             route = "viewer/{uri}?page={page}",
+            arguments = listOf(
+                navArgument("uri") { type = NavType.StringType },
+                navArgument("page") {
+                    type = NavType.IntType
+                    defaultValue = 0
+                }
+            ),
             deepLinks = listOf(
                 navDeepLink { uriPattern = "content://.*\\.pdf" },
                 navDeepLink { uriPattern = "file://.*\\.pdf" }
             )
         ) { backStackEntry ->
-            val decodedUri = (backStackEntry.arguments?.getString("uri") ?: "").decode()
-            PDFViewerScreen(
-                documentUri = android.net.Uri.parse(decodedUri),
-                documentId = decodedUri
+            val encodedUri = backStackEntry.arguments?.getString("uri") ?: ""
+            val page = backStackEntry.arguments?.getInt("page") ?: 0
+            IntegratedPDFViewerScreen(
+                documentUri = encodedUri.decode(),
+                initialPage = page,
+                onNavigateBack = { navController.popBackStack() },
+                onNavigateToEditor = { uri ->
+                    navController.navigate("editor/${uri.encode()}")
+                },
+                onNavigateToAnnotations = { uri ->
+                    navController.navigate("viewer/${uri.encode()}?annotations=true")
+                },
+                onNavigateToShare = { uri ->
+                    navController.navigate("share/${uri.encode()}")
+                },
+                onNavigateToSecurity = { uri ->
+                    navController.navigate("security/${uri.encode()}")
+                }
             )
         }
 
+        // Annotation mode viewer
+        composable(
+            route = "viewer/{uri}?annotations={annotations}",
+            arguments = listOf(
+                navArgument("uri") { type = NavType.StringType },
+                navArgument("annotations") {
+                    type = NavType.BoolType
+                    defaultValue = false
+                }
+            )
+        ) { backStackEntry ->
+            val encodedUri = backStackEntry.arguments?.getString("uri") ?: ""
+            val annotations = backStackEntry.arguments?.getBoolean("annotations") ?: false
+            IntegratedPDFViewerScreen(
+                documentUri = encodedUri.decode(),
+                initialPage = 0,
+                startInAnnotationMode = annotations,
+                onNavigateBack = { navController.popBackStack() },
+                onNavigateToEditor = { navController.navigate("editor/${it.encode()}") },
+                onNavigateToAnnotations = { },
+                onNavigateToShare = { navController.navigate("share/${it.encode()}") },
+                onNavigateToSecurity = { navController.navigate("security/${it.encode()}") }
+            )
+        }
+
+        // Scanner
         composable("scanner") {
-            ScannerLauncherScreen(
+            ScannerScreen(
                 onPdfCreated = { uri ->
                     navController.navigate("viewer/${uri.encode()}") {
                         popUpTo("home") { inclusive = false }
@@ -79,6 +134,7 @@ fun AppNavigation(
             )
         }
 
+        // Tools Hub
         composable("tools") {
             ToolsHubScreen(
                 onNavigateToCompression = { navController.navigate("compression") },
@@ -89,21 +145,19 @@ fun AppNavigation(
             )
         }
 
+        // Settings
         composable("settings") {
             SettingsScreen(onNavigateBack = { navController.popBackStack() })
         }
 
-        // Placeholder routes for module integration — wire to actual module screens
-        composable("editor/{uri}") { /* Editor module entry */ }
-        composable("annotate/{uri}") { /* Annotation module entry */ }
-        composable("share/{uri}") { /* Share module entry */ }
-        composable("security/{uri}") { /* Security module entry */ }
-        composable("compression") { /* Compression module entry */ }
-        composable("ocr") { /* OCR module entry */ }
-        composable("merge") { /* Editor merge entry */ }
-        composable("split") { /* Editor split entry */ }
-    }
-}
-
-private fun String.encode(): String = java.net.URLEncoder.encode(this, "UTF-8")
-private fun String.decode(): String = java.net.URLDecoder.decode(this, "UTF-8")
+        // PDF Editor
+        composable(
+            route = "editor/{uri}",
+            arguments = listOf(navArgument("uri") { type = NavType.StringType })
+        ) { backStackEntry ->
+            val encodedUri = backStackEntry.arguments?.getString("uri") ?: ""
+            PdfEditorScreen(
+                documentUri = encodedUri.decode(),
+                onNavigateBack = { navController.popBackStack() },
+                onSaveComplete = { uri ->
+                    navController.navigate("viewer/${uri.encode()}")
