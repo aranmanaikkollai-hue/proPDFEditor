@@ -50,4 +50,7 @@ object DatabaseModule {
 
     @Provides
     fun provideReadingProgressDao(db: ProPDFDatabase) = db.readingProgressDao()
+
+    @Provides
+    fun provideRecycleBinDao(db: ProPDFDatabase) = db.recycleBinDao()
 }
