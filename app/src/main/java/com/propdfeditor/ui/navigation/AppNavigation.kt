@@ -2,7 +2,6 @@ package com.propdfeditor.ui.navigation
 
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
-import androidx.navigation.NavHostController
 import androidx.navigation.NavType
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
@@ -17,10 +16,14 @@ import com.propdfeditor.ui.ocr.OcrHubScreen
 import com.propdfeditor.ui.security.SecurityHubScreen
 import com.propdfeditor.ui.settings.SettingsScreen
 import com.propdfeditor.ui.tools.ToolsHubScreen
+import com.propdfeditor.ui.share.ShareSheetScreen
+import com.propdfeditor.ui.compression.CompressionScreen
+import com.propdfeditor.ui.merge.MergeScreen
+import com.propdfeditor.ui.split.SplitScreen
 
 @Composable
 fun AppNavigation(
-    navController: NavHostController,
+    navController: androidx.navigation.NavHostController,
     modifier: Modifier = Modifier,
     startDestination: String = "home"
 ) {
@@ -86,7 +89,7 @@ fun AppNavigation(
                     navController.navigate("editor/${uri.encode()}")
                 },
                 onNavigateToAnnotations = { uri ->
-                    navController.navigate("viewer/${uri.encode()}?annotations=true")
+                    navController.navigate("annotate/${uri.encode()}")
                 },
                 onNavigateToShare = { uri ->
                     navController.navigate("share/${uri.encode()}")
@@ -99,21 +102,14 @@ fun AppNavigation(
 
         // Annotation mode viewer
         composable(
-            route = "viewer/{uri}?annotations={annotations}",
-            arguments = listOf(
-                navArgument("uri") { type = NavType.StringType },
-                navArgument("annotations") {
-                    type = NavType.BoolType
-                    defaultValue = false
-                }
-            )
+            route = "annotate/{uri}",
+            arguments = listOf(navArgument("uri") { type = NavType.StringType })
         ) { backStackEntry ->
             val encodedUri = backStackEntry.arguments?.getString("uri") ?: ""
-            val annotations = backStackEntry.arguments?.getBoolean("annotations") ?: false
             IntegratedPDFViewerScreen(
                 documentUri = encodedUri.decode(),
                 initialPage = 0,
-                startInAnnotationMode = annotations,
+                startInAnnotationMode = true,
                 onNavigateBack = { navController.popBackStack() },
                 onNavigateToEditor = { navController.navigate("editor/${it.encode()}") },
                 onNavigateToAnnotations = { },
@@ -160,4 +156,66 @@ fun AppNavigation(
                 documentUri = encodedUri.decode(),
                 onNavigateBack = { navController.popBackStack() },
                 onSaveComplete = { uri ->
-                    navController.navigate("viewer/${uri.encode()}")
+                    navController.navigate("viewer/${uri.encode()}") {
+                        popUpTo("home") { inclusive = false }
+                    }
+                }
+            )
+        }
+
+        // Security Hub
+        composable(
+            route = "security/{uri}",
+            arguments = listOf(navArgument("uri") { type = NavType.StringType })
+        ) { backStackEntry ->
+            val encodedUri = backStackEntry.arguments?.getString("uri") ?: ""
+            SecurityHubScreen(
+                documentUri = encodedUri.decode(),
+                onNavigateBack = { navController.popBackStack() }
+            )
+        }
+
+        // Share
+        composable(
+            route = "share/{uri}",
+            arguments = listOf(navArgument("uri") { type = NavType.StringType })
+        ) { backStackEntry ->
+            val encodedUri = backStackEntry.arguments?.getString("uri") ?: ""
+            ShareSheetScreen(
+                documentUri = encodedUri.decode(),
+                onNavigateBack = { navController.popBackStack() }
+            )
+        }
+
+        // OCR Hub
+        composable("ocr") {
+            OcrHubScreen(
+                onNavigateBack = { navController.popBackStack() }
+            )
+        }
+
+        // Compression
+        composable("compression") {
+            CompressionScreen(
+                onNavigateBack = { navController.popBackStack() }
+            )
+        }
+
+        // Merge
+        composable("merge") {
+            MergeScreen(
+                onNavigateBack = { navController.popBackStack() }
+            )
+        }
+
+        // Split
+        composable("split") {
+            SplitScreen(
+                onNavigateBack = { navController.popBackStack() }
+            )
+        }
+    }
+}
+
+private fun String.encode(): String = java.net.URLEncoder.encode(this, "UTF-8")
+private fun String.decode(): String = java.net.URLDecoder.decode(this, "UTF-8")
