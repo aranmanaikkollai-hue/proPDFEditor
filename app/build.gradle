@@ -123,6 +123,16 @@ dependencies {
     // Gson
     implementation 'com.google.code.gson:gson:2.10.1'
 
+    // iText7 (required by ImageConverter.kt, MarkdownConverter.kt)
+    implementation('com.itextpdf:itext7-core:7.2.5') {
+        exclude group: 'org.bouncycastle', module: 'bcprov-jdk15on'
+        exclude group: 'org.bouncycastle', module: 'bcpkix-jdk15on'
+    }
+
+    // commonmark (required by MarkdownConverter.kt)
+    implementation 'org.commonmark:commonmark:0.29.0'
+    implementation 'org.commonmark:commonmark-ext-gfm-tables:0.29.0'
+
     // Accompanist
     implementation 'com.google.accompanist:accompanist-placeholder-material3:0.32.0'
 
