@@ -39,7 +39,7 @@ import kotlinx.coroutines.flow.collectLatest
  */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun PDFCanvas(
+fun PDFViewerScreen(
     documentUri: android.net.Uri,
     documentId: String,
     viewModel: PDFViewerViewModel = hiltViewModel()
@@ -211,7 +211,7 @@ fun PDFCanvas(
 }
 
 @Composable
-private fun PDFCanvas(
+fun PDFCanvas(
     zoomLevel: Float,
     onZoomChange: (Float) -> Unit,
     onViewportChange: (Int, Int, Int, Int) -> Unit,
