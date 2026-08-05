@@ -14,7 +14,7 @@ import com.propdfeditor.ui.filemanager.FileManagerScreen
 import com.propdfeditor.ui.home.HomeDashboardScreen
 import com.propdfeditor.ui.ocr.OcrHubScreen
 import com.propdfeditor.ui.security.SecurityHubScreen
-import com.propdfeditor.ui.settings.SettingsScreen
+import com.propdf.editor.ui.settings.SettingsScreen
 import com.propdfeditor.ui.tools.ToolsHubScreen
 import com.propdfeditor.ui.share.ShareSheetScreen
 import com.propdfeditor.ui.compression.CompressionScreen
@@ -143,7 +143,7 @@ fun AppNavigation(
 
         // Settings
         composable("settings") {
-            SettingsScreen(onNavigateBack = { navController.popBackStack() })
+            SettingsScreen(navController = navController)
         }
 
         // PDF Editor
