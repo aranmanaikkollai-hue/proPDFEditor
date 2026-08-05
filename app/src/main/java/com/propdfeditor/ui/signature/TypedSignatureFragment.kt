@@ -18,8 +18,8 @@ import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.lifecycleScope
 import androidx.lifecycle.repeatOnLifecycle
 import com.google.android.material.snackbar.Snackbar
-import com.propdf.editor.R
-import com.propdf.editor.databinding.FragmentTypedSignatureBinding
+import com.propdfeditor.R
+import com.propdfeditor.databinding.FragmentTypedSignatureBinding
 import com.propdfeditor.security.SignatureViewModel
 import dagger.hilt.android.AndroidEntryPoint
 import kotlinx.coroutines.launch
