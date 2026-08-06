@@ -1,0 +1,39 @@
+<?xml version="1.0" encoding="utf-8"?>
+<shortcuts xmlns:android="http://schemas.android.com/apk/res/android">
+    <shortcut
+        android:shortcutId="open_recent"
+        android:enabled="true"
+        android:icon="@drawable/ic_shortcut_recent"
+        android:shortcutShortLabel="@string/shortcut_open_recent">
+        <intent
+            android:action="android.intent.action.VIEW"
+            android:targetPackage="com.propdfeditor"
+            android:targetClass="com.propdfeditor.ui.main.MainActivity">
+            <extra android:name="shortcut_action" android:value="open_recent" />
+        </intent>
+    </shortcut>
+    <shortcut
+        android:shortcutId="scan_document"
+        android:enabled="true"
+        android:icon="@drawable/ic_shortcut_scan"
+        android:shortcutShortLabel="@string/shortcut_scan">
+        <intent
+            android:action="android.intent.action.VIEW"
+            android:targetPackage="com.propdfeditor"
+            android:targetClass="com.propdfeditor.ui.main.MainActivity">
+            <extra android:name="shortcut_action" android:value="scan" />
+        </intent>
+    </shortcut>
+    <shortcut
+        android:shortcutId="open_file"
+        android:enabled="true"
+        android:icon="@drawable/ic_shortcut_open"
+        android:shortcutShortLabel="@string/shortcut_open_file">
+        <intent
+            android:action="android.intent.action.VIEW"
+            android:targetPackage="com.propdfeditor"
+            android:targetClass="com.propdfeditor.ui.main.MainActivity">
+            <extra android:name="shortcut_action" android:value="open_file" />
+        </intent>
+    </shortcut>
+</shortcuts>
