@@ -135,4 +135,12 @@
     <string name="shortcut_open_recent">Recent Files</string>
     <string name="shortcut_scan">Scan Document</string>
     <string name="shortcut_open_file">Open File</string>
+
+    <string name="app_name">ProPDF Editor</string>
+    <string name="title_signature_manager">Signature Manager</string>
+    <string name="title_apply_signature">Apply Signature</string>
+    <string name="title_verify_signature">Verify Signature</string>
+    <string name="shortcut_open_recent">Open Recent</string>
+    <string name="shortcut_scan">Scan Document</string>
+    <string name="shortcut_open_file">Open File</string>
 </resources>
