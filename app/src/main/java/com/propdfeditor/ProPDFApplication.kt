@@ -7,6 +7,8 @@ import coil.ImageLoader
 import coil.ImageLoaderFactory
 import coil.disk.DiskCache
 import coil.memory.MemoryCache
+import com.google.firebase.crashlytics.FirebaseCrashlytics
+import com.propdfeditor.crashlytics.CrashlyticsTree
 import dagger.hilt.android.HiltAndroidApp
 import timber.log.Timber
 import javax.inject.Inject
@@ -25,9 +27,16 @@ class ProPDFApplication : Application(), Configuration.Provider, ImageLoaderFact
 
     override fun onCreate() {
         super.onCreate()
+
         if (BuildConfig.DEBUG) {
             Timber.plant(Timber.DebugTree())
+        } else {
+            Timber.plant(CrashlyticsTree())
+            FirebaseCrashlytics.getInstance().setCrashlyticsCollectionEnabled(true)
         }
+
+        // Log app startup for performance tracking
+        FirebaseCrashlytics.getInstance().log("App started, version: ${BuildConfig.VERSION_NAME}")
     }
 
     override fun newImageLoader(): ImageLoader {
