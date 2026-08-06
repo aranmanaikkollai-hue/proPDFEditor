@@ -2,6 +2,7 @@ package com.propdf.core.di
 
 import android.content.Context
 import com.propdf.core.domain.dispatcher.DispatcherProvider
+import com.propdf.core.domain.dispatcher.DispatcherProviderImpl
 import com.propdf.core.domain.logger.ProPDFLogger
 import com.propdf.core.domain.logger.TimberLogger
 import dagger.Module
@@ -25,6 +26,10 @@ object CoreModule {
 
     @Provides
     @Singleton
+    fun provideDispatcherProvider(): DispatcherProvider = DispatcherProviderImpl()
+
+    @Provides
+    @Singleton
     fun provideLogger(): ProPDFLogger = TimberLogger()
 
     @Provides
@@ -33,7 +38,8 @@ object CoreModule {
     fun provideApplicationScope(
         dispatcherProvider: DispatcherProvider
     ): CoroutineScope = CoroutineScope(SupervisorJob() + dispatcherProvider.io)
-        @Provides
+
+    @Provides
     @Singleton
     fun provideSignaturesDir(@ApplicationContext context: Context): File {
         return File(context.filesDir, "signatures").apply { mkdirs() }
