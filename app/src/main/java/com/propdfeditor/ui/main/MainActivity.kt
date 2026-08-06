@@ -9,11 +9,12 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
-import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.ui.Modifier
 import androidx.core.splashscreen.SplashScreen.Companion.installSplashScreen
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import androidx.lifecycle.lifecycleScope
 import androidx.navigation.compose.rememberNavController
 import com.propdfeditor.review.InAppReviewManager
 import com.propdfeditor.ui.navigation.AppNavigation
@@ -63,8 +64,7 @@ class MainActivity : ComponentActivity() {
     }
 
     private fun maybeRequestReview() {
-        val scope = rememberCoroutineScope()
-        scope.launch {
+        lifecycleScope.launch {
             if (reviewManager.shouldShowReview()) {
                 reviewManager.requestReview(this@MainActivity) {
                     // Review flow complete
