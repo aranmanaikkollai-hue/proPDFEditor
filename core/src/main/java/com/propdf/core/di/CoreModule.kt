@@ -2,7 +2,6 @@ package com.propdf.core.di
 
 import android.content.Context
 import com.propdf.core.domain.dispatcher.DispatcherProvider
-import com.propdf.core.domain.dispatcher.DispatcherProviderImpl
 import com.propdf.core.domain.logger.ProPDFLogger
 import com.propdf.core.domain.logger.TimberLogger
 import dagger.Module
@@ -23,10 +22,6 @@ annotation class ApplicationScope
 @Module
 @InstallIn(SingletonComponent::class)
 object CoreModule {
-
-    @Provides
-    @Singleton
-    fun provideDispatcherProvider(): DispatcherProvider = DispatcherProviderImpl()
 
     @Provides
     @Singleton
