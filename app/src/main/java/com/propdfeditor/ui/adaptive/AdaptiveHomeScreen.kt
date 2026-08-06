@@ -1,6 +1,9 @@
 package com.propdfeditor.ui.adaptive
 
 import androidx.compose.foundation.layout.*
+import androidx.compose.material3.NavigationDrawerItem
+import androidx.compose.material3.NavigationRail
+import androidx.compose.material3.NavigationRailItem
 import androidx.compose.material3.PermanentDrawerSheet
 import androidx.compose.material3.PermanentNavigationDrawer
 import androidx.compose.runtime.Composable
