@@ -1,6 +1,8 @@
 package com.propdf.core.di
 
 import com.propdf.core.data.repository.*
+import com.propdf.core.domain.logger.AppLogger
+import com.propdf.core.domain.logger.DefaultAppLogger
 import com.propdf.core.domain.repository.*
 import dagger.Binds
 import dagger.Module
@@ -35,4 +37,8 @@ abstract class RepositoryModule {
     @Binds
     @Singleton
     abstract fun bindBackupRepository(impl: BackupRepositoryImpl): BackupRepository
+
+    @Binds
+    @Singleton
+    abstract fun bindAppLogger(impl: DefaultAppLogger): AppLogger
 }
