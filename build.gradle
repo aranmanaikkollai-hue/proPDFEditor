@@ -9,6 +9,22 @@
 // throwing kotlin.io.FileAlreadyExistsException. kapt does not share KSP's
 // round model, so the Hilt compiler artifacts are applied via kapt in those
 // modules as a workaround, while Room and everything else stays on ksp.
+    defaultConfig {
+        applicationId "com.propdfeditor"
+        minSdk 23
+        targetSdk 34
+        versionCode 31
+        versionName "3.0.1"
+
+        testInstrumentationRunner "androidx.test.runner.AndroidJUnitRunner"
+        
+        // Enable Room schema export for migrations
+        javaCompileOptions {
+            annotationProcessorOptions {
+                arguments += ["room.schemaLocation": "$projectDir/schemas".toString()]
+            }
+        }
+    }
 
 plugins {
     id 'com.android.application' version '8.2.2' apply false
