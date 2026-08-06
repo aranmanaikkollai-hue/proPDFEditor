@@ -2,7 +2,7 @@
 <manifest xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:tools="http://schemas.android.com/tools">
 
-    <!-- Core permissions -->
+    <!-- ==================== PERMISSIONS ==================== -->
     <uses-permission android:name="android.permission.INTERNET" />
     <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE" />
     <uses-permission android:name="android.permission.READ_EXTERNAL_STORAGE"
@@ -18,15 +18,20 @@
     <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
     <uses-permission android:name="android.permission.WAKE_LOCK" />
     <uses-permission android:name="android.permission.REQUEST_INSTALL_PACKAGES" />
+    <uses-permission android:name="android.permission.RECEIVE_BOOT_COMPLETED" />
 
-    <!-- Hardware features -->
+    <!-- ==================== HARDWARE FEATURES ==================== -->
     <uses-feature
         android:name="android.hardware.camera"
+        android:required="false" />
+    <uses-feature
+        android:name="android.hardware.camera.autofocus"
         android:required="false" />
     <uses-feature
         android:name="android.hardware.touchscreen"
         android:required="true" />
 
+    <!-- ==================== APPLICATION ==================== -->
     <application
         android:name=".ProPDFApplication"
         android:allowBackup="true"
@@ -39,21 +44,29 @@
         android:theme="@style/Theme.ProPDF"
         android:largeHeap="true"
         android:hardwareAccelerated="true"
+        android:enableOnBackInvokedCallback="true"
         tools:targetApi="34">
 
-        <!-- Main Entry -->
+        <!-- Profile installer for baseline profiles -->
+        <profile-installer
+            android:enabled="true"
+            android:directBootAware="false" />
+
+        <!-- ==================== MAIN ACTIVITY ==================== -->
         <activity
             android:name=".ui.main.MainActivity"
             android:exported="true"
             android:theme="@style/Theme.ProPDF.Splash"
             android:launchMode="singleTask"
-            android:windowSoftInputMode="adjustResize">
+            android:windowSoftInputMode="adjustResize"
+            android:configChanges="orientation|screenSize|smallestScreenSize|screenLayout|keyboard|keyboardHidden">
+            
             <intent-filter>
                 <action android:name="android.intent.action.MAIN" />
                 <category android:name="android.intent.category.LAUNCHER" />
             </intent-filter>
 
-            <!-- PDF Deep Link / Open With -->
+            <!-- PDF MIME type deep link -->
             <intent-filter>
                 <action android:name="android.intent.action.VIEW" />
                 <category android:name="android.intent.category.DEFAULT" />
@@ -62,7 +75,7 @@
                 <data android:scheme="file" android:mimeType="application/pdf" />
             </intent-filter>
 
-            <!-- File extension fallback -->
+            <!-- File extension fallback patterns -->
             <intent-filter>
                 <action android:name="android.intent.action.VIEW" />
                 <category android:name="android.intent.category.DEFAULT" />
@@ -73,10 +86,16 @@
                 <data android:pathPattern=".*\\.pdf" />
                 <data android:pathPattern=".*\\..*\\.pdf" />
                 <data android:pathPattern=".*\\..*\\..*\\.pdf" />
+                <data android:pathPattern=".*\\..*\\..*\\..*\\.pdf" />
             </intent-filter>
+
+            <!-- App shortcuts -->
+            <meta-data
+                android:name="android.app.shortcuts"
+                android:resource="@xml/shortcuts" />
         </activity>
 
-        <!-- Legacy Signature Activities (keep existing) -->
+        <!-- ==================== LEGACY ACTIVITIES (Security) ==================== -->
         <activity
             android:name=".ui.signature.SignatureManagerActivity"
             android:exported="false"
@@ -99,18 +118,28 @@
             android:name=".ui.signature.CertificateManagerActivity"
             android:exported="false" />
 
-        <!-- WorkManager initialization -->
+        <!-- ==================== STARTUP INITIALIZERS ==================== -->
         <provider
             android:name="androidx.startup.InitializationProvider"
             android:authorities="${applicationId}.androidx-startup"
             android:exported="false"
             tools:node="merge">
             <meta-data
-                android:name="androidx.work.WorkManagerInitializer"
+                android:name="com.propdfeditor.startup.PDFBoxInitializer"
                 android:value="androidx.startup" />
+            <meta-data
+                android:name="com.propdfeditor.startup.CoilInitializer"
+                android:value="androidx.startup" />
+            <meta-data
+                android:name="com.propdfeditor.startup.WorkManagerInitializer"
+                android:value="androidx.startup" />
+            <meta-data
+                android:name="androidx.work.WorkManagerInitializer"
+                android:value="androidx.startup"
+                tools:node="remove" />
         </provider>
 
-        <!-- FileProvider for sharing -->
+        <!-- ==================== FILE PROVIDER ==================== -->
         <provider
             android:name="androidx.core.content.FileProvider"
             android:authorities="${applicationId}.fileprovider"
@@ -120,6 +149,17 @@
                 android:name="android.support.FILE_PROVIDER_PATHS"
                 android:resource="@xml/file_paths" />
         </provider>
+
+        <!-- ==================== RECEIVERS ==================== -->
+        <receiver
+            android:name=".receiver.BootReceiver"
+            android:enabled="true"
+            android:exported="true"
+            android:permission="android.permission.RECEIVE_BOOT_COMPLETED">
+            <intent-filter>
+                <action android:name="android.intent.action.BOOT_COMPLETED" />
+            </intent-filter>
+        </receiver>
 
     </application>
 </manifest>
