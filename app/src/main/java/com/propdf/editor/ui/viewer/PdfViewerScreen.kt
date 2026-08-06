@@ -131,7 +131,7 @@ fun PdfViewerScreen(
             HorizontalPager(
                 state = pagerState,
                 modifier = Modifier.fillMaxSize(),
-                beyondBoundsPageCount = 1
+                beyondViewportPageCount = 1
             ) { page ->
                 Box(
                     modifier = Modifier
