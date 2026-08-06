@@ -80,7 +80,9 @@ fun AccessiblePDFCanvas(
         PDFCanvas(
             zoomLevel = zoomLevel,
             onZoomChange = onZoomChange,
-            onViewportChange = onViewportChange,
+            onViewportChange = { left, top, right, bottom ->
+                onViewportChange(left.toFloat(), top.toFloat(), right.toFloat(), bottom.toFloat())
+            },
             modifier = Modifier.fillMaxSize()
         )
     }
