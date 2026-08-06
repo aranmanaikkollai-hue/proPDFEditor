@@ -3,6 +3,7 @@ package com.propdf.core.domain.usecase
 import android.content.Context
 import android.net.Uri
 import androidx.documentfile.provider.DocumentFile
+import com.propdf.core.domain.model.RecentFile
 import com.propdf.core.domain.repository.RecentFileRepository
 import dagger.hilt.android.qualifiers.ApplicationContext
 import javax.inject.Inject
@@ -37,12 +38,11 @@ data class OpenedDocument(
     val uri: String,
     val name: String,
     val size: Long
-)
-
-fun OpenedDocument.toRecentFile(): com.propdf.core.domain.model.RecentFile =
-    com.propdf.core.domain.model.RecentFile(
+) {
+    fun toRecentFile(): RecentFile = RecentFile(
         uri = uri,
         name = name,
         size = size,
         lastOpened = System.currentTimeMillis()
     )
+}
