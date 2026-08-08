@@ -1,13 +1,13 @@
 {
   "project_info": {
-    "project_number": "76832088983",
-    "project_id": "pdf-editor-test-e8aed",
-    "storage_bucket": "pdf-editor-test-e8aed.firebasestorage.app"
+    "project_number": "000000000000",
+    "project_id": "propdfeditor-ci",
+    "storage_bucket": "propdfeditor-ci.appspot.com"
   },
   "client": [
     {
       "client_info": {
-        "mobilesdk_app_id": "1:76832088983:android:2a224719ef81ffc8f41ad2",
+        "mobilesdk_app_id": "1:000000000000:android:0000000000000000000000",
         "android_client_info": {
           "package_name": "com.propdfeditor"
         }
@@ -15,7 +15,7 @@
       "oauth_client": [],
       "api_key": [
         {
-          "current_key": "AIzaSyCBcc5LGn4nP0N7Ol9OzdJV_CgJnnu7p88"
+          "current_key": "AIzaSyDUMMY0000000000000000000000000000"
         }
       ],
       "services": {
