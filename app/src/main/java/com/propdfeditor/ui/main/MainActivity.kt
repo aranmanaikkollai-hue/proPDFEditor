@@ -10,7 +10,7 @@ import androidx.compose.runtime.getValue
 import androidx.core.splashscreen.SplashScreen.Companion.installSplashScreen
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.navigation.compose.rememberNavController
-import com.propdfeditor.ui.navigation.ProPDFNavHost
+import com.propdfeditor.ui.navigation.AppNavigation
 import com.propdfeditor.ui.theme.ProPDFTheme
 import dagger.hilt.android.AndroidEntryPoint
 
@@ -31,11 +31,12 @@ class MainActivity : ComponentActivity() {
         setContent {
             ProPDFTheme {
                 val navController = rememberNavController()
+                // uiState currently only gates the splash screen (see isReady below);
+                // AppNavigation does not take a uiState param.
                 val uiState by viewModel.uiState.collectAsStateWithLifecycle()
 
-                ProPDFNavHost(
-                    navController = navController,
-                    uiState = uiState
+                AppNavigation(
+                    navController = navController
                 )
             }
         }
