@@ -10,15 +10,16 @@
     <uses-permission android:name="android.permission.WRITE_EXTERNAL_STORAGE"
         android:maxSdkVersion="29"
         tools:ignore="ScopedStorage" />
-    <uses-permission android:name="android.permission.MANAGE_EXTERNAL_STORAGE"
-        tools:ignore="ScopedStorage" />
     <uses-permission android:name="android.permission.CAMERA" />
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE_DATA_SYNC" />
     <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
     <uses-permission android:name="android.permission.WAKE_LOCK" />
-    <uses-permission android:name="android.permission.REQUEST_INSTALL_PACKAGES" />
     <uses-permission android:name="android.permission.RECEIVE_BOOT_COMPLETED" />
+
+    <!-- REMOVED: MANAGE_EXTERNAL_STORAGE and REQUEST_INSTALL_PACKAGES
+         These are not justified for basic PDF viewing and may trigger
+         Google Play policy issues. Add back only if genuinely required. -->
 
     <!-- ==================== HARDWARE FEATURES ==================== -->
     <uses-feature
@@ -114,6 +115,10 @@
             android:exported="false" />
 
         <!-- ==================== STARTUP INITIALIZERS ==================== -->
+        <!-- CRITICAL FIX: Restored androidx.work.WorkManagerInitializer.
+             The default initializer MUST run so WorkManager can read
+             Configuration from ProPDFApplication (Configuration.Provider).
+             The custom WorkManagerInitializer is now a no-op placeholder. -->
         <provider
             android:name="androidx.startup.InitializationProvider"
             android:authorities="${applicationId}.androidx-startup"
@@ -125,13 +130,8 @@
             <meta-data
                 android:name="com.propdfeditor.startup.CoilInitializer"
                 android:value="androidx.startup" />
-            <meta-data
-                android:name="com.propdfeditor.startup.WorkManagerInitializer"
-                android:value="androidx.startup" />
-            <meta-data
-                android:name="androidx.work.WorkManagerInitializer"
-                android:value="androidx.startup"
-                tools:node="remove" />
+            <!-- REMOVED: tools:node="remove" from androidx.work.WorkManagerInitializer -->
+            <!-- The default WorkManagerInitializer is now allowed to run normally. -->
         </provider>
 
         <!-- ==================== FILE PROVIDER ==================== -->
