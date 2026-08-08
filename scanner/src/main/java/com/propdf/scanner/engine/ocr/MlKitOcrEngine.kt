@@ -3,39 +3,65 @@ package com.propdf.scanner.engine.ocr
 import android.content.Context
 import android.graphics.Bitmap
 import android.graphics.Rect
+import com.google.mlkit.vision.common.InputImage
+import com.google.mlkit.vision.text.TextRecognition
+import com.google.mlkit.vision.text.latin.TextRecognizerOptions
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.suspendCancellableCoroutine
 import kotlinx.coroutines.withContext
 import dagger.hilt.android.qualifiers.ApplicationContext
 import javax.inject.Inject
 import javax.inject.Singleton
+import kotlin.coroutines.resume
 
 /**
- * OCR Engine stub.
- *
- * To enable full OCR, add to scanner/build.gradle:
- * implementation 'com.google.mlkit:text-recognition:16.0.0'
- *
- * Then replace this stub with the full ML Kit implementation.
+ * OCR Engine backed by ML Kit on-device text recognition.
  */
 @Singleton
 class MlKitOcrEngine @Inject constructor(@ApplicationContext _context: Context) {
 
+    private val recognizer by lazy { TextRecognition.getClient(TextRecognizerOptions.DEFAULT_OPTIONS) }
+
     /**
-     * Recognize text from a bitmap.
-     * Returns empty result if ML Kit is not available.
+     * Recognize text from a bitmap, including block/line/word structure.
      */
     suspend fun recognizeText(_bitmap: Bitmap): Result<OcrResult> = withContext(Dispatchers.Default) {
         try {
-            // TODO: Replace with ML Kit TextRecognition when dependency is added
-            // val recognizer = TextRecognition.getClient(TextRecognizerOptions.DEFAULT_OPTIONS)
-            // val image = InputImage.fromBitmap(bitmap, 0)
-            // val visionText = recognizer.process(image).await()
+            val image = InputImage.fromBitmap(_bitmap, 0)
+            val visionText = suspendCancellableCoroutine<com.google.mlkit.vision.text.Text?> { continuation ->
+                recognizer.process(image)
+                    .addOnSuccessListener { continuation.resume(it) }
+                    .addOnFailureListener { continuation.resume(null) }
+            } ?: return@withContext Result.success(OcrResult(fullText = "", blocks = emptyList(), language = "en"))
 
-            Result.success(OcrResult(
-                fullText = "",
-                blocks = emptyList(),
-                language = "en"
-            ))
+            val blocks = visionText.textBlocks.map { block ->
+                OcrBlock(
+                    text = block.text,
+                    confidence = 1f,
+                    boundingBox = block.boundingBox,
+                    lines = block.lines.map { line ->
+                        OcrLine(
+                            text = line.text,
+                            confidence = 1f,
+                            boundingBox = line.boundingBox,
+                            words = line.elements.map { element ->
+                                OcrWord(
+                                    text = element.text,
+                                    confidence = 1f,
+                                    boundingBox = element.boundingBox
+                                )
+                            }
+                        )
+                    }
+                )
+            }
+            Result.success(
+                OcrResult(
+                    fullText = visionText.text,
+                    blocks = blocks,
+                    language = detectLanguage(visionText.text)
+                )
+            )
         } catch (e: Exception) {
             Result.failure(e)
         }
@@ -46,8 +72,13 @@ class MlKitOcrEngine @Inject constructor(@ApplicationContext _context: Context) 
      */
     suspend fun extractText(_bitmap: Bitmap): Result<String> = withContext(Dispatchers.Default) {
         try {
-            // TODO: Replace with ML Kit when dependency is available
-            Result.success("")
+            val image = InputImage.fromBitmap(_bitmap, 0)
+            val text = suspendCancellableCoroutine<String> { continuation ->
+                recognizer.process(image)
+                    .addOnSuccessListener { continuation.resume(it.text) }
+                    .addOnFailureListener { continuation.resume("") }
+            }
+            Result.success(text)
         } catch (e: Exception) {
             Result.failure(e)
         }
@@ -57,7 +88,7 @@ class MlKitOcrEngine @Inject constructor(@ApplicationContext _context: Context) 
      * Release resources.
      */
     fun close() {
-        // Nothing to release in stub
+        try { recognizer.close() } catch (_: Exception) {}
     }
 
     private fun detectLanguage(text: String): String {

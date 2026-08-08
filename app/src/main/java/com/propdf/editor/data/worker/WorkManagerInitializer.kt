@@ -9,6 +9,7 @@ class WorkManagerInitializer : Initializer<Unit> {
         DocumentIndexWorker.schedule(context)
         DuplicateScanWorker.schedulePeriodic(context)
         SmartFolderRefreshWorker.schedule(context)
+        DocumentTableBackfillWorker.scheduleOnce(context)
     }
 
     override fun dependencies(): List<Class<out Initializer<*>>> = emptyList()

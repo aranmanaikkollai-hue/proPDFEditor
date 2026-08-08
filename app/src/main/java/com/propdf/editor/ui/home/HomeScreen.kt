@@ -23,7 +23,9 @@ import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.input.nestedscroll.nestedScroll
+import android.widget.Toast
 import androidx.compose.ui.platform.LocalConfiguration
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
@@ -76,6 +78,28 @@ fun HomeScreen(
                             imageVector = Icons.Default.Settings,
                             contentDescription = "Settings",
                             tint = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                    }
+                    var moreMenuExpanded by remember { mutableStateOf(false) }
+                    IconButton(onClick = { moreMenuExpanded = true }) {
+                        Icon(
+                            imageVector = Icons.Default.MoreVert,
+                            contentDescription = "More tools",
+                            tint = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                    }
+                    DropdownMenu(expanded = moreMenuExpanded, onDismissRequest = { moreMenuExpanded = false }) {
+                        DropdownMenuItem(
+                            text = { Text("Storage analyzer") },
+                            onClick = { moreMenuExpanded = false; navController.navigate("storage_analyzer") }
+                        )
+                        DropdownMenuItem(
+                            text = { Text("Find duplicates") },
+                            onClick = { moreMenuExpanded = false; navController.navigate("duplicates") }
+                        )
+                        DropdownMenuItem(
+                            text = { Text("Recent activity") },
+                            onClick = { moreMenuExpanded = false; navController.navigate("recent_activity") }
                         )
                     }
                 },
@@ -444,7 +468,7 @@ fun FoldersRow(
                 Card(
                     modifier = Modifier
                         .width(150.dp)
-                        .clickable { navController.navigate("folder/${folder.id}") },
+                        .clickable { navController.navigate("folder_browser/${folder.id}") },
                     shape = RoundedCornerShape(20.dp),
                     colors = CardDefaults.cardColors(
                         containerColor = Color(folder.color).copy(alpha = 0.12f)
@@ -491,6 +515,7 @@ fun FoldersRow(
 fun CategoriesGrid(navController: NavController) {
     val categories = DocumentCategory.values().filter { it != DocumentCategory.UNCATEGORIZED }
     val colors = listOf(pdf_blue, pdf_green, pdf_orange, pdf_purple, pdf_teal, pdf_red, pdf_amber)
+    val context = LocalContext.current
 
     Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
         categories.chunked(2).forEachIndexed { rowIndex, rowCats ->
@@ -505,7 +530,15 @@ fun CategoriesGrid(navController: NavController) {
                         color = color,
                         modifier = Modifier.weight(1f)
                     ) {
-                        navController.navigate("category/${cat.name}")
+                        // TODO(P11 - File Manager Enhancements): build a real category-filtered
+                        // file list screen and route to it (e.g. "category/${cat.name}" backed by
+                        // a FilesScreen(category = ...) variant). Until then, fail gracefully
+                        // instead of crashing on an unregistered nav route.
+                        Toast.makeText(
+                            context,
+                            "Browsing by category is coming soon",
+                            Toast.LENGTH_SHORT
+                        ).show()
                     }
                 }
             }

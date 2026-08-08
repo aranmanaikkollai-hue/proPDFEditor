@@ -103,8 +103,8 @@ class MainViewModel @Inject constructor(
 
         // Apply tab filter
         filtered = when (state.currentTab) {
-            Tab.RECENT -> filtered.sortedByDescending { it.lastOpenedAt }
-            Tab.STARRED -> filtered.filter { it.isFavourite }
+            Tab.RECENT -> filtered.sortedByDescending { it.lastOpened }
+            Tab.STARRED -> filtered.filter { it.isFavorite }
             Tab.CATEGORIES -> {
                 if (state.categoryDetail.isEmpty()) {
                     // Show category list
@@ -112,9 +112,9 @@ class MainViewModel @Inject constructor(
                         files = categories.map { cat ->
                             RecentFile(
                                 uri = "category://$cat",
-                                displayName = cat,
-                                fileSizeBytes = 0,
-                                lastOpenedAt = 0,
+                                name = cat,
+                                size = 0,
+                                lastOpened = 0,
                                 pageCount = allFiles.count { f -> f.category == cat }
                             )
                         },
@@ -132,14 +132,14 @@ class MainViewModel @Inject constructor(
 
         // Apply search
         if (state.searchQuery.isNotEmpty()) {
-            filtered = filtered.filter { it.displayName.contains(state.searchQuery, ignoreCase = true) }
+            filtered = filtered.filter { it.name.contains(state.searchQuery, ignoreCase = true) }
         }
 
         // Apply sort
         filtered = when (state.sortField) {
-            SortField.DATE -> if (state.sortAsc) filtered.sortedBy { it.lastOpenedAt } else filtered.sortedByDescending { it.lastOpenedAt }
-            SortField.NAME -> if (state.sortAsc) filtered.sortedBy { it.displayName.lowercase() } else filtered.sortedByDescending { it.displayName.lowercase() }
-            SortField.SIZE -> if (state.sortAsc) filtered.sortedBy { it.fileSizeBytes } else filtered.sortedByDescending { it.fileSizeBytes }
+            SortField.DATE -> if (state.sortAsc) filtered.sortedBy { it.lastOpened } else filtered.sortedByDescending { it.lastOpened }
+            SortField.NAME -> if (state.sortAsc) filtered.sortedBy { it.name.lowercase() } else filtered.sortedByDescending { it.name.lowercase() }
+            SortField.SIZE -> if (state.sortAsc) filtered.sortedBy { it.size } else filtered.sortedByDescending { it.size }
         }
 
         _uiState.update { it.copy(files = filtered, allCategories = categories) }
@@ -177,9 +177,9 @@ class MainViewModel @Inject constructor(
             val size = withContext(dispatchers.io) { getUriSize(uri) }
             recentFilesRepo.add(RecentFile(
                 uri = uri.toString(),
-                displayName = name,
-                fileSizeBytes = size,
-                lastOpenedAt = System.currentTimeMillis(),
+                name = name,
+                size = size,
+                lastOpened = System.currentTimeMillis(),
                 pageCount = pageCount
             ))
             _uiState.update { it.copy(launchViewerUri = uri.toString()) }
@@ -200,7 +200,7 @@ class MainViewModel @Inject constructor(
             if (result is AppResult.Success) {
                 val data = result.data
                 if (data != null) {
-                    recentFilesRepo.setFavourite(uri, !data.isFavourite)
+                    recentFilesRepo.setFavourite(uri, !data.isFavorite)
                 }
             }
         }
@@ -218,7 +218,7 @@ class MainViewModel @Inject constructor(
             if (result is AppResult.Success) {
                 val data = result.data
                 if (data != null) {
-                    recentFilesRepo.add(data.copy(displayName = newName))
+                    recentFilesRepo.add(data.copy(name = newName))
                 }
             }
         }

@@ -211,7 +211,7 @@ fun PDFViewerScreen(
 }
 
 @Composable
-private fun PDFCanvas(
+fun PDFCanvas(
     zoomLevel: Float,
     onZoomChange: (Float) -> Unit,
     onViewportChange: (Int, Int, Int, Int) -> Unit,

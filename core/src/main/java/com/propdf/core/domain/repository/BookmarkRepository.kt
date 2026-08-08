@@ -1,12 +1,14 @@
 package com.propdf.core.domain.repository
 
-import com.propdf.core.domain.model.Bookmark
-import com.propdf.core.domain.result.AppResult
-import kotlinx.coroutines.flow.Flow
-
 interface BookmarkRepository {
-    fun observeByDocument(documentUri: String): Flow<List<Bookmark>>
-    suspend fun add(bookmark: Bookmark): AppResult<Unit>
-    suspend fun remove(bookmarkId: Long): AppResult<Unit>
-    suspend fun update(bookmark: Bookmark): AppResult<Unit>
+    suspend fun addBookmark(uri: String, page: Int, title: String)
+    suspend fun removeBookmark(uri: String, page: Int)
+    suspend fun getBookmarks(uri: String): List<Bookmark>
 }
+
+data class Bookmark(
+    val uri: String,
+    val page: Int,
+    val title: String,
+    val createdAt: Long
+)

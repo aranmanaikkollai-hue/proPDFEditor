@@ -82,7 +82,27 @@ class PdfOperationsManager(private val context: Context) {
     // ─── Compress ──────────────────────────────────────────────────
     suspend fun compressPdf(file: File, output: File, level: Int = 6): Result<File> = withContext(ThreadPoolManager.BackgroundDispatcher) {
         runCatching {
-            val reader = PdfReader(file)
+            // Step 1: recompress embedded images (PDFBox). This is the part that
+            // actually matters for scanned/image-heavy PDFs — the structural
+            // pass below (step 2, unchanged) barely touches image size at all.
+            // Ported from :viewer's PdfToolEngine.compressPdf, which was fully
+            // built but never reachable from any live screen. Adapted here to
+            // work on plain Files (this manager's existing convention) instead
+            // of SAF Uris, and the original's reflection-based AcroForm removal
+            // was deliberately dropped — it silently destroyed all PDF form
+            // fields as an undocumented side effect, which is a bug, not a
+            // feature worth preserving.
+            val stage1Dir = output.parentFile ?: output.absoluteFile.parentFile
+            val stage1 = File(stage1Dir, "${output.nameWithoutExtension}_stage1.pdf")
+            try {
+                recompressEmbeddedImages(file, stage1, level)
+            } catch (e: Exception) {
+                Log.w("PdfOperationsManager", "Image recompression skipped: ${e.message}")
+                file.copyTo(stage1, overwrite = true)
+            }
+
+            // Step 2: existing structural stream-compression pass (unchanged).
+            val reader = PdfReader(stage1)
             val writer = PdfWriter(output).apply {
                 setCompressionLevel(level.coerceIn(0, 9))
             }
@@ -93,7 +113,53 @@ class PdfOperationsManager(private val context: Context) {
             src.close()
             writer.close()
             reader.close()
+            stage1.delete()
             output
+        }
+    }
+
+    /**
+     * Recompresses embedded raster images in-place using PDFBox, ahead of the
+     * iText7 structural pass. Level maps to how aggressively images are
+     * recompressed:
+     *  - level <= 3 ("High quality"): skipped entirely, to avoid any risk of
+     *    bloating already-compressed images when the user picked the least
+     *    aggressive option.
+     *  - level 4-6 ("Medium"): moderate JPEG quality.
+     *  - level >= 7 ("Maximum"): aggressive JPEG quality.
+     * Small images (icons/logos, under ~100x100) are left untouched — not
+     * worth the recompression cost or quality loss.
+     */
+    private fun recompressEmbeddedImages(input: File, output: File, level: Int) {
+        if (level <= 3) {
+            input.copyTo(output, overwrite = true)
+            return
+        }
+        val quality = if (level >= 7) 0.35f else 0.6f
+
+        com.tom_roush.pdfbox.pdmodel.PDDocument.load(input).use { doc ->
+            for (i in 0 until doc.numberOfPages) {
+                val page = doc.getPage(i)
+                val resources = page.resources ?: continue
+                val imageNames = resources.xObjectNames?.toList() ?: continue
+                imageNames.forEach { name ->
+                    val xObject = resources.getXObject(name)
+                        as? com.tom_roush.pdfbox.pdmodel.graphics.image.PDImageXObject
+                        ?: return@forEach
+                    try {
+                        val bitmap = xObject.image ?: return@forEach
+                        if (bitmap.width * bitmap.height < 10000) return@forEach
+                        val recompressed = com.tom_roush.pdfbox.pdmodel.graphics.image.JPEGFactory
+                            .createFromImage(doc, bitmap, quality)
+                        resources.put(name, recompressed)
+                    } catch (_: Exception) {
+                        // Leave this particular image untouched if it can't be
+                        // recompressed; don't fail the whole operation over one
+                        // image.
+                    }
+                }
+            }
+            doc.save(output)
         }
     }
 

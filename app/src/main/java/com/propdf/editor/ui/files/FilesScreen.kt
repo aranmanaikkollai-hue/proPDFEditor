@@ -1,5 +1,8 @@
 package com.propdf.editor.ui.files
 
+import android.content.Intent
+import androidx.core.content.FileProvider
+import java.io.File
 import androidx.compose.animation.*
 import androidx.compose.animation.core.*
 import androidx.compose.foundation.ExperimentalFoundationApi
@@ -22,6 +25,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.input.nestedscroll.nestedScroll
 import androidx.compose.ui.platform.LocalConfiguration
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
@@ -44,6 +48,7 @@ fun FilesScreen(
     viewModel: FilesViewModel = hiltViewModel()
 ) {
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
+    val context = LocalContext.current
     val scrollBehavior = TopAppBarDefaults.pinnedScrollBehavior()
     val scope = rememberCoroutineScope()
     val isTablet = LocalConfiguration.current.screenWidthDp >= 600
@@ -52,6 +57,7 @@ fun FilesScreen(
     var showSortSheet by remember { mutableStateOf(false) }
     var showViewModeSheet by remember { mutableStateOf(false) }
     var showContextMenu by remember { mutableStateOf<PdfDocument?>(null) }
+    var showRenameDialog by remember { mutableStateOf<PdfDocument?>(null) }
     val sheetState = rememberModalBottomSheetState()
 
     Scaffold(
@@ -315,9 +321,39 @@ fun FilesScreen(
                     Triple(if (doc.isFavorite) "Remove from Favorites" else "Add to Favorites", if (doc.isFavorite) Icons.Outlined.Star else Icons.Outlined.StarBorder) {
                         viewModel.toggleFavorite(doc.id); showContextMenu = null
                     },
+                    // TODO: Categorize and Properties are still not implemented
+                    // (found while wiring Rename/Share below — pre-existing gaps,
+                    // not introduced here). Left as no-ops rather than guessed at.
                     Triple("Categorize", Icons.Outlined.Label) { /* Show categorize dialog */ },
-                    Triple("Rename", Icons.Outlined.Edit) { /* Show rename dialog */ },
-                    Triple("Share", Icons.Outlined.Share) { /* Share file */ },
+                    Triple("Rename", Icons.Outlined.Edit) { showRenameDialog = doc; showContextMenu = null },
+                    Triple("Share", Icons.Outlined.Share) {
+                        try {
+                            val shareUri = if (doc.uri.scheme == "file") {
+                                // Internally-stored file — sharing the raw file:// URI
+                                // directly would throw FileUriExposedException on
+                                // Android 7+, so wrap it via FileProvider like the
+                                // rest of the app's share actions already do.
+                                FileProvider.getUriForFile(
+                                    context, "${context.packageName}.fileprovider", File(doc.uri.path!!)
+                                )
+                            } else {
+                                // content:// URI (the common case for SAF-opened
+                                // documents) — already shareable as-is; the app holds
+                                // persisted read permission on it from when it was
+                                // first opened.
+                                doc.uri
+                            }
+                            context.startActivity(
+                                Intent.createChooser(Intent(Intent.ACTION_SEND).apply {
+                                    type = "application/pdf"
+                                    putExtra(Intent.EXTRA_STREAM, shareUri)
+                                    addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
+                                }, "Share PDF")
+                            )
+                        } catch (_: Exception) {
+                        }
+                        showContextMenu = null
+                    },
                     Triple("Properties", Icons.Outlined.Info) { /* Show properties */ },
                     Triple("Move to Recycle Bin", Icons.Outlined.Delete) { viewModel.moveToRecycleBin(doc.id); showContextMenu = null }
                 )
@@ -334,6 +370,31 @@ fun FilesScreen(
                 Spacer(modifier = Modifier.height(32.dp))
             }
         }
+    }
+
+    showRenameDialog?.let { doc ->
+        var newName by remember(doc.id) { mutableStateOf(doc.displayName) }
+        AlertDialog(
+            onDismissRequest = { showRenameDialog = null },
+            title = { Text("Rename") },
+            text = {
+                OutlinedTextField(
+                    value = newName,
+                    onValueChange = { newName = it },
+                    singleLine = true,
+                    label = { Text("Name") }
+                )
+            },
+            confirmButton = {
+                TextButton(onClick = {
+                    viewModel.renameDocument(doc.id, newName)
+                    showRenameDialog = null
+                }) { Text("Rename") }
+            },
+            dismissButton = {
+                TextButton(onClick = { showRenameDialog = null }) { Text("Cancel") }
+            }
+        )
     }
 }
 

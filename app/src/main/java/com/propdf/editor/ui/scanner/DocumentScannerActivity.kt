@@ -4,6 +4,7 @@ import android.Manifest
 import android.content.ContentValues
 import android.content.pm.PackageManager
 import android.graphics.*
+import android.graphics.drawable.GradientDrawable
 import android.net.Uri
 import android.os.*
 import android.provider.MediaStore
@@ -20,12 +21,16 @@ import androidx.lifecycle.lifecycleScope
 import com.propdf.editor.core.CrashGuard
 import com.propdf.editor.core.pool.BitmapPool
 import com.propdf.editor.ui.viewer.ViewerActivity
+import com.propdf.editor.data.repository.PdfOperationsManager
+import com.propdf.editor.utils.FileHelper
+import dagger.hilt.android.AndroidEntryPoint
 import kotlinx.coroutines.*
 import kotlinx.coroutines.channels.Channel
 import java.io.File
 import java.io.FileOutputStream
 import java.io.OutputStream
 import java.util.concurrent.Executors
+import javax.inject.Inject
 import kotlin.math.max
 import kotlin.math.min
 
@@ -37,7 +42,10 @@ import kotlin.math.min
  * - Reusable executor for CameraX to prevent thread leaks
  * - Efficient pixel manipulation without full bitmap copies where possible
  */
+@AndroidEntryPoint
 class DocumentScannerActivity : AppCompatActivity() {
+
+    @Inject lateinit var pdfOperationsManager: PdfOperationsManager
 
     enum class ScanMode(val label: String) {
         BATCH("Batch"), ID_CARD("ID Card"), BOOK("Book"),
@@ -225,13 +233,165 @@ class DocumentScannerActivity : AppCompatActivity() {
 
     // ─── UI Building (Preserved with optimizations) ──────────────────
     private fun buildUI() {
-        val root = LinearLayout(this).apply {
-            orientation = LinearLayout.VERTICAL
-            setBackgroundColor(Color.BLACK)
-        }
+        val root = FrameLayout(this).apply { setBackgroundColor(Color.BLACK) }
         setContentView(root)
-        // ... (rest of UI building preserved from original)
-        root.addView(TextView(this).apply { text = "Scanner UI" }) // Simplified for brevity
+
+        // Camera layer: preview + edge/grid overlays
+        cameraContainer = FrameLayout(this)
+        previewView = PreviewView(this).apply {
+            layoutParams = FrameLayout.LayoutParams(-1, -1)
+        }
+        edgeOverlay = EdgeDetectionOverlay(this).apply {
+            layoutParams = FrameLayout.LayoutParams(-1, -1)
+        }
+        gridOverlay = GridOverlay(this).apply {
+            layoutParams = FrameLayout.LayoutParams(-1, -1)
+        }
+        cameraContainer.addView(previewView)
+        cameraContainer.addView(gridOverlay)
+        cameraContainer.addView(edgeOverlay)
+        root.addView(cameraContainer, FrameLayout.LayoutParams(-1, -1))
+
+        // Review layer: shows the most recently captured page
+        previewContainer = FrameLayout(this).apply { visibility = View.GONE }
+        previewImageView = ImageView(this).apply {
+            layoutParams = FrameLayout.LayoutParams(-1, -1)
+            scaleType = ImageView.ScaleType.FIT_CENTER
+        }
+        previewContainer.addView(previewImageView)
+        root.addView(previewContainer, FrameLayout.LayoutParams(-1, -1))
+
+        // Top bar: close, scan mode, color mode, torch
+        val topBar = LinearLayout(this).apply {
+            orientation = LinearLayout.HORIZONTAL
+            gravity = Gravity.CENTER_VERTICAL
+            setPadding(dp(8), dp(8), dp(8), dp(8))
+            setBackgroundColor(Color.parseColor("#99000000"))
+        }
+        topBar.addView(iconButton(android.R.drawable.ic_menu_close_clear_cancel, "Close") { finish() })
+
+        val modeLabel = TextView(this).apply {
+            layoutParams = LinearLayout.LayoutParams(0, -2, 1f)
+            text = scanMode.label
+            textSize = 14f
+            gravity = Gravity.CENTER
+            setTextColor(Color.WHITE)
+            typeface = Typeface.DEFAULT_BOLD
+        }
+        topBar.addView(modeLabel)
+        topBar.addView(TextView(this).apply {
+            text = colorMode.uppercase()
+            textSize = 12f
+            setTextColor(Color.parseColor("#ADC6FF"))
+            setPadding(dp(10), dp(6), dp(10), dp(6))
+            setOnClickListener {
+                colorModeIdx = (colorModeIdx + 1) % colorModes.size
+                colorMode = colorModes[colorModeIdx]
+                text = colorMode.uppercase()
+                toast("Color mode: $colorMode")
+            }
+        })
+        val torchBtn = iconButton(android.R.drawable.ic_menu_view, "Torch") {
+            torchOn = !torchOn
+            camera?.cameraControl?.enableTorch(torchOn)
+        }
+        topBar.addView(torchBtn)
+
+        // Scan mode selector strip, just below the top bar
+        val modeStrip = LinearLayout(this).apply {
+            orientation = LinearLayout.HORIZONTAL
+            gravity = Gravity.CENTER_HORIZONTAL
+            setPadding(0, dp(6), 0, dp(6))
+            setBackgroundColor(Color.parseColor("#66000000"))
+        }
+        ScanMode.entries.forEach { mode ->
+            modeStrip.addView(TextView(this).apply {
+                text = mode.label
+                textSize = 12f
+                setPadding(dp(10), dp(4), dp(10), dp(4))
+                setTextColor(if (mode == scanMode) Color.parseColor("#ADC6FF") else Color.parseColor("#AAAAAA"))
+                setOnClickListener {
+                    scanMode = mode
+                    modeLabel.text = mode.label
+                    refreshThumbStrip()
+                    Toast.makeText(this@DocumentScannerActivity, "Mode: ${mode.label}", Toast.LENGTH_SHORT).show()
+                }
+            })
+        }
+        val topStack = LinearLayout(this).apply { orientation = LinearLayout.VERTICAL }
+        topStack.addView(topBar)
+        topStack.addView(modeStrip)
+        root.addView(topStack, FrameLayout.LayoutParams(-1, -2, Gravity.TOP))
+
+        // Bottom bar: gallery import, capture shutter, done
+        val bottomBar = LinearLayout(this).apply {
+            orientation = LinearLayout.VERTICAL
+            setBackgroundColor(Color.parseColor("#99000000"))
+            setPadding(dp(8), dp(6), dp(8), dp(8))
+        }
+
+        thumbStrip = LinearLayout(this).apply {
+            orientation = LinearLayout.HORIZONTAL
+            layoutParams = LinearLayout.LayoutParams(-1, dp(56))
+        }
+        val thumbScroll = HorizontalScrollView(this).apply {
+            isHorizontalScrollBarEnabled = false
+            addView(thumbStrip)
+        }
+        bottomBar.addView(thumbScroll)
+
+        pageCountLabel = TextView(this).apply {
+            text = "0 pages"
+            textSize = 12f
+            gravity = Gravity.CENTER
+            setTextColor(Color.WHITE)
+            setPadding(0, dp(4), 0, dp(4))
+        }
+        bottomBar.addView(pageCountLabel)
+
+        val controlsRow = LinearLayout(this).apply {
+            orientation = LinearLayout.HORIZONTAL
+            gravity = Gravity.CENTER_VERTICAL
+        }
+        controlsRow.addView(iconButton(android.R.drawable.ic_menu_gallery, "Gallery") {
+            galleryLauncher.launch("image/*")
+        }.apply { layoutParams = LinearLayout.LayoutParams(dp(48), dp(48)) })
+
+        val shutter = View(this).apply {
+            layoutParams = LinearLayout.LayoutParams(dp(64), dp(64)).apply {
+                marginStart = dp(24); marginEnd = dp(24)
+            }
+            background = GradientDrawable().apply {
+                shape = GradientDrawable.OVAL
+                setColor(Color.WHITE)
+                setStroke(dp(3), Color.parseColor("#ADC6FF"))
+            }
+            setOnClickListener { performCapture() }
+        }
+        val shutterWrap = LinearLayout(this).apply {
+            layoutParams = LinearLayout.LayoutParams(0, -2, 1f)
+            gravity = Gravity.CENTER
+            addView(shutter)
+        }
+        controlsRow.addView(shutterWrap)
+
+        controlsRow.addView(Button(this).apply {
+            text = "Done"
+            setOnClickListener { finishScanning() }
+        })
+        bottomBar.addView(controlsRow)
+        root.addView(bottomBar, FrameLayout.LayoutParams(-1, -2, Gravity.BOTTOM))
+    }
+
+    private fun iconButton(iconRes: Int, description: String, onClick: () -> Unit): ImageButton {
+        return ImageButton(this).apply {
+            layoutParams = LinearLayout.LayoutParams(dp(40), dp(40))
+            setImageResource(iconRes)
+            setColorFilter(Color.WHITE, PorterDuff.Mode.SRC_IN)
+            setBackgroundColor(Color.TRANSPARENT)
+            contentDescription = description
+            setOnClickListener { onClick() }
+        }
     }
 
     private fun addCapturedPage(bmp: Bitmap) {
@@ -241,14 +401,159 @@ class DocumentScannerActivity : AppCompatActivity() {
         showPreview(capturedPages.size - 1)
     }
 
-    private fun handleIdCardCapture(bmp: Bitmap) { /* Preserved */ }
-    private fun handleBookCapture(bmp: Bitmap) { /* Preserved */ }
-    private fun handleSpliceCapture(bmp: Bitmap) { /* Preserved */ }
-    private fun refreshThumbStrip() { /* Preserved */ }
-    private fun showPreview(idx: Int) { /* Preserved */ }
-    private fun showCamera() { /* Preserved */ }
-    private fun startCamera() { /* Preserved */ }
-    private fun finishScanning() { /* Preserved */ }
+    private fun handleIdCardCapture(bmp: Bitmap) {
+        val front = idCardFront
+        if (front == null) {
+            idCardFront = bmp
+            toast("Front captured. Now capture the back.")
+            previewImageView.setImageBitmap(bmp)
+            previewContainer.visibility = View.VISIBLE
+            cameraContainer.visibility = View.GONE
+            previewImageView.postDelayed({ showCamera() }, 700)
+        } else {
+            val composite = combineVertically(front, bmp)
+            idCardFront = null
+            front.recycle()
+            bmp.recycle()
+            addCapturedPage(composite)
+        }
+    }
+
+    private fun handleBookCapture(bmp: Bitmap) {
+        // Book mode: split the captured spread down the middle into two pages.
+        val w = bmp.width
+        val h = bmp.height
+        if (w < 2) { addCapturedPage(bmp); return }
+        val left = Bitmap.createBitmap(bmp, 0, 0, w / 2, h)
+        val right = Bitmap.createBitmap(bmp, w / 2, 0, w - w / 2, h)
+        bmp.recycle()
+        addCapturedPage(left)
+        addCapturedPage(right)
+    }
+
+    private fun handleSpliceCapture(bmp: Bitmap) {
+        splicePages.add(bmp)
+        toast("Splice piece ${splicePages.size} captured. Tap Done to combine, or keep capturing.")
+        refreshThumbStrip()
+        previewImageView.setImageBitmap(bmp)
+        previewContainer.visibility = View.VISIBLE
+        cameraContainer.visibility = View.GONE
+        previewImageView.postDelayed({ showCamera() }, 500)
+    }
+
+    private fun combineVertically(a: Bitmap, b: Bitmap): Bitmap {
+        val width = max(a.width, b.width)
+        val height = a.height + b.height
+        val out = Bitmap.createBitmap(width, height, Bitmap.Config.ARGB_8888)
+        val canvas = android.graphics.Canvas(out)
+        canvas.drawColor(Color.WHITE)
+        canvas.drawBitmap(a, 0f, 0f, null)
+        canvas.drawBitmap(b, 0f, a.height.toFloat(), null)
+        return out
+    }
+
+    private fun refreshThumbStrip() {
+        if (!::thumbStrip.isInitialized) return
+        thumbStrip.removeAllViews()
+        val pages = if (scanMode == ScanMode.SPLICE) splicePages else capturedPages
+        pages.forEachIndexed { index, bmp ->
+            val thumb = ImageView(this).apply {
+                layoutParams = LinearLayout.LayoutParams(dp(44), dp(56)).apply { marginEnd = dp(6) }
+                scaleType = ImageView.ScaleType.CENTER_CROP
+                setImageBitmap(bmp)
+                setOnClickListener { showPreview(index) }
+            }
+            thumbStrip.addView(thumb)
+        }
+        pageCountLabel.text = "${pages.size} page${if (pages.size == 1) "" else "s"}"
+    }
+
+    private fun showPreview(idx: Int) {
+        val pages = if (scanMode == ScanMode.SPLICE) splicePages else capturedPages
+        if (idx !in pages.indices) return
+        previewingPageIdx = idx
+        previewImageView.setImageBitmap(pages[idx])
+        previewContainer.visibility = View.VISIBLE
+        cameraContainer.visibility = View.GONE
+    }
+
+    private fun showCamera() {
+        previewingPageIdx = -1
+        previewContainer.visibility = View.GONE
+        cameraContainer.visibility = View.VISIBLE
+    }
+
+    private fun startCamera() {
+        val pv = previewView
+        val providerFuture = ProcessCameraProvider.getInstance(this)
+        providerFuture.addListener({
+            val provider = providerFuture.get()
+            val preview = Preview.Builder().build().also {
+                it.setSurfaceProvider(pv.surfaceProvider)
+            }
+            imageCapture = ImageCapture.Builder()
+                .setCaptureMode(ImageCapture.CAPTURE_MODE_MINIMIZE_LATENCY)
+                .build()
+            val cameraSelector = CameraSelector.DEFAULT_BACK_CAMERA
+            try {
+                provider.unbindAll()
+                camera = provider.bindToLifecycle(this, cameraSelector, preview, imageCapture)
+            } catch (_: Exception) {
+                toast("Camera init failed")
+            }
+        }, ContextCompat.getMainExecutor(this))
+    }
+
+    private fun finishScanning() {
+        if (scanMode == ScanMode.SPLICE && splicePages.size > 1) {
+            var combined = splicePages[0]
+            for (i in 1 until splicePages.size) {
+                val next = combineVertically(combined, splicePages[i])
+                if (combined !== splicePages[0]) combined.recycle()
+                combined = next
+            }
+            splicePages.forEach { if (!it.isRecycled) it.recycle() }
+            splicePages.clear()
+            capturedPages.add(combined)
+        }
+
+        if (capturedPages.isEmpty()) { toast("Capture at least one page first"); return }
+
+        toast("Saving ${capturedPages.size} page(s)...")
+        lifecycleScope.launch(processingDispatcher) {
+            val tempFiles = capturedPages.mapIndexedNotNull { i, bmp ->
+                try {
+                    val f = File(cacheDir, "scan_page_${i}_${System.currentTimeMillis()}.jpg")
+                    FileOutputStream(f).use { out -> bmp.compress(Bitmap.CompressFormat.JPEG, 90, out) }
+                    f
+                } catch (_: Exception) { null }
+            }
+            if (tempFiles.isEmpty()) {
+                withContext(Dispatchers.Main) { toast("Failed to prepare pages") }
+                return@launch
+            }
+            val output = File(cacheDir, "scanned_${System.currentTimeMillis()}.pdf")
+            val result = pdfOperationsManager.imagesToPdf(tempFiles, output)
+            result.onSuccess { pdfFile ->
+                val saved = try { FileHelper.saveToDownloads(this@DocumentScannerActivity, pdfFile) }
+                    catch (_: Exception) { FileHelper.SaveResult("app storage", Uri.fromFile(pdfFile), pdfFile) }
+                withContext(Dispatchers.Main) {
+                    toast("Saved to ${saved.displayPath}")
+                    val openFile = saved.file ?: pdfFile
+                    val openUri = try {
+                        androidx.core.content.FileProvider.getUriForFile(
+                            this@DocumentScannerActivity, "$packageName.fileprovider", openFile
+                        )
+                    } catch (_: Exception) { Uri.fromFile(openFile) }
+                    ViewerActivity.start(this@DocumentScannerActivity, openUri)
+                    finish()
+                }
+            }.onFailure {
+                withContext(Dispatchers.Main) { toast("Save failed: ${it.message}") }
+            }
+        }
+    }
+
     private fun toast(msg: String) = Toast.makeText(this, msg, Toast.LENGTH_SHORT).show()
     private fun dp(v: Int) = (v * resources.displayMetrics.density).toInt()
 

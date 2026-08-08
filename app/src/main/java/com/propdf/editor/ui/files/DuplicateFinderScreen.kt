@@ -15,12 +15,16 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import androidx.lifecycle.viewModelScope
 import androidx.navigation.NavController
 import com.propdf.editor.domain.model.PdfDocument
 import com.propdf.editor.utils.formatFileSize
+import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.launch
+import javax.inject.Inject
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -113,7 +117,10 @@ private fun EmptyState(icon: androidx.compose.ui.graphics.vector.ImageVector, ti
     }
 }
 
-class DuplicateFinderViewModel : androidx.lifecycle.ViewModel() {
+@HiltViewModel
+class DuplicateFinderViewModel @Inject constructor(
+    private val coreDocumentRepository: com.propdf.core.domain.repository.DocumentRepository
+) : androidx.lifecycle.ViewModel() {
     data class UiState(
         val duplicateGroups: List<List<PdfDocument>> = emptyList(),
         val isLoading: Boolean = false
@@ -121,7 +128,48 @@ class DuplicateFinderViewModel : androidx.lifecycle.ViewModel() {
     private val _uiState = MutableStateFlow(UiState())
     val uiState: StateFlow<UiState> = _uiState.asStateFlow()
 
-    fun deleteDuplicate(document: PdfDocument) {
-        // Implementation
+    init {
+        loadDuplicates()
     }
+
+    private fun loadDuplicates() {
+        viewModelScope.launch {
+            _uiState.value = _uiState.value.copy(isLoading = true)
+            val groups = try {
+                coreDocumentRepository.findDuplicates().map { group ->
+                    group.documents.map { it.toEditorModel() }
+                }
+            } catch (_: Exception) {
+                emptyList()
+            }
+            _uiState.value = UiState(duplicateGroups = groups, isLoading = false)
+        }
+    }
+
+    fun deleteDuplicate(document: PdfDocument) {
+        viewModelScope.launch {
+            try {
+                coreDocumentRepository.moveToRecycleBin(document.id)
+            } catch (_: Exception) {
+                return@launch
+            }
+            _uiState.value = _uiState.value.copy(
+                duplicateGroups = _uiState.value.duplicateGroups
+                    .map { group -> group.filterNot { it.id == document.id } }
+                    .filter { it.size > 1 }
+            )
+        }
+    }
+
+    private fun com.propdf.core.domain.model.PdfDocument.toEditorModel(): PdfDocument = PdfDocument(
+        id = id,
+        uri = android.net.Uri.parse(uriString),
+        displayName = displayName,
+        fileSize = sizeBytes,
+        dateModified = lastModified,
+        dateAdded = lastModified,
+        isFavorite = isFavorite,
+        isDeleted = isInRecycleBin,
+        pageCount = pageCount
+    )
 }

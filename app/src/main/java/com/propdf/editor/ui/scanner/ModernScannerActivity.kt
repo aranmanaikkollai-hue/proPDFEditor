@@ -1,6 +1,7 @@
 package com.propdf.editor.ui.scanner
 
 import android.Manifest
+import android.content.Intent
 import android.content.pm.PackageManager
 import android.graphics.Bitmap
 import android.graphics.BitmapFactory
@@ -30,7 +31,7 @@ import androidx.lifecycle.repeatOnLifecycle
 import androidx.recyclerview.widget.RecyclerView
 import com.google.android.material.button.MaterialButton
 import com.google.android.material.floatingactionbutton.FloatingActionButton
-import com.propdf.editor.R
+import com.propdfeditor.R
 import com.propdf.scanner.engine.ColorMode
 import com.propdf.scanner.engine.ScanOptions
 import com.propdf.scanner.ui.DocumentCropOverlay
@@ -65,6 +66,7 @@ class ModernScannerActivity : AppCompatActivity() {
     private lateinit var pageThumbnails: RecyclerView
     private lateinit var btnCapture: FloatingActionButton
     private lateinit var btnGallery: ImageButton
+    private lateinit var btnAdvancedModes: ImageButton
     private lateinit var btnBack: ImageButton
     private lateinit var btnRotateLeft: ImageButton
     private lateinit var btnRotateRight: ImageButton
@@ -106,6 +108,7 @@ class ModernScannerActivity : AppCompatActivity() {
         pageThumbnails = findViewById(R.id.pageThumbnails)
         btnCapture = findViewById(R.id.btnCapture)
         btnGallery = findViewById(R.id.btnGallery)
+        btnAdvancedModes = findViewById(R.id.btnAdvancedModes)
         btnBack = findViewById(R.id.btnBack)
         btnRotateLeft = findViewById(R.id.btnRotateLeft)
         btnRotateRight = findViewById(R.id.btnRotateRight)
@@ -142,6 +145,16 @@ class ModernScannerActivity : AppCompatActivity() {
     private fun setupUI() {
         btnCapture.setOnClickListener { takePhoto() }
         btnGallery.setOnClickListener { galleryLauncher.launch("image/*") }
+        btnAdvancedModes.setOnClickListener {
+            AlertDialog.Builder(this)
+                .setTitle("Advanced scan modes")
+                .setMessage("ID card, book spread, and multi-shot splice scanning use a separate capture flow.")
+                .setPositiveButton("Continue") { _, _ ->
+                    startActivity(Intent(this, DocumentScannerActivity::class.java))
+                }
+                .setNegativeButton("Cancel", null)
+                .show()
+        }
         btnBack.setOnClickListener { finish() }
 
         filterAuto.setOnClickListener { viewModel.applyFilterToCurrent(ColorMode.AUTO) }

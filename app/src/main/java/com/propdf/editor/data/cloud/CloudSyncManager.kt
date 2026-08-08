@@ -24,6 +24,8 @@ import javax.inject.Singleton
 class CloudSyncManager @Inject constructor(
     @ApplicationContext private val context: Context,
     private val pdfDocumentDao: PdfDocumentDao,
+    private val corePdfDocumentDao: com.propdf.core.data.local.dao.PdfDocumentDao,
+    private val recentFilesRepository: com.propdf.core.domain.repository.RecentFilesRepository,
     private val googleDrive: GoogleDriveManager,
     private val oneDrive: OneDriveManager,
     private val dropbox: DropboxManager
@@ -80,6 +82,40 @@ class CloudSyncManager @Inject constructor(
                             )
                         )
                         totalSynced++
+                    }
+                    // core.pdf_documents has no cloud-provider/sync-status
+                    // columns (that bookkeeping stays in the app-local table
+                    // above), but without this, cloud-synced files never
+                    // reach the one pipeline Home/Duplicate Finder/Storage
+                    // Analyzer/Recent Activity actually read from — same gap
+                    // MainViewModel.openPdf()/DocumentScanWorker had before
+                    // the dual-write was added. Safe to call every sync pass:
+                    // add() finds-and-updates by uri, doesn't duplicate rows.
+                    try {
+                        recentFilesRepository.add(
+                            com.propdf.core.domain.model.RecentFile(
+                                uri = doc.uri.toString(),
+                                name = doc.displayName,
+                                size = doc.fileSize,
+                                lastOpened = doc.dateModified,
+                                pageCount = doc.pageCount
+                            )
+                        )
+                        // Stamp cloud-tracking columns on the core row (added
+                        // alongside this dual-write — see the database
+                        // consolidation plan). The dual-write above already
+                        // created/updated the row by uri; resolve its id here
+                        // rather than duplicating find-or-create logic.
+                        corePdfDocumentDao.getByUri(doc.uri.toString())?.let { coreRow ->
+                            corePdfDocumentDao.updateCloudInfo(
+                                id = coreRow.id,
+                                provider = provider.name,
+                                cloudId = null,
+                                syncStatus = SyncStatus.SYNCED.name
+                            )
+                        }
+                    } catch (_: Exception) {
+                        // Non-fatal — the app-local cloud sync above already succeeded
                     }
                 }
                 emit(SyncProgress.SyncingProvider(provider, files.size, 0))

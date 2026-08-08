@@ -6,8 +6,8 @@ import androidx.core.view.isVisible
 import androidx.recyclerview.widget.DiffUtil
 import androidx.recyclerview.widget.ListAdapter
 import androidx.recyclerview.widget.RecyclerView
-import com.propdf.editor.R
-import com.propdf.editor.databinding.ItemConversionHistoryBinding
+import com.propdfeditor.R
+import com.propdfeditor.databinding.ItemConversionHistoryBinding
 import com.propdf.editor.domain.model.ConversionStatus
 import com.propdf.editor.domain.model.ConversionTask
 import com.propdf.editor.domain.model.ConversionType

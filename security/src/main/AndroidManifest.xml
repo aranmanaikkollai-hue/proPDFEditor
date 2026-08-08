@@ -2,13 +2,10 @@
 <!-- security/src/main/AndroidManifest.xml -->
 <manifest xmlns:android="http://schemas.android.com/apk/res/android">
 
-    <uses-permission android:name="android.permission.WRITE_EXTERNAL_STORAGE"
-        android:maxSdkVersion="28" />
-    
     <application>
         <activity
             android:name=".ui.activity.SecurityActivity"
-            android:theme="@style/Theme.ProPDF"
+            android:theme="@style/Theme.ProPDF.Classic"
             android:exported="false"
             android:screenOrientation="unspecified"
             android:configChanges="orientation|screenSize|smallestScreenSize" />

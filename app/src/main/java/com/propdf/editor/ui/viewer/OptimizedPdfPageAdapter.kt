@@ -75,9 +75,78 @@ class OptimizedPdfPageAdapter(
         private var progressBar: android.widget.ProgressBar? = null
         private var currentPosition = -1
 
+        // ─── Pinch-to-zoom (scale only; no pan in this pass — see notes below) ───
+        private var scale = 1f
+        private val minScale = 1f
+        private val maxScale = 3f
+
+        private val scaleGestureDetector = android.view.ScaleGestureDetector(
+            frame.context,
+            object : android.view.ScaleGestureDetector.SimpleOnScaleGestureListener() {
+                override fun onScale(detector: android.view.ScaleGestureDetector): Boolean {
+                    scale = (scale * detector.scaleFactor).coerceIn(minScale, maxScale)
+                    applyScale()
+                    return true
+                }
+            }
+        )
+
+        private val doubleTapDetector = android.view.GestureDetector(
+            frame.context,
+            object : android.view.GestureDetector.SimpleOnGestureListener() {
+                override fun onDoubleTap(e: android.view.MotionEvent): Boolean {
+                    resetZoom()
+                    return true
+                }
+            }
+        )
+
+        init {
+            // NOTE: this only ever receives events when AnnotOverlay declines them
+            // (i.e. no drawing tool is active — see AnnotOverlay.onTouchEvent, which
+            // already returns false in that case), so this cannot interfere with
+            // annotation drawing. When not zoomed and not mid-pinch, this listener
+            // also declines (returns false), so normal single-finger vertical
+            // scrolling of the page list is unaffected.
+            frame.setOnTouchListener { _, event ->
+                scaleGestureDetector.onTouchEvent(event)
+                doubleTapDetector.onTouchEvent(event)
+
+                when (event.actionMasked) {
+                    android.view.MotionEvent.ACTION_POINTER_DOWN ->
+                        // Second finger down: this is the start of a pinch. Tell the
+                        // RecyclerView not to steal it as a scroll gesture.
+                        frame.parent?.requestDisallowInterceptTouchEvent(true)
+                    android.view.MotionEvent.ACTION_UP,
+                    android.view.MotionEvent.ACTION_CANCEL ->
+                        frame.parent?.requestDisallowInterceptTouchEvent(false)
+                }
+
+                // Only consume the gesture ourselves while an actual pinch is in
+                // progress or the page is currently zoomed in; otherwise decline so
+                // the RecyclerView keeps handling normal vertical scroll exactly as
+                // it did before this change.
+                event.pointerCount > 1 || scale > minScale
+            }
+        }
+
+        private fun applyScale() {
+            pageImageView?.scaleX = scale
+            pageImageView?.scaleY = scale
+            overlay?.scaleX = scale
+            overlay?.scaleY = scale
+        }
+
+        private fun resetZoom() {
+            scale = 1f
+            pageImageView?.animate()?.scaleX(1f)?.scaleY(1f)?.setDuration(150)?.start()
+            overlay?.animate()?.scaleX(1f)?.scaleY(1f)?.setDuration(150)?.start()
+        }
+
         fun bind(position: Int) {
             currentPosition = position
             cancelJob()
+            scale = 1f
 
             // Clear previous content
             frame.removeAllViews()
@@ -140,6 +209,8 @@ class OptimizedPdfPageAdapter(
 
         fun recycle() {
             cancelJob()
+            frame.parent?.requestDisallowInterceptTouchEvent(false)
+            scale = 1f
             pageImageView?.let { iv ->
                 (iv.drawable as? android.graphics.drawable.BitmapDrawable)?.bitmap?.let { bmp ->
                     if (!bmp.isRecycled) pool.put(bmp)

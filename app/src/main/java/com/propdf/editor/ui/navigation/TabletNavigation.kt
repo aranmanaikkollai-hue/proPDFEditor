@@ -195,7 +195,22 @@ fun ProPDFNavHost(
             FilesScreen(navController = navController, mainViewModel = mainViewModel)
         }
         composable("folders") {
-            FilesScreen(navController = navController, mainViewModel = mainViewModel)
+            com.propdf.editor.ui.files.FolderBrowserScreen(navController = navController)
+        }
+        composable("folder_browser/{folderId}") { backStackEntry ->
+            com.propdf.editor.ui.files.FolderBrowserScreen(
+                navController = navController,
+                folderId = backStackEntry.arguments?.getString("folderId")
+            )
+        }
+        composable("duplicates") {
+            com.propdf.editor.ui.files.DuplicateFinderScreen(navController = navController)
+        }
+        composable("recent_activity") {
+            com.propdf.editor.ui.files.RecentActivityScreen(navController = navController)
+        }
+        composable("storage_analyzer") {
+            com.propdf.editor.ui.files.StorageAnalyzerScreen(navController = navController)
         }
         composable("ocr") {
             val context = LocalContext.current

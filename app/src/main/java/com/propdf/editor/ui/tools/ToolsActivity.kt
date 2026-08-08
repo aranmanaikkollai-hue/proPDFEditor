@@ -186,7 +186,8 @@ class ToolsActivity : AppCompatActivity() {
         root.addView(buildCategoryGrid("Security", listOf(
             ToolItem("Password Protect", 0xFFB71C1C.toInt(), android.R.drawable.ic_lock_lock, "AES-256 encrypt") { doEncrypt() },
             ToolItem("Remove Password", 0xFFE65100.toInt(), android.R.drawable.ic_lock_idle_lock, "Decrypt PDF") { doDecrypt() },
-            ToolItem("Add Watermark", 0xFF004D40.toInt(), android.R.drawable.ic_menu_view, "Diagonal overlay") { doWatermark() }
+            ToolItem("Add Watermark", 0xFF004D40.toInt(), android.R.drawable.ic_menu_view, "Diagonal overlay") { doWatermark() },
+            ToolItem("Sign Document", 0xFF283593.toInt(), android.R.drawable.ic_menu_edit, "Visual or certificate signature") { doSign() }
         )))
         root.addView(buildCategoryGrid("Convert", listOf(
             ToolItem("Images to PDF", 0xFF0D47A1.toInt(), android.R.drawable.ic_menu_gallery, "JPG/PNG to PDF") { imgPicker.launch(arrayOf("image/*")) },
@@ -506,11 +507,23 @@ class ToolsActivity : AppCompatActivity() {
         }
     }
 
+    private fun doSign() {
+        val f = need() ?: return
+        try {
+            val uri = androidx.core.content.FileProvider.getUriForFile(
+                this, "$packageName.fileprovider", f
+            )
+            startActivity(
+                com.propdfeditor.ui.signature.ApplySignatureActivity.createIntent(this, uri)
+            )
+        } catch (e: Exception) { err("Sign error: ${e.message}") }
+    }
+
     private fun doShare() {
         val f = need() ?: return
         try {
             val uri = androidx.core.content.FileProvider.getUriForFile(
-                this, "$packageName.provider", f
+                this, "$packageName.fileprovider", f
             )
             startActivity(Intent.createChooser(Intent(Intent.ACTION_SEND).apply {
                 type = "application/pdf"
@@ -570,9 +583,126 @@ class ToolsActivity : AppCompatActivity() {
     }
 
     // ─── UI Helpers ────────────────────────────────────────────────
-    private fun buildSelectorCard(): View { /* Preserved */ return LinearLayout(this) }
-    private fun buildBatchPipelineCard(): View { /* Preserved */ return LinearLayout(this) }
-    private fun buildCategoryGrid(title: String, items: List<ToolItem>): View { /* Preserved */ return LinearLayout(this) }
+    private fun buildSelectorCard(): View {
+        return MaterialCardView(this).apply {
+            radius = dp(10).toFloat()
+            cardElevation = dp(2).toFloat()
+            setContentPadding(dp(12), dp(10), dp(12), dp(10))
+            layoutParams = LinearLayout.LayoutParams(-1, -2).apply { bottomMargin = dp(8) }
+
+            addView(LinearLayout(this@ToolsActivity).apply {
+                orientation = LinearLayout.HORIZONTAL
+                gravity = Gravity.CENTER_VERTICAL
+
+                addView(TextView(this@ToolsActivity).apply {
+                    layoutParams = LinearLayout.LayoutParams(0, -2, 1f)
+                    text = "Select PDF file(s) to work with"
+                    textSize = 13f
+                    setTextColor(0xFF222222.toInt())
+                })
+                addView(Button(this@ToolsActivity).apply {
+                    text = "Choose"
+                    setOnClickListener { pdfPicker.launch(arrayOf("application/pdf")) }
+                })
+                addView(ImageButton(this@ToolsActivity).apply {
+                    layoutParams = LinearLayout.LayoutParams(dp(40), dp(40)).apply { marginStart = dp(4) }
+                    setImageResource(android.R.drawable.ic_menu_close_clear_cancel)
+                    setBackgroundColor(Color.TRANSPARENT)
+                    contentDescription = "Clear selection"
+                    setOnClickListener {
+                        files.clear()
+                        tvStatus.text = statusText()
+                        toast("Selection cleared")
+                    }
+                })
+            })
+        }
+    }
+
+    private fun buildBatchPipelineCard(): View {
+        return MaterialCardView(this).apply {
+            radius = dp(10).toFloat()
+            cardElevation = dp(2).toFloat()
+            setCardBackgroundColor(0xFFE8F0FE.toInt())
+            setContentPadding(dp(12), dp(10), dp(12), dp(10))
+            layoutParams = LinearLayout.LayoutParams(-1, -2).apply { bottomMargin = dp(8) }
+
+            addView(LinearLayout(this@ToolsActivity).apply {
+                orientation = LinearLayout.HORIZONTAL
+                gravity = Gravity.CENTER_VERTICAL
+
+                addView(TextView(this@ToolsActivity).apply {
+                    layoutParams = LinearLayout.LayoutParams(0, -2, 1f)
+                    text = "Batch pipeline: run multiple operations in one pass"
+                    textSize = 12f
+                    setTextColor(Color.parseColor("#1A73E8"))
+                })
+                addView(Button(this@ToolsActivity).apply {
+                    text = "Configure"
+                    setOnClickListener { showBatchPipelineDialog() }
+                })
+            })
+        }
+    }
+
+    private fun buildCategoryGrid(title: String, items: List<ToolItem>): View {
+        return LinearLayout(this).apply {
+            orientation = LinearLayout.VERTICAL
+            layoutParams = LinearLayout.LayoutParams(-1, -2).apply { bottomMargin = dp(10) }
+
+            addView(TextView(this@ToolsActivity).apply {
+                text = title
+                textSize = 13f
+                typeface = Typeface.DEFAULT_BOLD
+                setTextColor(0xFF444444.toInt())
+                setPadding(dp(2), dp(4), dp(2), dp(6))
+            })
+
+            val grid = GridLayout(this@ToolsActivity).apply {
+                columnCount = 2
+                layoutParams = LinearLayout.LayoutParams(-1, -2)
+            }
+            items.forEach { item -> grid.addView(buildToolCard(item)) }
+            addView(grid)
+        }
+    }
+
+    private fun buildToolCard(item: ToolItem): View {
+        return MaterialCardView(this).apply {
+            radius = dp(10).toFloat()
+            cardElevation = dp(2).toFloat()
+            setContentPadding(dp(10), dp(10), dp(10), dp(10))
+            layoutParams = GridLayout.LayoutParams(
+                GridLayout.spec(GridLayout.UNDEFINED, 1f),
+                GridLayout.spec(GridLayout.UNDEFINED, 1f)
+            ).apply {
+                width = 0
+                setMargins(dp(4), dp(4), dp(4), dp(4))
+            }
+            setOnClickListener { item.action() }
+
+            addView(LinearLayout(this@ToolsActivity).apply {
+                orientation = LinearLayout.VERTICAL
+                addView(ImageView(this@ToolsActivity).apply {
+                    layoutParams = LinearLayout.LayoutParams(dp(28), dp(28))
+                    setImageResource(item.icon)
+                    setColorFilter(item.color, PorterDuff.Mode.SRC_IN)
+                })
+                addView(TextView(this@ToolsActivity).apply {
+                    text = item.label
+                    textSize = 13f
+                    typeface = Typeface.DEFAULT_BOLD
+                    setTextColor(0xFF222222.toInt())
+                    setPadding(0, dp(6), 0, dp(2))
+                })
+                addView(TextView(this@ToolsActivity).apply {
+                    text = item.desc
+                    textSize = 11f
+                    setTextColor(0xFF888888.toInt())
+                })
+            })
+        }
+    }
 
     data class ToolItem(val label: String, val color: Int, val icon: Int, val desc: String, val action: () -> Unit)
 
@@ -600,7 +730,7 @@ class ToolsActivity : AppCompatActivity() {
                 .setPositiveButton("Open") { _, _ ->
                     val openUri = try {
                         androidx.core.content.FileProvider.getUriForFile(
-                            this@ToolsActivity, "$packageName.provider", fileForOpen
+                            this@ToolsActivity, "$packageName.fileprovider", fileForOpen
                         )
                     } catch (_: Exception) { Uri.fromFile(fileForOpen) }
                     ViewerActivity.start(this@ToolsActivity, openUri)
@@ -608,7 +738,7 @@ class ToolsActivity : AppCompatActivity() {
                 .setNeutralButton("Share") { _, _ ->
                     try {
                         val uri = androidx.core.content.FileProvider.getUriForFile(
-                            this@ToolsActivity, "$packageName.provider", fileForOpen
+                            this@ToolsActivity, "$packageName.fileprovider", fileForOpen
                         )
                         startActivity(Intent.createChooser(Intent(Intent.ACTION_SEND).apply {
                             type = "application/pdf"

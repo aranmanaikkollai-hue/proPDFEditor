@@ -3,8 +3,8 @@ package com.propdfeditor.ui.signature
 import android.os.Bundle
 import android.view.MenuItem
 import androidx.appcompat.app.AppCompatActivity
-import com.propdf.editor.R
-import com.propdf.editor.databinding.ActivityDrawSignatureBinding
+import com.propdfeditor.R
+import com.propdfeditor.databinding.ActivityDrawSignatureBinding
 import dagger.hilt.android.AndroidEntryPoint
 
 @AndroidEntryPoint

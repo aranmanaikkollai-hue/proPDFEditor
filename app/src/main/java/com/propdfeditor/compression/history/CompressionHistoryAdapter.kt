@@ -6,7 +6,7 @@ import androidx.recyclerview.widget.DiffUtil
 import androidx.recyclerview.widget.ListAdapter
 import androidx.recyclerview.widget.RecyclerView
 import com.propdf.core.data.local.CompressionHistoryEntity
-import com.propdf.editor.databinding.ItemCompressionHistoryBinding
+import com.propdfeditor.databinding.ItemCompressionHistoryBinding
 import java.text.SimpleDateFormat
 import java.util.Locale
 

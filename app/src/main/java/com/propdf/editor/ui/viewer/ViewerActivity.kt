@@ -18,7 +18,7 @@ import androidx.appcompat.app.AppCompatActivity
 import androidx.lifecycle.lifecycleScope
 import androidx.recyclerview.widget.LinearLayoutManager
 import androidx.recyclerview.widget.RecyclerView
-import com.propdf.editor.R
+import com.propdfeditor.R
 import com.propdf.editor.core.CrashGuard
 import com.propdf.editor.core.GpuOptimizer
 import com.propdf.editor.core.cache.LruBitmapCache
@@ -53,9 +53,12 @@ import javax.inject.Inject
 class ViewerActivity : AppCompatActivity() {
 
     @Inject lateinit var pdfOperationsManager: PdfOperationsManager
+    @Inject lateinit var pdfOperationsRepository: com.propdf.core.domain.repository.PdfOperationsRepository
     @Inject lateinit var ocrManager: com.propdf.editor.data.repository.OcrManager
     @Inject lateinit var bitmapPool: BitmapPool
     @Inject lateinit var bitmapCache: LruBitmapCache
+    @Inject lateinit var bookmarkDao: com.propdf.core.data.local.dao.BookmarkDao
+    @Inject lateinit var annotationDao: com.propdf.annotations.persistence.AnnotationDao
 
     // ─── State ─────────────────────────────────────────────────────
     private var pdfUri: Uri? = null
@@ -73,6 +76,8 @@ class ViewerActivity : AppCompatActivity() {
     // Annotation state
     private val annotationManager = AnnotationManager()
     private val annotOverlays = mutableMapOf<Int, AnnotOverlay>()
+    // In-memory cache of bookmarked page indices for the currently-open document,
+    // loaded from and persisted to BookmarkDao (see loadBookmarks()/toggleBookmark()).
     private val bookmarkedPages = mutableSetOf<Int>()
     private var annotToolbarExpanded = false
     private var activeAnnotGroup = "markup"
@@ -139,8 +144,14 @@ class ViewerActivity : AppCompatActivity() {
         loadAnnotationsFromCache()
     }
 
+    override fun onPause() {
+        super.onPause()
+        persistAnnotationCache()
+    }
+
     override fun onDestroy() {
         super.onDestroy()
+        persistAnnotationCache()
         backgroundRenderer?.close()
         ocrManager.release()
         // Clear annotation bitmaps
@@ -198,6 +209,7 @@ class ViewerActivity : AppCompatActivity() {
             setPadding(0, dp(3), 0, dp(3))
             text = "Loading..."
             setOnClickListener { showGoToPageDialog() }
+            setOnLongClickListener { toggleBookmark(); true }
         }
         navStrip.addView(pageCounter)
         navStrip.addView(ImageButton(this).apply {
@@ -287,6 +299,51 @@ class ViewerActivity : AppCompatActivity() {
             withContext(Dispatchers.Main) {
                 pageCounter.text = "Page 1 of $totalPages"
                 setupRecyclerView()
+            }
+
+            loadBookmarks(uri)
+        }
+    }
+
+    private fun loadBookmarks(uri: Uri) {
+        CrashGuard.safeLaunch(lifecycleScope, ThreadPoolManager.IoDispatcher) {
+            val pages = try {
+                bookmarkDao.getBookmarkedPages(uri.toString())
+            } catch (_: Exception) {
+                emptyList()
+            }
+            withContext(Dispatchers.Main) {
+                bookmarkedPages.clear()
+                bookmarkedPages.addAll(pages)
+                updatePageCounter()
+            }
+        }
+    }
+
+    private fun toggleBookmark() {
+        val uri = pdfUri ?: return
+        val page = currentPage
+        val isBookmarked = bookmarkedPages.contains(page)
+        // Update the in-memory set and UI immediately; persist in the background.
+        if (isBookmarked) bookmarkedPages.remove(page) else bookmarkedPages.add(page)
+        updatePageCounter()
+        toast(if (isBookmarked) "Bookmark removed" else "Bookmark added")
+
+        CrashGuard.safeLaunch(lifecycleScope, ThreadPoolManager.IoDispatcher) {
+            try {
+                if (isBookmarked) {
+                    bookmarkDao.removeBookmark(uri.toString(), page)
+                } else {
+                    bookmarkDao.addBookmark(
+                        com.propdf.core.data.entity.BookmarkEntity(
+                            uriString = uri.toString(),
+                            pageIndex = page
+                        )
+                    )
+                }
+            } catch (_: Exception) {
+                // Persistence failed silently; in-memory state still reflects the
+                // user's toggle for this session, so the UI doesn't lie to them.
             }
         }
     }
@@ -389,19 +446,37 @@ class ViewerActivity : AppCompatActivity() {
         }
     }
 
-    private fun extractPageText(pageIndex: Int): String {
+    private suspend fun extractPageText(pageIndex: Int): String {
         pageTextCache[pageIndex]?.let { return it }
         val file = pdfFile ?: return ""
-        return try {
+        val embedded = try {
             PDDocument.load(file).use { doc ->
                 val stripper = PDFTextStripper()
                 stripper.startPage = pageIndex + 1
                 stripper.endPage = pageIndex + 1
-                val text = stripper.getText(doc).trim()
-                pageTextCache[pageIndex] = text
-                text
+                stripper.getText(doc).trim()
             }
         } catch (_: Exception) { "" }
+
+        if (embedded.isNotEmpty()) {
+            pageTextCache[pageIndex] = embedded
+            return embedded
+        }
+
+        // No embedded text layer on this page (a scanned/image-only page is the
+        // common case) — PDFBox alone would silently report no matches here even
+        // if the page clearly contains text. Fall back to on-device OCR against
+        // the same rendered bitmap the viewer already displays, so search works
+        // on scanned documents too. Result is cached like the embedded-text path,
+        // so this cost is paid at most once per page per session.
+        val ocrText = try {
+            val screenW = resources.displayMetrics.widthPixels - dp(16)
+            val bitmap = backgroundRenderer?.getPage(pageIndex, screenW)
+            bitmap?.let { ocrManager.recognize(it) }?.trim() ?: ""
+        } catch (_: Exception) { "" }
+
+        pageTextCache[pageIndex] = ocrText
+        return ocrText
     }
 
     // ─── Navigation ────────────────────────────────────────────────
@@ -549,16 +624,222 @@ class ViewerActivity : AppCompatActivity() {
     }
 
     // ... (remaining annotation UI methods preserved with optimizations)
-    private fun buildSettingsPill(): FrameLayout { /* Preserved from original */ 
-        return FrameLayout(this) // Placeholder — full implementation preserved
+    private fun buildSettingsPill(): FrameLayout {
+        val container = FrameLayout(this).apply {
+            setBackgroundColor(Color.parseColor("#1A1A1A"))
+        }
+        val row = LinearLayout(this).apply {
+            orientation = LinearLayout.HORIZONTAL
+            gravity = Gravity.CENTER_VERTICAL
+            setPadding(dp(10), dp(6), dp(10), dp(6))
+        }
+
+        val swatchScroll = HorizontalScrollView(this).apply {
+            isHorizontalScrollBarEnabled = false
+            layoutParams = LinearLayout.LayoutParams(0, dp(36), 1f)
+        }
+        val swatchRow = LinearLayout(this).apply {
+            orientation = LinearLayout.HORIZONTAL
+            gravity = Gravity.CENTER_VERTICAL
+        }
+        annotSwatchViews.clear()
+        COLOR_PALETTE.forEach { hex ->
+            val color = Color.parseColor(hex)
+            val swatch = View(this).apply {
+                layoutParams = LinearLayout.LayoutParams(dp(24), dp(24)).apply { marginEnd = dp(8) }
+                tag = color
+                setOnClickListener {
+                    activeColor = color
+                    annotSwatchViews.forEach { v -> applySwatchStyle(v, v.tag as Int, (v.tag as Int) == activeColor) }
+                }
+            }
+            applySwatchStyle(swatch, color, color == activeColor)
+            annotSwatchViews.add(swatch)
+            swatchRow.addView(swatch)
+        }
+        swatchScroll.addView(swatchRow)
+        row.addView(swatchScroll)
+
+        annotWeightValue = TextView(this).apply {
+            layoutParams = LinearLayout.LayoutParams(dp(28), -2)
+            text = strokeWidth.toInt().toString()
+            setTextColor(Color.parseColor("#ADC6FF"))
+            textSize = 11f
+            gravity = Gravity.CENTER
+            setOnClickListener { showStrokeWidthInputDialog() }
+        }
+        row.addView(annotWeightValue)
+
+        annotWeightBar = SeekBar(this).apply {
+            layoutParams = LinearLayout.LayoutParams(dp(90), -2).apply { marginStart = dp(4) }
+            max = 30
+            progress = strokeWidth.toInt().coerceIn(1, 30)
+            setOnSeekBarChangeListener(object : SeekBar.OnSeekBarChangeListener {
+                override fun onProgressChanged(sb: SeekBar?, value: Int, fromUser: Boolean) {
+                    if (!fromUser) return
+                    strokeWidth = value.coerceAtLeast(1).toFloat()
+                    annotWeightValue.text = strokeWidth.toInt().toString()
+                }
+                override fun onStartTrackingTouch(sb: SeekBar?) {}
+                override fun onStopTrackingTouch(sb: SeekBar?) {}
+            })
+        }
+        row.addView(annotWeightBar)
+
+        container.addView(row)
+        return container
     }
-    private fun buildAnnotGroupNav(): LinearLayout { /* Preserved */ return LinearLayout(this) }
-    private fun refreshAnnotSubMenu(groupId: String) { /* Preserved */ }
-    private fun rebuildAnnotGroupNav() { /* Preserved */ }
-    private fun buildAnnotToolCell(toolId: String): LinearLayout { /* Preserved */ return LinearLayout(this) }
-    private fun handleAnnotToolTap(toolId: String) { /* Preserved */ }
-    private fun applySwatchStyle(view: View, color: Int, isActive: Boolean) { /* Preserved */ }
-    private fun showStrokeWidthInputDialog() { /* Preserved */ }
+
+    private fun buildAnnotGroupNav(): LinearLayout {
+        return LinearLayout(this).apply {
+            orientation = LinearLayout.HORIZONTAL
+            setBackgroundColor(Color.parseColor("#1A1A1A"))
+            layoutParams = LinearLayout.LayoutParams(-1, -2)
+            ANNOT_GROUPS.keys.forEach { groupId ->
+                addView(TextView(this@ViewerActivity).apply {
+                    layoutParams = LinearLayout.LayoutParams(0, dp(36), 1f)
+                    text = groupId.replaceFirstChar { it.uppercase() }
+                    textSize = 11f
+                    gravity = Gravity.CENTER
+                    typeface = Typeface.DEFAULT_BOLD
+                    setTextColor(
+                        if (groupId == activeAnnotGroup) Color.parseColor("#ADC6FF")
+                        else Color.parseColor("#777777")
+                    )
+                    setOnClickListener {
+                        if (activeAnnotGroup == groupId) return@setOnClickListener
+                        activeAnnotGroup = groupId
+                        activeTool = null
+                        rebuildAnnotGroupNav()
+                        refreshAnnotSubMenu(groupId)
+                    }
+                })
+            }
+        }
+    }
+
+    private fun rebuildAnnotGroupNav() {
+        if (!::annotGroupNavBar.isInitialized) return
+        val parent = annotGroupNavBar.parent as? ViewGroup ?: return
+        val idx = parent.indexOfChild(annotGroupNavBar)
+        parent.removeView(annotGroupNavBar)
+        annotGroupNavBar = buildAnnotGroupNav()
+        parent.addView(annotGroupNavBar, idx)
+    }
+
+    private fun refreshAnnotSubMenu(groupId: String) {
+        if (!::annotSubMenuRow.isInitialized) return
+        annotSubMenuRow.removeAllViews()
+        val tools = ANNOT_GROUPS[groupId] ?: return
+        tools.forEach { toolId -> annotSubMenuRow.addView(buildAnnotToolCell(toolId)) }
+    }
+
+    private fun buildAnnotToolCell(toolId: String): LinearLayout {
+        val isActive = activeTool == toolId
+        return LinearLayout(this).apply {
+            orientation = LinearLayout.VERTICAL
+            gravity = Gravity.CENTER
+            layoutParams = LinearLayout.LayoutParams(dp(56), dp(48)).apply { marginEnd = dp(4) }
+            background = GradientDrawable().apply {
+                setColor(if (isActive) Color.parseColor("#2D3A5A") else Color.TRANSPARENT)
+                cornerRadius = dp(8).toFloat()
+            }
+            addView(TextView(this@ViewerActivity).apply {
+                text = TOOL_LABEL[toolId] ?: toolId
+                textSize = 11f
+                typeface = Typeface.DEFAULT_BOLD
+                gravity = Gravity.CENTER
+                setTextColor(if (isActive) Color.parseColor("#ADC6FF") else Color.parseColor("#CCCCCC"))
+            })
+            setOnClickListener { handleAnnotToolTap(toolId) }
+        }
+    }
+
+    private fun handleAnnotToolTap(toolId: String) {
+        when (toolId) {
+            "save" -> { saveAnnotations(); return }
+            "move_text", "move_shape" -> {
+                toast("Moving placed ${if (toolId == "move_text") "text" else "shapes"} isn't supported yet")
+                return
+            }
+            "text" -> { promptAndPlaceText(); return }
+            "stamp" -> { promptAndPlaceStamp(); return }
+        }
+        activeTool = if (activeTool == toolId) null else toolId
+        refreshAnnotSubMenu(activeAnnotGroup)
+    }
+
+    private fun promptAndPlaceText() {
+        val input = EditText(this).apply { hint = "Enter text"; setSingleLine(false) }
+        AlertDialog.Builder(this)
+            .setTitle("Add text")
+            .setView(input)
+            .setPositiveButton("Place") { _, _ ->
+                val text = input.text.toString().trim()
+                if (text.isEmpty()) return@setPositiveButton
+                annotationManager.add(
+                    Annotation(
+                        pageIndex = currentPage,
+                        type = AnnotationType.TEXT,
+                        points = listOf(PointF(dp(40).toFloat(), dp(60).toFloat())),
+                        color = activeColor,
+                        strokeWidth = strokeWidth,
+                        text = text
+                    )
+                )
+                pageAdapter.notifyItemChanged(currentPage)
+            }
+            .setNegativeButton("Cancel", null)
+            .show()
+    }
+
+    private fun promptAndPlaceStamp() {
+        val presets = arrayOf("APPROVED", "DRAFT", "CONFIDENTIAL", "REJECTED", "REVIEWED")
+        AlertDialog.Builder(this)
+            .setTitle("Add stamp")
+            .setItems(presets) { _, which ->
+                annotationManager.add(
+                    Annotation(
+                        pageIndex = currentPage,
+                        type = AnnotationType.STAMP,
+                        points = listOf(PointF(dp(40).toFloat(), dp(80).toFloat())),
+                        color = activeColor,
+                        strokeWidth = strokeWidth,
+                        text = presets[which]
+                    )
+                )
+                pageAdapter.notifyItemChanged(currentPage)
+            }
+            .setNegativeButton("Cancel", null)
+            .show()
+    }
+
+    private fun applySwatchStyle(view: View, color: Int, isActive: Boolean) {
+        view.background = GradientDrawable().apply {
+            shape = GradientDrawable.OVAL
+            setColor(color)
+            if (isActive) setStroke(dp(2), Color.WHITE) else setStroke(0, Color.TRANSPARENT)
+        }
+    }
+
+    private fun showStrokeWidthInputDialog() {
+        val input = EditText(this).apply {
+            inputType = android.text.InputType.TYPE_CLASS_NUMBER
+            setText(strokeWidth.toInt().toString())
+            setSelectAllOnFocus(true)
+        }
+        AlertDialog.Builder(this)
+            .setTitle("Stroke width (1-30)")
+            .setView(input)
+            .setPositiveButton("Set") { _, _ ->
+                val v = input.text.toString().toIntOrNull()?.coerceIn(1, 30) ?: return@setPositiveButton
+                strokeWidth = v.toFloat()
+                if (::annotWeightBar.isInitialized) annotWeightBar.progress = v
+                if (::annotWeightValue.isInitialized) annotWeightValue.text = v.toString()
+            }
+            .setNegativeButton("Cancel", null)
+            .show()
+    }
 
     // ─── Annotation Data Model ───────────────────────────────────
     enum class AnnotationType {
@@ -697,6 +978,7 @@ class ViewerActivity : AppCompatActivity() {
                 MotionEvent.ACTION_DOWN -> {
                     livePoints.clear()
                     livePoints.add(PointF(ev.x, ev.y))
+                    liveTool = type
                     performHapticFeedback(HapticFeedbackConstants.VIRTUAL_KEY)
                 }
                 MotionEvent.ACTION_MOVE -> {
@@ -710,6 +992,7 @@ class ViewerActivity : AppCompatActivity() {
                         commitAnnotation(type)
                     }
                     livePoints.clear()
+                    liveTool = null
                     invalidate()
                 }
             }
@@ -888,18 +1171,155 @@ class ViewerActivity : AppCompatActivity() {
             timeoutMs = 120000L,
             onError = { toast("Save failed: ${it.message}") }
         ) {
-            toast("Saving annotations...")
-            val input = pdfFile ?: return@safeLaunch
+            withContext(Dispatchers.Main) { toast("Saving annotations...") }
+            val input = pdfFile ?: run {
+                withContext(Dispatchers.Main) { toast("No PDF loaded") }
+                return@safeLaunch
+            }
             val workingOut = File(cacheDir, "annotated_${System.currentTimeMillis()}.pdf")
+            val screenW = (resources.displayMetrics.widthPixels - dp(16)).toFloat()
 
-            // Use WorkManager for large saves to survive process death
-            val operation = if (saveAs) "save_as" else "overwrite"
-            // ... (iText-based annotation burning preserved from original)
+            // Per-page pixel-to-point scale, derived from the actual PDF page size.
+            // Annotation points were captured in on-screen pixels against a bitmap
+            // rendered at `screenW` pixels wide, so scale = screenPx / pagePt.
+            val pageScales = mutableMapOf<Int, Float>()
+            try {
+                android.os.ParcelFileDescriptor.open(input, android.os.ParcelFileDescriptor.MODE_READ_ONLY).use { pfd ->
+                    PdfRenderer(pfd).use { renderer ->
+                        for (i in 0 until renderer.pageCount) {
+                            renderer.openPage(i).use { page ->
+                                pageScales[i] = if (page.width > 0) screenW / page.width else 1f
+                            }
+                        }
+                    }
+                }
+            } catch (e: Exception) {
+                withContext(Dispatchers.Main) { toast("Save failed: ${e.message}") }
+                return@safeLaunch
+            }
 
-            withContext(Dispatchers.Main) {
-                toast("Saved to Downloads/ProPDF")
+            val strokesByPage = mutableMapOf<Int, Pair<List<com.propdf.core.domain.model.AnnotationStroke>, Float>>()
+            val textsByPage = mutableMapOf<Int, Pair<List<com.propdf.core.domain.model.AnnotationText>, Float>>()
+            for (pageIdx in 0 until totalPages) {
+                val anns = annotationManager.get(pageIdx)
+                if (anns.isEmpty()) continue
+                val scale = pageScales[pageIdx] ?: (screenW / 612f) // fallback: US Letter width in points
+                val (strokes, texts) = mapAnnotationsForExport(anns)
+                if (strokes.isNotEmpty()) strokesByPage[pageIdx] = strokes to scale
+                if (texts.isNotEmpty()) textsByPage[pageIdx] = texts to scale
+            }
+
+            if (strokesByPage.isEmpty() && textsByPage.isEmpty()) {
+                withContext(Dispatchers.Main) { toast("No annotations to save") }
+                return@safeLaunch
+            }
+
+            val result = pdfOperationsRepository.saveAnnotations(input, workingOut, strokesByPage, textsByPage)
+            when (result) {
+                is com.propdf.core.domain.result.AppResult.Success -> {
+                    val saveResult = FileHelper.saveToDownloads(this@ViewerActivity, workingOut)
+                    withContext(Dispatchers.Main) {
+                        toast("Saved to ${saveResult.displayPath}")
+                        if (!saveAs) {
+                            // Point the open viewer at the newly saved file so further
+                            // edits/OCR/ops operate on the annotated version.
+                            pdfFile = saveResult.file ?: workingOut
+                        }
+                    }
+                }
+                is com.propdf.core.domain.result.AppResult.Error -> {
+                    withContext(Dispatchers.Main) { toast("Save failed: ${result.message}") }
+                }
+                else -> Unit
             }
         }
+    }
+
+    /**
+     * Maps this activity's local Annotation model onto the shared
+     * AnnotationStroke/AnnotationText models consumed by
+     * PdfOperationsRepository.saveAnnotations. Rect/circle tools only
+     * capture two corner points, so they're expanded into a closed
+     * polygon here since the shared exporter draws pathData as a
+     * straight polyline.
+     */
+    private fun mapAnnotationsForExport(
+        anns: List<Annotation>
+    ): Pair<List<com.propdf.core.domain.model.AnnotationStroke>, List<com.propdf.core.domain.model.AnnotationText>> {
+        val strokes = mutableListOf<com.propdf.core.domain.model.AnnotationStroke>()
+        val texts = mutableListOf<com.propdf.core.domain.model.AnnotationText>()
+
+        anns.forEach { ann ->
+            when (ann.type) {
+                AnnotationType.TEXT -> {
+                    val p = ann.points.firstOrNull() ?: return@forEach
+                    texts.add(
+                        com.propdf.core.domain.model.AnnotationText(
+                            x = p.x, y = p.y, text = ann.text.orEmpty(),
+                            color = ann.color, sizePx = ann.strokeWidth * 3f
+                        )
+                    )
+                }
+                AnnotationType.STAMP -> {
+                    val p = ann.points.firstOrNull() ?: return@forEach
+                    texts.add(
+                        com.propdf.core.domain.model.AnnotationText(
+                            x = p.x, y = p.y, text = ann.text.orEmpty(),
+                            color = Color.RED, sizePx = dp(32).toFloat()
+                        )
+                    )
+                }
+                AnnotationType.ERASER -> Unit // already removed from the store, nothing to burn
+                AnnotationType.RECT -> {
+                    if (ann.points.size < 2) return@forEach
+                    val a = ann.points[0]; val b = ann.points[1]
+                    val left = minOf(a.x, b.x); val right = maxOf(a.x, b.x)
+                    val top = minOf(a.y, b.y); val bottom = maxOf(a.y, b.y)
+                    val path = listOf(
+                        com.propdf.core.domain.model.PointF(left, top),
+                        com.propdf.core.domain.model.PointF(right, top),
+                        com.propdf.core.domain.model.PointF(right, bottom),
+                        com.propdf.core.domain.model.PointF(left, bottom),
+                        com.propdf.core.domain.model.PointF(left, top)
+                    )
+                    strokes.add(
+                        com.propdf.core.domain.model.AnnotationStroke(
+                            pathData = path, color = ann.color, strokeWidth = ann.strokeWidth, tool = "rect"
+                        )
+                    )
+                }
+                AnnotationType.CIRCLE -> {
+                    if (ann.points.size < 2) return@forEach
+                    val a = ann.points[0]; val b = ann.points[1]
+                    val cx = (a.x + b.x) / 2f; val cy = (a.y + b.y) / 2f
+                    val rx = kotlin.math.abs(b.x - a.x) / 2f; val ry = kotlin.math.abs(b.y - a.y) / 2f
+                    val steps = 32
+                    val path = (0..steps).map { i ->
+                        val theta = 2.0 * Math.PI * i / steps
+                        com.propdf.core.domain.model.PointF(
+                            (cx + rx * kotlin.math.cos(theta)).toFloat(),
+                            (cy + ry * kotlin.math.sin(theta)).toFloat()
+                        )
+                    }
+                    strokes.add(
+                        com.propdf.core.domain.model.AnnotationStroke(
+                            pathData = path, color = ann.color, strokeWidth = ann.strokeWidth, tool = "circle"
+                        )
+                    )
+                }
+                else -> {
+                    // freehand, highlight, underline, strikeout, arrow -> direct polyline
+                    val path = ann.points.map { com.propdf.core.domain.model.PointF(it.x, it.y) }
+                    strokes.add(
+                        com.propdf.core.domain.model.AnnotationStroke(
+                            pathData = path, color = ann.color, strokeWidth = ann.strokeWidth,
+                            tool = ann.type.name.lowercase()
+                        )
+                    )
+                }
+            }
+        }
+        return strokes to texts
     }
 
     // ─── Helpers ───────────────────────────────────────────────────
@@ -934,15 +1354,328 @@ class ViewerActivity : AppCompatActivity() {
     private fun toast(msg: String) = Toast.makeText(this, msg, Toast.LENGTH_SHORT).show()
     private fun dp(v: Int) = (v * resources.displayMetrics.density).toInt()
 
-    private fun toggleSearchBar() { /* Preserved */ }
-    private fun hideSearchBar() { /* Preserved */ }
-    private fun buildSearchBar(): LinearLayout { return LinearLayout(this) /* Preserved */ }
-    private fun updateSearchCounter() { /* Preserved */ }
-    private fun showReadingModeDialog() { /* Preserved */ }
-    private fun showOcrMenu() { /* Preserved */ }
-    private fun showPdfOpsMenu() { /* Preserved */ }
-    private fun loadAnnotationsFromCache() { /* Preserved */ }
-    private fun persistAnnotationCache() { /* Preserved */ }
+    private fun toggleSearchBar() {
+        if (searchBar.visibility == View.VISIBLE) hideSearchBar() else showSearchBar()
+    }
+
+    private fun showSearchBar() {
+        searchBar.visibility = View.VISIBLE
+        searchInput.requestFocus()
+        (getSystemService(Context.INPUT_METHOD_SERVICE) as InputMethodManager)
+            .showSoftInput(searchInput, InputMethodManager.SHOW_IMPLICIT)
+    }
+
+    private fun hideSearchBar() {
+        searchBar.visibility = View.GONE
+        searchResults = emptyList()
+        searchResultIdx = 0
+        lastSearchQuery = ""
+        hideKeyboard()
+    }
+
+    private fun buildSearchBar(): LinearLayout {
+        return LinearLayout(this).apply {
+            orientation = LinearLayout.HORIZONTAL
+            gravity = Gravity.CENTER_VERTICAL
+            visibility = View.GONE
+            setBackgroundColor(Color.parseColor("#1A1A1A"))
+            setPadding(dp(10), dp(6), dp(10), dp(6))
+            layoutParams = LinearLayout.LayoutParams(-1, -2)
+
+            searchInput = EditText(this@ViewerActivity).apply {
+                layoutParams = LinearLayout.LayoutParams(0, -2, 1f)
+                hint = "Search in document"
+                setHintTextColor(Color.parseColor("#777777"))
+                setTextColor(Color.parseColor("#FFFFFF"))
+                setSingleLine(true)
+                imeOptions = EditorInfo.IME_ACTION_SEARCH
+                background = null
+                setOnEditorActionListener { _, actionId, _ ->
+                    if (actionId == EditorInfo.IME_ACTION_SEARCH) { runSearch(); true } else false
+                }
+            }
+            addView(searchInput)
+
+            searchCountLabel = TextView(this@ViewerActivity).apply {
+                text = ""
+                textSize = 11f
+                setTextColor(Color.parseColor("#ADC6FF"))
+                setPadding(dp(6), 0, dp(6), 0)
+            }
+            addView(searchCountLabel)
+
+            addView(buildIconBtn(android.R.drawable.ic_media_previous, "Prev", Color.parseColor("#ADC6FF")) {
+                if (searchResults.isEmpty()) return@buildIconBtn
+                searchResultIdx = (searchResultIdx - 1 + searchResults.size) % searchResults.size
+                updateSearchCounter()
+                scrollToPage(searchResults[searchResultIdx])
+            })
+            addView(buildIconBtn(android.R.drawable.ic_media_next, "Next", Color.parseColor("#ADC6FF")) {
+                if (searchResults.isEmpty()) return@buildIconBtn
+                searchResultIdx = (searchResultIdx + 1) % searchResults.size
+                updateSearchCounter()
+                scrollToPage(searchResults[searchResultIdx])
+            })
+            addView(buildIconBtn(android.R.drawable.ic_menu_close_clear_cancel, "Close", Color.parseColor("#ADC6FF")) {
+                hideSearchBar()
+            })
+        }
+    }
+
+    private fun updateSearchCounter() {
+        if (!::searchCountLabel.isInitialized) return
+        searchCountLabel.text = if (searchResults.isEmpty()) "0/0" else "${searchResultIdx + 1}/${searchResults.size}"
+    }
+    private var nightModeEnabled = false
+
+    private fun showReadingModeDialog() {
+        val options = arrayOf("Normal", "Night mode")
+        val current = if (nightModeEnabled) 1 else 0
+        AlertDialog.Builder(this)
+            .setTitle("Reading mode")
+            .setSingleChoiceItems(options, current) { dialog, which ->
+                nightModeEnabled = which == 1
+                if (::pageAdapter.isInitialized) pageAdapter.setNightMode(nightModeEnabled)
+                dialog.dismiss()
+            }
+            .setNegativeButton("Cancel", null)
+            .show()
+    }
+
+    private fun showOcrMenu() {
+        val options = arrayOf("Extract text from this page", "Extract text from all pages")
+        AlertDialog.Builder(this)
+            .setTitle("OCR")
+            .setItems(options) { _, which ->
+                if (which == 0) ocrCurrentPage() else ocrAllPages()
+            }
+            .setNegativeButton("Cancel", null)
+            .show()
+    }
+
+    private fun ocrCurrentPage() {
+        CrashGuard.safeLaunch(lifecycleScope, ThreadPoolManager.BackgroundDispatcher,
+            onError = { toast("OCR failed: ${it.message}") }
+        ) {
+            val renderer = backgroundRenderer ?: return@safeLaunch
+            val screenW = resources.displayMetrics.widthPixels
+            val bitmap = renderer.getPage(currentPage, screenW) ?: run {
+                withContext(Dispatchers.Main) { toast("Could not render page for OCR") }
+                return@safeLaunch
+            }
+            val text = ocrManager.recognize(bitmap)
+            withContext(Dispatchers.Main) { showOcrResultDialog(text, "Page ${currentPage + 1}") }
+        }
+    }
+
+    private fun ocrAllPages() {
+        CrashGuard.safeLaunch(lifecycleScope, ThreadPoolManager.BackgroundDispatcher, timeoutMs = 180000L,
+            onError = { toast("OCR failed: ${it.message}") }
+        ) {
+            withContext(Dispatchers.Main) { toast("Running OCR on $totalPages pages...") }
+            val renderer = backgroundRenderer ?: return@safeLaunch
+            val screenW = resources.displayMetrics.widthPixels
+            val builder = StringBuilder()
+            for (i in 0 until totalPages) {
+                val bitmap = renderer.getPage(i, screenW) ?: continue
+                val text = ocrManager.recognize(bitmap)
+                if (text.isNotBlank()) builder.append("--- Page ${i + 1} ---\n").append(text).append("\n\n")
+            }
+            withContext(Dispatchers.Main) { showOcrResultDialog(builder.toString(), "All pages") }
+        }
+    }
+
+    private fun showOcrResultDialog(text: String, label: String) {
+        if (text.isBlank()) { toast("No text detected"); return }
+        val display = TextView(this).apply {
+            setPadding(dp(20), dp(10), dp(20), dp(10))
+            setTextIsSelectable(true)
+            textSize = 13f
+            setTextColor(Color.parseColor("#DDDDDD"))
+            this.text = text
+        }
+        val scroll = ScrollView(this).apply {
+            layoutParams = LinearLayout.LayoutParams(-1, dp(400))
+            addView(display)
+        }
+        AlertDialog.Builder(this)
+            .setTitle("OCR result — $label")
+            .setView(scroll)
+            .setPositiveButton("Copy") { _, _ ->
+                val clipboard = getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager
+                clipboard.setPrimaryClip(ClipData.newPlainText("OCR text", text))
+                toast("Copied to clipboard")
+            }
+            .setNegativeButton("Close", null)
+            .show()
+    }
+
+    private fun showPdfOpsMenu() {
+        val options = arrayOf(
+            "Compress PDF", "Add watermark", "Add page numbers",
+            "Rotate current page", "Delete current page"
+        )
+        AlertDialog.Builder(this)
+            .setTitle("PDF tools")
+            .setItems(options) { _, which ->
+                when (which) {
+                    0 -> runPdfOp("Compressing...") { input, output ->
+                        pdfOperationsManager.compressPdf(input, output)
+                    }
+                    1 -> promptWatermarkText()
+                    2 -> runPdfOp("Adding page numbers...") { input, output ->
+                        pdfOperationsManager.addPageNumbers(input, output)
+                    }
+                    3 -> runPdfOp("Rotating page...") { input, output ->
+                        pdfOperationsManager.rotatePages(input, output, mapOf(currentPage to 90))
+                    }
+                    4 -> confirmDeleteCurrentPage()
+                }
+            }
+            .setNegativeButton("Cancel", null)
+            .show()
+    }
+
+    private fun promptWatermarkText() {
+        val input = EditText(this).apply { hint = "Watermark text"; setSingleLine(true) }
+        AlertDialog.Builder(this)
+            .setTitle("Add watermark")
+            .setView(input)
+            .setPositiveButton("Add") { _, _ ->
+                val text = input.text.toString().trim()
+                if (text.isEmpty()) { toast("Enter watermark text"); return@setPositiveButton }
+                runPdfOp("Adding watermark...") { in_, out ->
+                    pdfOperationsManager.addTextWatermark(in_, out, text)
+                }
+            }
+            .setNegativeButton("Cancel", null)
+            .show()
+    }
+
+    private fun confirmDeleteCurrentPage() {
+        if (totalPages <= 1) { toast("Cannot delete the only page"); return }
+        AlertDialog.Builder(this)
+            .setTitle("Delete page ${currentPage + 1}?")
+            .setMessage("This cannot be undone.")
+            .setPositiveButton("Delete") { _, _ ->
+                runPdfOp("Deleting page...") { input, output ->
+                    pdfOperationsManager.deletePages(input, output, listOf(currentPage))
+                }
+            }
+            .setNegativeButton("Cancel", null)
+            .show()
+    }
+
+    private fun runPdfOp(progressMsg: String, op: suspend (File, File) -> Result<File>) {
+        val input = pdfFile ?: run { toast("No PDF loaded"); return }
+        CrashGuard.safeLaunch(lifecycleScope, ThreadPoolManager.BackgroundDispatcher,
+            timeoutMs = 120000L,
+            onError = { toast("Operation failed: ${it.message}") }
+        ) {
+            withContext(Dispatchers.Main) { toast(progressMsg) }
+            val output = File(cacheDir, "pdfop_${System.currentTimeMillis()}.pdf")
+            val result = op(input, output)
+            result.onSuccess { newFile ->
+                withContext(Dispatchers.Main) {
+                    pdfFile = newFile
+                    toast("Done — reloading")
+                    backgroundRenderer?.close()
+                    backgroundRenderer = BackgroundPdfRenderer(newFile, bitmapCache, bitmapPool)
+                    totalPages = backgroundRenderer?.pageCount ?: totalPages
+                    setupRecyclerView()
+                    updatePageCounter()
+                }
+            }.onFailure {
+                withContext(Dispatchers.Main) { toast("Operation failed: ${it.message}") }
+            }
+        }
+    }
+    /**
+     * Legacy cache file location, kept only as a one-time migration source (see
+     * loadAnnotationsFromCache()) for annotations saved by builds before this change.
+     * New annotation data is no longer written here.
+     */
+    private fun annotationCacheFile(): File? {
+        val uri = pdfUri ?: return null
+        val key = uri.toString().hashCode().toString()
+        val dir = File(filesDir, "annotation_cache").apply { mkdirs() }
+        return File(dir, "$key.json")
+    }
+
+    private fun annotationBlobId(uri: Uri): String = "viewer_blob_${uri.toString().hashCode()}"
+
+    private fun loadAnnotationsFromCache() {
+        CrashGuard.safeLaunch(lifecycleScope, ThreadPoolManager.IoDispatcher) {
+            val uri = pdfUri ?: return@safeLaunch
+
+            var json = try {
+                annotationDao.getAnnotationById(annotationBlobId(uri))?.jsonData
+            } catch (_: Exception) {
+                null
+            }
+
+            if (json == null) {
+                // Durability migration: earlier builds stored annotations in a plain
+                // cache file, which the OS or the user can clear at any time. If one
+                // exists from before this change, adopt it into Room once rather than
+                // treating the document as having no annotations.
+                val legacyFile = annotationCacheFile()
+                if (legacyFile != null && legacyFile.exists()) {
+                    json = try { legacyFile.readText() } catch (_: Exception) { null }
+                    if (json != null) {
+                        persistAnnotationJson(uri, json)
+                        try { legacyFile.delete() } catch (_: Exception) { }
+                    }
+                }
+            }
+
+            val loadedJson = json ?: return@safeLaunch
+            withContext(Dispatchers.Main) {
+                annotationManager.fromJson(loadedJson)
+                updateUndoRedoBtns()
+                if (::pageAdapter.isInitialized) pageAdapter.notifyDataSetChanged()
+            }
+        }
+    }
+
+    private fun persistAnnotationCache() {
+        if (!annotationManager.hasAny()) return
+        val uri = pdfUri ?: return
+        persistAnnotationJson(uri, annotationManager.toJson())
+    }
+
+    /**
+     * Stores the viewer's full annotation-set JSON as a single Room row via the
+     * :annotations module's AnnotationDao (already linked into :app, previously
+     * unused). This is a durability upgrade only — it does not adopt :annotations'
+     * richer per-annotation-type schema (zIndex/isFlattened/etc.), which would
+     * require translating ViewerActivity's own annotation model into that module's
+     * Annotation sealed class hierarchy. That's tracked as a follow-up, not done
+     * here, to keep this change isolated to the persistence boundary.
+     */
+    private fun persistAnnotationJson(uri: Uri, json: String) {
+        CrashGuard.safeLaunch(lifecycleScope, ThreadPoolManager.IoDispatcher,
+            onError = { Log.w("ViewerActivity", "Failed to persist annotations", it) }
+        ) {
+            try {
+                val now = System.currentTimeMillis()
+                annotationDao.insertAnnotation(
+                    com.propdf.annotations.persistence.AnnotationEntity(
+                        id = annotationBlobId(uri),
+                        documentId = uri.toString(),
+                        documentPath = uri.toString(),
+                        pageIndex = -1,
+                        type = "VIEWER_JSON_BLOB",
+                        jsonData = json,
+                        zIndex = 0,
+                        createdAt = now,
+                        modifiedAt = now
+                    )
+                )
+            } catch (_: Exception) {
+            }
+        }
+    }
 
     companion object {
         const val EXTRA_URI = "extra_pdf_uri"

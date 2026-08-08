@@ -5,8 +5,8 @@ import android.view.ViewGroup
 import androidx.recyclerview.widget.DiffUtil
 import androidx.recyclerview.widget.ListAdapter
 import androidx.recyclerview.widget.RecyclerView
-import com.propdf.editor.R
-import com.propdf.editor.databinding.ItemVerificationResultBinding
+import com.propdfeditor.R
+import com.propdfeditor.databinding.ItemVerificationResultBinding
 import com.propdfeditor.core.pdf.signature.PdfSignatureEngine
 import java.text.SimpleDateFormat
 import java.util.Locale

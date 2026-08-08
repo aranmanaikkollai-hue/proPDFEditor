@@ -13,7 +13,9 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.vector.ImageVector
+import android.widget.Toast
 import androidx.compose.ui.input.nestedscroll.nestedScroll
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
 import androidx.navigation.NavController
 import com.propdf.editor.ui.theme.*
@@ -22,6 +24,7 @@ import com.propdf.editor.ui.theme.*
 @Composable
 fun ToolsScreen(navController: NavController) {
     val scrollBehavior = TopAppBarDefaults.pinnedScrollBehavior()
+    val context = LocalContext.current
 
     Scaffold(
         modifier = Modifier.nestedScroll(scrollBehavior.nestedScrollConnection),
@@ -60,7 +63,20 @@ fun ToolsScreen(navController: NavController) {
             )
 
             items(pdfTools.size) { index ->
-                ToolCard(tool = pdfTools[index], onClick = { navController.navigate("toolsActivity") })
+                val tool = pdfTools[index]
+                ToolCard(
+                    tool = tool,
+                    onClick = {
+                        if (tool.name == "Reorder Pages") {
+                            // TODO(P6 - Editor Improvements): ToolsActivity has no reorder
+                            // action yet. Wire this once it's implemented instead of opening
+                            // a screen with nothing relevant.
+                            Toast.makeText(context, "Reorder Pages is coming soon", Toast.LENGTH_SHORT).show()
+                        } else {
+                            navController.navigate("toolsActivity")
+                        }
+                    }
+                )
             }
 
             item {
@@ -80,7 +96,16 @@ fun ToolsScreen(navController: NavController) {
             )
 
             items(docTools.size) { index ->
-                ToolCard(tool = docTools[index], onClick = { if (docTools[index].name == "OCR Text") navController.navigate("ocr") else navController.navigate("toolsActivity") })
+                val tool = docTools[index]
+                ToolCard(
+                    tool = tool,
+                    onClick = {
+                        when (tool.name) {
+                            "OCR Text" -> navController.navigate("ocr")
+                            else -> navController.navigate("toolsActivity")
+                        }
+                    }
+                )
             }
         }
     }

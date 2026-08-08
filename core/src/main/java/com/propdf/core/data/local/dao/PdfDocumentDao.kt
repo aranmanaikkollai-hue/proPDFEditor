@@ -113,6 +113,9 @@ interface PdfDocumentDao {
     @Query("UPDATE pdf_documents SET is_favorite = :favorite WHERE id = :id")
     suspend fun setFavorite(id: Long, favorite: Boolean)
 
+    @Query("UPDATE pdf_documents SET file_name = :fileName WHERE id = :id")
+    suspend fun setFileName(id: Long, fileName: String)
+
     @Query("UPDATE pdf_documents SET is_hidden = :hidden WHERE id = :id")
     suspend fun setHidden(id: Long, hidden: Boolean)
 
@@ -164,4 +167,13 @@ interface PdfDocumentDao {
 
     @Query("SELECT COUNT(*) FROM pdf_documents WHERE is_in_recycle_bin = 0 AND is_hidden = 0")
     suspend fun getVisibleDocumentCount(): Int
+
+    @Query("SELECT * FROM pdf_documents WHERE is_in_recycle_bin = 0")
+    suspend fun getAllDocumentsOnce(): List<PdfDocumentEntity>
+
+    @Query("UPDATE pdf_documents SET document_type = :documentType, is_scanned = :isScanned WHERE id = :id")
+    suspend fun updateClassification(id: Long, documentType: String?, isScanned: Boolean)
+
+    @Query("UPDATE pdf_documents SET cloud_provider = :provider, cloud_id = :cloudId, sync_status = :syncStatus WHERE id = :id")
+    suspend fun updateCloudInfo(id: Long, provider: String?, cloudId: String?, syncStatus: String?)
 }

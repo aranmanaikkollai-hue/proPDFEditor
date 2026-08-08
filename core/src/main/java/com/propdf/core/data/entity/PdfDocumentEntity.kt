@@ -79,5 +79,24 @@ data class PdfDocumentEntity(
     val metadataKeywords: String? = null,
     
     @ColumnInfo(name = "metadata_creation_date")
-    val metadataCreationDate: Long? = null
+    val metadataCreationDate: Long? = null,
+
+    // Added in v3 to let CloudSyncManager and SmartFolderEngine read/write
+    // core.pdf_documents directly instead of the app-local AppDatabase
+    // (which also holds CloudAccountEntity's OAuth tokens and can't safely
+    // be schema-migrated without risking a destructive wipe of those).
+    @ColumnInfo(name = "cloud_provider")
+    val cloudProvider: String? = null,
+
+    @ColumnInfo(name = "cloud_id")
+    val cloudId: String? = null,
+
+    @ColumnInfo(name = "sync_status")
+    val syncStatus: String? = null,
+
+    @ColumnInfo(name = "document_type")
+    val documentType: String? = null,
+
+    @ColumnInfo(name = "is_scanned", defaultValue = "0")
+    val isScanned: Boolean = false
 )

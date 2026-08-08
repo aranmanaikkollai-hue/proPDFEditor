@@ -34,8 +34,48 @@
         <item name="android:windowLightNavigationBar">false</item>
     </style>
 
+    <!-- AppCompat/MaterialComponents-descendant theme for the legacy View-based
+         (non-Compose) screens: ViewerActivity, DocumentScannerActivity,
+         ModernScannerActivity, OcrActivity, OcrCropActivity, ToolsActivity, the
+         signature suite, and SecurityActivity. These all extend AppCompatActivity
+         and use Material Components widgets (MaterialButton, etc.), but with no
+         android:theme override they were inheriting the <application> theme,
+         Theme.ProPDF.Starting -> Theme.SplashScreen, which is a plain framework
+         theme, not an AppCompat/MaterialComponents descendant. AppCompatActivity
+         throws IllegalArgumentException("You need to use a Theme.AppCompat theme
+         (or descendant) with this activity") as soon as it tries to install its
+         window (setContentView), which crashed every one of these screens
+         immediately on launch (splash briefly flickers, then crash). Only
+         MainActivity survived because it's a ComponentActivity that applies
+         ProPDFTheme itself in Compose code and calls installSplashScreen(), which
+         swaps to Theme.ProPDF (Compose/Material3-only) after the splash.
+         This theme mirrors Theme.ProPDF's color palette so the legacy screens
+         still look consistent with the rest of the app. -->
+    <style name="Theme.ProPDF.Classic" parent="Theme.MaterialComponents.DayNight.NoActionBar">
+        <item name="colorPrimary">@color/md_theme_dark_primary</item>
+        <item name="colorOnPrimary">@color/md_theme_dark_onPrimary</item>
+        <item name="colorPrimaryDark">@color/md_theme_dark_primaryContainer</item>
+        <item name="colorSecondary">@color/md_theme_dark_secondary</item>
+        <item name="colorOnSecondary">@color/md_theme_dark_onSecondary</item>
+        <item name="colorError">@color/md_theme_dark_error</item>
+        <item name="colorSurface">@color/md_theme_dark_surface</item>
+        <item name="colorOnSurface">@color/md_theme_dark_onSurface</item>
+        <item name="android:colorBackground">@color/md_theme_dark_background</item>
+        <item name="android:windowBackground">@color/md_theme_dark_background</item>
+        <item name="android:statusBarColor">@android:color/transparent</item>
+        <item name="android:navigationBarColor">@android:color/transparent</item>
+        <item name="android:windowLightStatusBar">false</item>
+        <item name="android:windowLightNavigationBar">false</item>
+    </style>
+
     <style name="Theme.ProPDF.Starting" parent="Theme.SplashScreen">
         <item name="windowSplashScreenBackground">@color/md_theme_dark_background</item>
+        <item name="windowSplashScreenAnimatedIcon">@drawable/ic_splash</item>
+        <item name="windowSplashScreenAnimationDuration">300</item>
+        <item name="postSplashScreenTheme">@style/Theme.ProPDF</item>
+    </style>
+    <style name="Theme.ProPDF.Splash" parent="Theme.SplashScreen">
+        <item name="windowSplashScreenBackground">@color/splash_background</item>
         <item name="windowSplashScreenAnimatedIcon">@drawable/ic_splash</item>
         <item name="windowSplashScreenAnimationDuration">300</item>
         <item name="postSplashScreenTheme">@style/Theme.ProPDF</item>

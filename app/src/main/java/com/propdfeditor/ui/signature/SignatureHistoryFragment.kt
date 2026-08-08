@@ -10,7 +10,7 @@ import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.lifecycleScope
 import androidx.lifecycle.repeatOnLifecycle
 import androidx.recyclerview.widget.LinearLayoutManager
-import com.propdf.editor.databinding.FragmentSignatureHistoryBinding
+import com.propdfeditor.databinding.FragmentSignatureHistoryBinding
 import com.propdfeditor.security.SignatureViewModel
 import dagger.hilt.android.AndroidEntryPoint
 import kotlinx.coroutines.launch
