@@ -1,14 +1,15 @@
 package com.propdfeditor
 
 import android.app.Application
+import android.util.Log
 import androidx.hilt.work.HiltWorkerFactory
 import androidx.work.Configuration
 import coil.ImageLoader
 import coil.ImageLoaderFactory
-import coil.disk.DiskCache
-import coil.memory.MemoryCache
-import com.google.firebase.crashlytics.FirebaseCrashlytics
-import com.propdfeditor.crashlytics.CrashlyticsTree
+import com.google.firebase.FirebaseApp
+import com.google.firebase.analytics.ktx.analytics
+import com.google.firebase.crashlytics.ktx.crashlytics
+import com.google.firebase.ktx.Firebase
 import dagger.hilt.android.HiltAndroidApp
 import timber.log.Timber
 import javax.inject.Inject
@@ -22,37 +23,46 @@ class ProPDFApplication : Application(), Configuration.Provider, ImageLoaderFact
     override val workManagerConfiguration: Configuration
         get() = Configuration.Builder()
             .setWorkerFactory(workerFactory)
-            .setMinimumLoggingLevel(android.util.Log.INFO)
+            .setMinimumLoggingLevel(if (BuildConfig.DEBUG) Log.DEBUG else Log.ERROR)
             .build()
-
-    override fun onCreate() {
-        super.onCreate()
-
-        if (BuildConfig.DEBUG) {
-            Timber.plant(Timber.DebugTree())
-        } else {
-            Timber.plant(CrashlyticsTree())
-            FirebaseCrashlytics.getInstance().setCrashlyticsCollectionEnabled(true)
-        }
-
-        // Log app startup for performance tracking
-        FirebaseCrashlytics.getInstance().log("App started, version: ${BuildConfig.VERSION_NAME}")
-    }
 
     override fun newImageLoader(): ImageLoader {
         return ImageLoader.Builder(this)
-            .memoryCache {
-                MemoryCache.Builder(this)
-                    .maxSizePercent(0.25)
-                    .build()
-            }
-            .diskCache {
-                DiskCache.Builder()
-                    .directory(cacheDir.resolve("image_cache"))
-                    .maxSizePercent(0.05)
-                    .build()
-            }
             .crossfade(true)
             .build()
+    }
+
+    override fun onCreate() {
+        super.onCreate()
+        
+        // Safe startup diagnostics
+        val startupStage = "Application.onCreate"
+        try {
+            if (BuildConfig.DEBUG) {
+                Timber.plant(Timber.DebugTree())
+            }
+            Timber.d("ProPDFApplication starting")
+
+            // Safe Firebase initialization — must not crash startup
+            safeInit("Firebase") { FirebaseApp.initializeApp(this) }
+            safeInit("FirebaseAnalytics") { Firebase.analytics.setAnalyticsCollectionEnabled(true) }
+            safeInit("FirebaseCrashlytics") { Firebase.crashlytics.setCrashlyticsCollectionEnabled(!BuildConfig.DEBUG) }
+
+            Timber.d("ProPDFApplication initialized successfully")
+        } catch (e: Throwable) {
+            // Last-resort logging if even Timber fails
+            Log.e("ProPDF", "Fatal error in $startupStage", e)
+            throw e
+        }
+    }
+
+    private fun safeInit(name: String, block: () -> Unit) {
+        try {
+            block()
+            Timber.d("$name initialized")
+        } catch (e: Throwable) {
+            Timber.e(e, "$name initialization failed — continuing without it")
+            // Do not rethrow; optional services must not block startup
+        }
     }
 }
