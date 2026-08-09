@@ -49,6 +49,11 @@
         tools:targetApi="34">
 
         <!-- ==================== MAIN ACTIVITY ==================== -->
+        <!--
+            launchMode="singleTask" ensures onNewIntent() is delivered for
+            warm-start external PDF requests instead of spawning duplicate
+            activity instances.
+        -->
         <activity
             android:name=".ui.main.MainActivity"
             android:exported="true"
@@ -56,13 +61,17 @@
             android:launchMode="singleTask"
             android:windowSoftInputMode="adjustResize"
             android:configChanges="orientation|screenSize|smallestScreenSize|screenLayout|keyboard|keyboardHidden">
-            
+
+            <!-- Launcher intent -->
             <intent-filter>
                 <action android:name="android.intent.action.MAIN" />
                 <category android:name="android.intent.category.LAUNCHER" />
             </intent-filter>
 
-            <!-- PDF MIME type deep link -->
+            <!--
+                PDF MIME type deep link via ACTION_VIEW.
+                Handles content:// and file:// URIs with application/pdf.
+            -->
             <intent-filter>
                 <action android:name="android.intent.action.VIEW" />
                 <category android:name="android.intent.category.DEFAULT" />
@@ -71,7 +80,10 @@
                 <data android:scheme="file" android:mimeType="application/pdf" />
             </intent-filter>
 
-            <!-- File extension fallback patterns -->
+            <!--
+                File extension fallback patterns for providers that do not
+                set a reliable MIME type.
+            -->
             <intent-filter>
                 <action android:name="android.intent.action.VIEW" />
                 <category android:name="android.intent.category.DEFAULT" />
@@ -83,6 +95,16 @@
                 <data android:pathPattern=".*\\..*\\.pdf" />
                 <data android:pathPattern=".*\\..*\\..*\\.pdf" />
                 <data android:pathPattern=".*\\..*\\..*\\..*\\.pdf" />
+            </intent-filter>
+
+            <!--
+                ACTION_SEND support for PDFs shared from other applications.
+                Added to complete external PDF workflow coverage.
+            -->
+            <intent-filter>
+                <action android:name="android.intent.action.SEND" />
+                <category android:name="android.intent.category.DEFAULT" />
+                <data android:mimeType="application/pdf" />
             </intent-filter>
 
             <!-- App shortcuts -->
