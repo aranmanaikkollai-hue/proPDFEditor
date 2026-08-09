@@ -6,7 +6,6 @@ import androidx.navigation.NavType
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.navArgument
-import androidx.navigation.navDeepLink
 import com.propdf.editor.ui.PdfEditorScreen
 import com.propdf.scanner.ui.ScannerScreen
 import com.propdf.viewer.ui.IntegratedPDFViewerScreen
@@ -73,11 +72,16 @@ fun AppNavigation(
                     type = NavType.IntType
                     defaultValue = 0
                 }
-            ),
-            deepLinks = listOf(
-                navDeepLink { uriPattern = "content://.*\\.pdf" },
-                navDeepLink { uriPattern = "file://.*\\.pdf" }
             )
+            // NOTE: External-app "open with proPDF" deep links were removed here.
+            // uriPattern = "content://.*\.pdf" has no {uri} placeholder, so Nav Compose
+            // throws IllegalArgumentException("... missing: [uri]") while building the
+            // graph — this crashed the app on every single launch, not just when a PDF
+            // was opened externally. In-app navigation to "viewer/{uri}?page={page}"
+            // already works via navController.navigate(...) elsewhere in this file.
+            // Re-add external open-with support via an explicit ACTION_VIEW intent
+            // filter + manual navigation in MainActivity instead of NavDeepLink,
+            // since the "uri" arg is URL-encoded and won't match a raw content:// URI.
         ) { backStackEntry ->
             val encodedUri = backStackEntry.arguments?.getString("uri") ?: ""
             val page = backStackEntry.arguments?.getInt("page") ?: 0
