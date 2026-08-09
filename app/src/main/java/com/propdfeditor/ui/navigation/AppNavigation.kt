@@ -1,6 +1,7 @@
 package com.propdfeditor.ui.navigation
 
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.ui.Modifier
 import androidx.navigation.NavType
 import androidx.navigation.compose.NavHost
@@ -24,14 +25,39 @@ import com.propdfeditor.ui.split.SplitScreen
 fun AppNavigation(
     navController: androidx.navigation.NavHostController,
     modifier: Modifier = Modifier,
-    startDestination: String = "home"
+    startDestination: String = "home",
+    pendingExternalUri: String? = null,
+    onExternalUriConsumed: () -> Unit = {}
 ) {
+    // -------------------------------------------------------------------------
+    // EXTERNAL PDF INTENT HANDLING
+    // When MainActivity receives an ACTION_VIEW / ACTION_SEND intent with a
+    // PDF URI, it stores the URI in pendingExternalUri. This LaunchedEffect
+    // navigates to the viewer once, then notifies MainActivity to clear the
+    // pending URI so it is not re-processed on recomposition.
+    // -------------------------------------------------------------------------
+    LaunchedEffect(pendingExternalUri) {
+        pendingExternalUri?.let { uri ->
+            val currentRoute = navController.currentDestination?.route
+            // Avoid duplicate navigation if already on viewer
+            if (currentRoute != "viewer/{uri}?page={page}") {
+                navController.navigate("viewer/${uri.encode()}?page=0") {
+                    popUpTo("home") { inclusive = false }
+                    launchSingleTop = true
+                }
+            }
+            onExternalUriConsumed()
+        }
+    }
+
     NavHost(
         navController = navController,
         startDestination = startDestination,
         modifier = modifier
     ) {
+        // =====================================================================
         // Home Dashboard
+        // =====================================================================
         composable("home") {
             HomeDashboardScreen(
                 onOpenFile = { uri ->
@@ -51,7 +77,9 @@ fun AppNavigation(
             )
         }
 
+        // =====================================================================
         // File Manager
+        // =====================================================================
         composable("files") {
             FileManagerScreen(
                 onOpenPdf = { uri ->
@@ -63,7 +91,31 @@ fun AppNavigation(
             )
         }
 
-        // PDF Viewer with deep links
+        // =====================================================================
+        // PDF Viewer
+        // =====================================================================
+        // CRITICAL FIX: Removed invalid deep-link declarations.
+        //
+        // The previous configuration contained:
+        //   deepLinks = listOf(
+        //       navDeepLink { uriPattern = "content://.*\\.pdf" },
+        //       navDeepLink { uriPattern = "file://.*\\.pdf" }
+        //   )
+        //
+        // These patterns are regex wildcards (.*) and do NOT provide a named
+        // {uri} argument that matches the route argument "uri". Jetpack
+        // Navigation validates this at graph-build time and throws:
+        //   IllegalArgumentException:
+        //   "Deep link content://.*\\.pdf can't be used to open destination
+        //    viewer/{uri}?page={page}"
+        //
+        // This caused a FATAL STARTUP CRASH on every launch — the NavHost
+        // could not be constructed, so Home was never reached.
+        //
+        // External PDF opening is now handled in MainActivity via
+        // Intent.ACTION_VIEW / ACTION_SEND intent filters, then passed safely
+        // through pendingExternalUri → LaunchedEffect → navController.navigate().
+        // =====================================================================
         composable(
             route = "viewer/{uri}?page={page}",
             arguments = listOf(
@@ -73,15 +125,6 @@ fun AppNavigation(
                     defaultValue = 0
                 }
             )
-            // NOTE: External-app "open with proPDF" deep links were removed here.
-            // uriPattern = "content://.*\.pdf" has no {uri} placeholder, so Nav Compose
-            // throws IllegalArgumentException("... missing: [uri]") while building the
-            // graph — this crashed the app on every single launch, not just when a PDF
-            // was opened externally. In-app navigation to "viewer/{uri}?page={page}"
-            // already works via navController.navigate(...) elsewhere in this file.
-            // Re-add external open-with support via an explicit ACTION_VIEW intent
-            // filter + manual navigation in MainActivity instead of NavDeepLink,
-            // since the "uri" arg is URL-encoded and won't match a raw content:// URI.
         ) { backStackEntry ->
             val encodedUri = backStackEntry.arguments?.getString("uri") ?: ""
             val page = backStackEntry.arguments?.getInt("page") ?: 0
@@ -104,7 +147,9 @@ fun AppNavigation(
             )
         }
 
+        // =====================================================================
         // Annotation mode viewer
+        // =====================================================================
         composable(
             route = "annotate/{uri}",
             arguments = listOf(navArgument("uri") { type = NavType.StringType })
@@ -122,7 +167,9 @@ fun AppNavigation(
             )
         }
 
+        // =====================================================================
         // Scanner
+        // =====================================================================
         composable("scanner") {
             ScannerScreen(
                 onPdfCreated = { uri ->
@@ -134,7 +181,9 @@ fun AppNavigation(
             )
         }
 
+        // =====================================================================
         // Tools Hub
+        // =====================================================================
         composable("tools") {
             ToolsHubScreen(
                 onNavigateToCompression = { navController.navigate("compression") },
@@ -145,12 +194,16 @@ fun AppNavigation(
             )
         }
 
+        // =====================================================================
         // Settings
+        // =====================================================================
         composable("settings") {
             SettingsScreen(navController = navController)
         }
 
+        // =====================================================================
         // PDF Editor
+        // =====================================================================
         composable(
             route = "editor/{uri}",
             arguments = listOf(navArgument("uri") { type = NavType.StringType })
@@ -167,7 +220,9 @@ fun AppNavigation(
             )
         }
 
+        // =====================================================================
         // Security Hub
+        // =====================================================================
         composable(
             route = "security/{uri}",
             arguments = listOf(navArgument("uri") { type = NavType.StringType })
@@ -179,7 +234,9 @@ fun AppNavigation(
             )
         }
 
+        // =====================================================================
         // Share
+        // =====================================================================
         composable(
             route = "share/{uri}",
             arguments = listOf(navArgument("uri") { type = NavType.StringType })
@@ -191,28 +248,36 @@ fun AppNavigation(
             )
         }
 
+        // =====================================================================
         // OCR Hub
+        // =====================================================================
         composable("ocr") {
             OcrHubScreen(
                 onNavigateBack = { navController.popBackStack() }
             )
         }
 
+        // =====================================================================
         // Compression
+        // =====================================================================
         composable("compression") {
             CompressionScreen(
                 onNavigateBack = { navController.popBackStack() }
             )
         }
 
+        // =====================================================================
         // Merge
+        // =====================================================================
         composable("merge") {
             MergeScreen(
                 onNavigateBack = { navController.popBackStack() }
             )
         }
 
+        // =====================================================================
         // Split
+        // =====================================================================
         composable("split") {
             SplitScreen(
                 onNavigateBack = { navController.popBackStack() }
