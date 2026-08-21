@@ -129,7 +129,7 @@ fun AppNavigation(
             val encodedUri = backStackEntry.arguments?.getString("uri") ?: ""
             val page = backStackEntry.arguments?.getInt("page") ?: 0
             IntegratedPDFViewerScreen(
-                documentUri = encodedUri.decode(),
+                documentUri = encodedUri, // already decoded once by Navigation Compose itself
                 initialPage = page,
                 onNavigateBack = { navController.popBackStack() },
                 onNavigateToEditor = { uri ->
@@ -156,7 +156,7 @@ fun AppNavigation(
         ) { backStackEntry ->
             val encodedUri = backStackEntry.arguments?.getString("uri") ?: ""
             IntegratedPDFViewerScreen(
-                documentUri = encodedUri.decode(),
+                documentUri = encodedUri, // already decoded once by Navigation Compose itself
                 initialPage = 0,
                 startInAnnotationMode = true,
                 onNavigateBack = { navController.popBackStack() },
@@ -210,7 +210,7 @@ fun AppNavigation(
         ) { backStackEntry ->
             val encodedUri = backStackEntry.arguments?.getString("uri") ?: ""
             PdfEditorScreen(
-                documentUri = encodedUri.decode(),
+                documentUri = encodedUri, // already decoded once by Navigation Compose itself
                 onNavigateBack = { navController.popBackStack() },
                 onSaveComplete = { uri ->
                     navController.navigate("viewer/${uri.encode()}") {
@@ -229,7 +229,7 @@ fun AppNavigation(
         ) { backStackEntry ->
             val encodedUri = backStackEntry.arguments?.getString("uri") ?: ""
             SecurityHubScreen(
-                documentUri = encodedUri.decode(),
+                documentUri = encodedUri, // already decoded once by Navigation Compose itself
                 onNavigateBack = { navController.popBackStack() }
             )
         }
@@ -243,7 +243,7 @@ fun AppNavigation(
         ) { backStackEntry ->
             val encodedUri = backStackEntry.arguments?.getString("uri") ?: ""
             ShareSheetScreen(
-                documentUri = encodedUri.decode(),
+                documentUri = encodedUri, // already decoded once by Navigation Compose itself
                 onNavigateBack = { navController.popBackStack() }
             )
         }
@@ -286,5 +286,36 @@ fun AppNavigation(
     }
 }
 
-private fun String.encode(): String = java.net.URLEncoder.encode(this, "UTF-8")
-private fun String.decode(): String = java.net.URLDecoder.decode(this, "UTF-8")
+// Navigation Compose (2.7.7) implements every composable() route as an
+// implicit deep link internally: when it matches the navigated route string
+// against the declared pattern (e.g. "viewer/{uri}?page={page}"), it parses
+// the route as a real android.net.Uri and applies Uri.decode() to each
+// captured path-segment argument automatically before it ever reaches
+// backStackEntry.arguments. That means the value returned by
+// arguments?.getString("uri") is ALREADY decoded once by Navigation itself.
+//
+// This file used to encode with java.net.URLEncoder (form/application-x-www-
+// form-urlencoded semantics: spaces -> '+', and -- critically -- it also
+// re-escapes any '%' that was already present in the URI, since URLEncoder
+// has no idea the input is itself a URI) and then manually called
+// java.net.URLDecoder.decode() a SECOND time after extracting the argument.
+// For a simple "content://authority/document/123" URI this round-trip
+// happened to cancel out, but real-world SAF/Downloads-provider URIs
+// routinely contain their own embedded percent-encoded segments (e.g.
+// ".../document/raw%3A%2Fstorage%2Femulated%2F0%2FDownload%2Ffile.pdf"). For
+// those, encoding with URLEncoder double-escaped the existing '%' characters,
+// Navigation's automatic single decode pass only unwound one layer of that,
+// and the subsequent manual URLDecoder.decode() then incorrectly decoded the
+// URI's own embedded %3A/%2F segments (which are not supposed to be touched
+// again), producing a string that no longer matched the exact Uri the app
+// held a persisted/transient read permission for -- SecurityException / "File
+// access has expired" on first open, even though the URI had just been picked
+// and granted moments earlier. Re-picking via "Choose PDF Again" appeared to
+// "fix" it only because that path sets the Uri directly from the picker's
+// ActivityResult in memory, bypassing this nav-route round trip entirely.
+//
+// Fix: encode with android.net.Uri.encode() (the counterpart Navigation's
+// internal Uri.decode() actually expects, and idempotent/correct for '%'
+// already present in a URI string), and do NOT decode a second time when
+// reading the argument back out -- Navigation has already decoded it once.
+private fun String.encode(): String = android.net.Uri.encode(this)
