@@ -41,7 +41,11 @@ class TileRenderer(
         if (!isActive) return@withContext null
 
         tileCache[tile.id]?.let { cached ->
-            if (!cached.isRecycled) return@withContext cached
+            if (!cached.isRecycled) {
+                tile.bitmapRef = cached
+                tile.isRendering = false
+                return@withContext cached
+            }
         }
 
         renderingMutex.withLock {
@@ -51,9 +55,13 @@ class TileRenderer(
             renderingTiles.add(tile.id)
         }
 
+        tile.isRendering = true
         try {
             renderSemaphore.acquire()
-            if (!isActive) return@withContext null
+            if (!isActive) {
+                tile.isRendering = false
+                return@withContext null
+            }
 
             val bitmap = bitmapPool.acquire(tile.tileSize, tile.tileSize)
             val canvas = Canvas(bitmap)
@@ -62,6 +70,7 @@ class TileRenderer(
             try {
                 if (!isActive) {
                     bitmapPool.release(bitmap)
+                    tile.isRendering = false
                     return@withContext null
                 }
 
@@ -86,15 +95,19 @@ class TileRenderer(
                 }
                 tileCache[tile.id] = bitmap
 
+                tile.bitmapRef = bitmap
+                tile.isRendering = false
                 return@withContext bitmap
             } finally {
                 page.close()
             }
         } catch (e: CancellationException) {
             Log.d(TAG, "Tile render cancelled: ${tile.id}")
+            tile.isRendering = false
             throw e
         } catch (e: Exception) {
             Log.e(TAG, "Failed to render tile ${tile.id}", e)
+            tile.isRendering = false
             return@withContext null
         } finally {
             renderSemaphore.release()

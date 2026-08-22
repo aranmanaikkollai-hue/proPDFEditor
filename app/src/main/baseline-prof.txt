@@ -1,0 +1,56 @@
+# ProPDF Editor Baseline Profile
+# Generated for critical user journeys
+
+# Application startup
+Lcom/propdfeditor/ProPDFApplication;
+HSPLcom/propdfeditor/ProPDFApplication;->onCreate()V
+
+# MainActivity
+Lcom/propdfeditor/ui/main/MainActivity;
+HSPLcom/propdfeditor/ui/main/MainActivity;->onCreate(Landroid/os/Bundle;)V
+
+# Home Dashboard
+Lcom/propdfeditor/ui/home/HomeDashboardScreenKt;
+HSPLcom/propdfeditor/ui/home/HomeDashboardScreenKt;->HomeDashboardScreen(...)V
+
+Lcom/propdfeditor/ui/home/HomeViewModel;
+HSPLcom/propdfeditor/ui/home/HomeViewModel;-><init>(...)V
+HSPLcom/propdfeditor/ui/home/HomeViewModel;->loadDashboard()V
+
+# Navigation
+Lcom/propdfeditor/ui/navigation/AppNavigationKt;
+HSPLcom/propdfeditor/ui/navigation/AppNavigationKt;->AppNavigation(...)V
+
+# PDF Viewer
+Lcom/propdf/viewer/ui/IntegratedPDFViewerScreenKt;
+HSPLcom/propdf/viewer/ui/IntegratedPDFViewerScreenKt;->IntegratedPDFViewerScreen(...)V
+
+Lcom/propdf/viewer/ui/PDFViewerViewModel;
+HSPLcom/propdf/viewer/ui/PDFViewerViewModel;->openDocument(...)V
+HSPLcom/propdf/viewer/ui/PDFViewerViewModel;->renderPage(...)V
+
+# Room Database
+Lcom/propdf/core/data/database/ProPDFDatabase;
+HSPLcom/propdf/core/data/database/ProPDFDatabase;->recentFileDao()Lcom/propdf/core/data/database/dao/RecentFileDao;
+
+Lcom/propdf/core/data/database/dao/RecentFileDao;
+HSPLcom/propdf/core/data/database/dao/RecentFileDao;->getRecent(I)Ljava/util/List;
+
+# Hilt
+Ldagger/hilt/android/internal/managers/ActivityComponentManager;
+HSPLdagger/hilt/android/internal/managers/ActivityComponentManager;-><init>(...)V
+
+# Compose runtime
+Landroidx/compose/runtime/ComposerKt;
+HSPLandroidx/compose/runtime/ComposerKt;->findLocation(Ljava/util/List;I)I
+
+Landroidx/compose/ui/platform/AndroidComposeView;
+HSPLandroidx/compose/ui/platform/AndroidComposeView;-><init>(Landroid/content/Context;)V
+
+# Coil
+Lcoil/ImageLoader;
+HSPLcoil/ImageLoader$Builder;->build()Lcoil/ImageLoader;
+
+# PDFBox
+Lcom/tom_roush/pdfbox/pdmodel/PDDocument;
+HSPLcom/tom_roush/pdfbox/pdmodel/PDDocument;->load(Ljava/io/InputStream;)Lcom/tom_roush/pdfbox/pdmodel/PDDocument;

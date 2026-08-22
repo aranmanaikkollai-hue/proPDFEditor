@@ -31,8 +31,11 @@ class SearchablePdfGenerator @Inject constructor(@ApplicationContext private val
     private val ocrEngine = MlKitOcrEngine(context)
 
     /**
-     * Generate a PDF from scanned images.
-     * OCR text overlay is a placeholder - full searchable PDF requires PDFBox in viewer module.
+     * Generate a PDF from scanned images with a searchable (invisible) OCR text
+     * layer. Android's PdfDocument canvas produces real, selectable PDF text
+     * operators for canvas.drawText() calls — so a zero-alpha text overlay
+     * positioned over each OCR'd line gives a genuinely searchable PDF without
+     * needing PDFBox.
      */
     suspend fun generateSearchablePdf(
         images: List<Bitmap>,
@@ -44,6 +47,10 @@ class SearchablePdfGenerator @Inject constructor(@ApplicationContext private val
             val document = PdfDocument()
             val pageWidth = 595 // A4 width in points (72 dpi)
             val pageHeight = 842 // A4 height in points
+            val invisibleTextPaint = Paint().apply {
+                color = android.graphics.Color.BLACK
+                alpha = 0 // invisible but still real, selectable PDF text
+            }
 
             images.forEachIndexed { index, bitmap ->
                 if (!isActive) {
@@ -63,6 +70,20 @@ class SearchablePdfGenerator @Inject constructor(@ApplicationContext private val
                 val y = (pageHeight - imgH) / 2
 
                 canvas.drawBitmap(bitmap, null, Rect(x.toInt(), y.toInt(), (x + imgW).toInt(), (y + imgH).toInt()), null)
+
+                val ocrResult = ocrEngine.recognizeText(bitmap).getOrNull()
+                ocrResult?.blocks?.forEach { block ->
+                    block.lines.forEach { line ->
+                        val box = line.boundingBox ?: return@forEach
+                        if (line.text.isBlank()) return@forEach
+                        val lineHeightPt = box.height() * scale
+                        if (lineHeightPt < 1f) return@forEach
+                        invisibleTextPaint.textSize = lineHeightPt
+                        val baselineX = x + box.left * scale
+                        val baselineY = y + box.bottom * scale
+                        canvas.drawText(line.text, baselineX, baselineY, invisibleTextPaint)
+                    }
+                }
 
                 document.finishPage(page)
                 onProgress(index + 1, images.size)

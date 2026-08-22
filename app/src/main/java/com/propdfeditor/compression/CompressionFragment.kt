@@ -20,7 +20,7 @@ import com.google.android.material.slider.Slider
 import com.propdf.core.domain.model.CompressionConfig
 import com.propdf.core.domain.model.CompressionStrategy
 import com.propdf.core.domain.model.QualityPreset
-import com.propdf.editor.databinding.FragmentCompressionBinding
+import com.propdfeditor.databinding.FragmentCompressionBinding
 import dagger.hilt.android.AndroidEntryPoint
 import kotlinx.coroutines.launch
 import java.text.DecimalFormat

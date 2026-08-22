@@ -1,9 +1,9 @@
 package com.propdf.editor.data.smartfolder
 
+import com.propdf.core.data.entity.PdfDocumentEntity
+import com.propdf.core.data.local.dao.PdfDocumentDao
 import com.propdf.core.domain.dispatcher.DispatcherProvider
 import com.propdf.core.domain.logger.AppLogger
-import com.propdf.editor.data.local.dao.PdfDocumentDao
-import com.propdf.editor.data.local.entity.PdfDocumentEntity
 import kotlinx.coroutines.withContext
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.decodeFromString
@@ -36,7 +36,7 @@ class SmartFolderEngine @Inject constructor(
     suspend fun evaluateRules(rulesJson: String): List<PdfDocumentEntity> = withContext(dispatchers.io) {
         try {
             val rules = json.decodeFromString<SmartRules>(rulesJson)
-            val allDocs = pdfDocumentDao.getAllDocuments()
+            val allDocs = pdfDocumentDao.getAllDocumentsOnce()
 
             allDocs.filter { doc ->
                 if (rules.matchAll) {
@@ -54,11 +54,14 @@ class SmartFolderEngine @Inject constructor(
     private fun evaluateCondition(condition: Condition, doc: PdfDocumentEntity): Boolean {
         val fieldValue = when (condition.field) {
             "fileName" -> doc.fileName
-            "fileSize" -> doc.fileSize.toString()
+            "fileSize" -> doc.sizeBytes.toString()
             "pageCount" -> doc.pageCount.toString()
             "documentType" -> doc.documentType
             "isScanned" -> doc.isScanned.toString()
-            "createdAt" -> doc.createdAt.toString()
+            // core.pdf_documents has no createdAt column (unlike the old
+            // app-local entity) — lastModified is the closest available
+            // timestamp and is always populated by the ingestion pipeline.
+            "createdAt" -> doc.lastModified.toString()
             else -> return false
         } ?: return false
 

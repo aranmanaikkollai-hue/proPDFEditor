@@ -8,7 +8,7 @@ import android.os.Environment
 import android.provider.OpenableColumns
 import android.webkit.MimeTypeMap
 import androidx.core.content.FileProvider
-import com.propdf.editor.R
+import com.propdfeditor.R
 import java.io.File
 import java.io.FileOutputStream
 import java.io.IOException

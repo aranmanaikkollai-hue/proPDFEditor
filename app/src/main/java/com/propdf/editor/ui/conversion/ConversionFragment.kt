@@ -21,8 +21,8 @@ import androidx.recyclerview.widget.GridLayoutManager
 import androidx.recyclerview.widget.LinearLayoutManager
 import com.google.android.material.dialog.MaterialAlertDialogBuilder
 import com.google.android.material.snackbar.Snackbar
-import com.propdf.editor.R
-import com.propdf.editor.databinding.FragmentConversionBinding
+import com.propdfeditor.R
+import com.propdfeditor.databinding.FragmentConversionBinding
 import com.propdf.editor.domain.model.ConversionType
 import com.propdf.editor.ui.conversion.adapter.ConversionHistoryAdapter
 import com.propdf.editor.ui.conversion.adapter.SelectedFileAdapter

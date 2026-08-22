@@ -15,8 +15,8 @@ import androidx.lifecycle.lifecycleScope
 import androidx.lifecycle.repeatOnLifecycle
 import com.google.android.material.dialog.MaterialAlertDialogBuilder
 import com.google.android.material.snackbar.Snackbar
-import com.propdf.editor.R
-import com.propdf.editor.databinding.ActivityApplySignatureBinding
+import com.propdfeditor.R
+import com.propdfeditor.databinding.ActivityApplySignatureBinding
 import com.propdfeditor.core.database.entity.CertificateEntity
 import com.propdfeditor.core.database.entity.SignatureEntity
 import com.propdfeditor.core.util.FileUtils

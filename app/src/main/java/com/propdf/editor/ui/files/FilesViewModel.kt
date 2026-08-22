@@ -7,6 +7,7 @@ import com.propdf.core.domain.model.RecentFile
 import com.propdf.core.domain.repository.RecentFilesRepository
 import com.propdf.editor.domain.model.PdfDocument
 import com.propdf.editor.domain.model.DocumentCategory
+import com.propdf.editor.domain.model.SortField
 import com.propdf.editor.domain.model.ViewMode
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -20,6 +21,8 @@ import javax.inject.Inject
 @HiltViewModel
 class FilesViewModel @Inject constructor(
     private val recentFilesRepo: RecentFilesRepository,
+    private val documentRepository: com.propdf.editor.domain.repository.DocumentRepository,
+    private val pdfDocumentDao: com.propdf.core.data.local.dao.PdfDocumentDao,
     private val dispatchers: DispatcherProvider
 ) : ViewModel() {
 
@@ -76,13 +79,39 @@ class FilesViewModel @Inject constructor(
 
     fun toggleFavorite(id: Long) {
         viewModelScope.launch(dispatchers.io) {
-            // Implementation depends on repository
+            val doc = _uiState.value.files.find { it.id == id } ?: return@launch
+            recentFilesRepo.setFavourite(doc.uri.toString(), !doc.isFavorite)
         }
     }
 
     fun moveToRecycleBin(id: Long) {
         viewModelScope.launch(dispatchers.io) {
-            // Implementation depends on repository
+            val doc = _uiState.value.files.find { it.id == id } ?: return@launch
+            try {
+                val realId = pdfDocumentDao.getByUri(doc.uri.toString())?.id
+                if (realId != null) {
+                    // Real, recoverable recycle-bin move — this is the same
+                    // pdf_documents-backed path RecycleBinScreen/EmptyRecycleBinUseCase
+                    // read from, so the file can actually be restored later.
+                    documentRepository.deleteDocument(realId)
+                } else {
+                    // Document hasn't been indexed into pdf_documents yet (e.g. the
+                    // dual-write backfill hasn't caught up). Falling back to removing
+                    // it from the recent-files list so it doesn't look like the
+                    // button did nothing, but note this path is NOT recoverable from
+                    // the Recycle Bin screen — a real edge case, not the common path.
+                    recentFilesRepo.remove(doc.uri.toString())
+                }
+            } catch (_: Exception) {
+            }
+        }
+    }
+
+    fun renameDocument(id: Long, newName: String) {
+        if (newName.isBlank()) return
+        viewModelScope.launch(dispatchers.io) {
+            val doc = _uiState.value.files.find { it.id == id } ?: return@launch
+            recentFilesRepo.rename(doc.uri.toString(), newName.trim())
         }
     }
 
@@ -90,11 +119,11 @@ class FilesViewModel @Inject constructor(
         return PdfDocument(
             id = uri.hashCode().toLong(),
             uri = android.net.Uri.parse(uri),
-            displayName = displayName,
-            fileSize = fileSizeBytes,
-            dateModified = lastOpenedAt,
-            dateAdded = lastOpenedAt,
-            isFavorite = isFavourite,
+            displayName = name,
+            fileSize = size,
+            dateModified = lastOpened,
+            dateAdded = lastOpened,
+            isFavorite = isFavorite,
             isDeleted = false,
             category = DocumentCategory.UNCATEGORIZED,
             cloudProvider = null,

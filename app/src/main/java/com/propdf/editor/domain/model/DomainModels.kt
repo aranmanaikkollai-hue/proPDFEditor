@@ -12,3 +12,15 @@ package com.propdf.editor.domain.model
 enum class ViewMode {
     LIST, GRID, TILE
 }
+
+// SortField has no other declaration in this package either -- it was
+// referenced by FilesUiState (a data class) and FilesViewModel.kt's sort
+// logic (SortField.DATE / .NAME / .SIZE) but had no definition anywhere in
+// the codebase. An unresolved type used as a data class constructor
+// parameter type doesn't surface as a normal "Unresolved reference" error;
+// it hits a confirmed kapt bug (JetBrains KT-70718) that instead fails the
+// whole :app module with the generic, contentless "e: Could not load module
+// <Error module>" during kaptGenerateStubsDebugKotlin.
+enum class SortField {
+    DATE, NAME, SIZE
+}

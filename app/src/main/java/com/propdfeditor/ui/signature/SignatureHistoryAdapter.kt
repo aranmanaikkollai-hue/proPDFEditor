@@ -6,8 +6,8 @@ import android.view.ViewGroup
 import androidx.recyclerview.widget.DiffUtil
 import androidx.recyclerview.widget.ListAdapter
 import androidx.recyclerview.widget.RecyclerView
-import com.propdf.editor.R
-import com.propdf.editor.databinding.ItemSignatureHistoryBinding
+import com.propdfeditor.R
+import com.propdfeditor.databinding.ItemSignatureHistoryBinding
 import com.propdfeditor.core.database.entity.SignatureHistoryEntity
 import java.text.SimpleDateFormat
 

@@ -28,13 +28,13 @@ object CrashGuard {
     /**
      * Initialize crash guards. Call from Application.onCreate()
      */
-    fun initialize() {
+    fun initialize(context: android.content.Context? = null) {
         // Set default uncaught exception handler
         val defaultHandler = Thread.getDefaultUncaughtExceptionHandler()
         Thread.setDefaultUncaughtExceptionHandler { thread, throwable ->
             Log.e(TAG, "FATAL: Uncaught exception on ${thread.name}", throwable)
             // Attempt graceful cleanup before crash
-            emergencyCleanup()
+            emergencyCleanup(context)
             defaultHandler?.uncaughtException(thread, throwable)
         }
 
@@ -104,17 +104,21 @@ object CrashGuard {
      * Emergency cleanup under memory pressure.
      * Clears all caches, triggers GC, reduces process priority.
      */
-    fun emergencyCleanup() {
+    fun emergencyCleanup(context: android.content.Context? = null) {
         Log.w(TAG, "EMERGENCY CLEANUP triggered")
 
         // Reduce priority to let system reclaim memory
         Process.setThreadPriority(Process.THREAD_PRIORITY_BACKGROUND)
 
-        // Clear all static caches
-        com.propdf.editor.core.cache.LruBitmapCache.getInstance(
-            android.app.Application()
-        ).clear()
-        com.propdf.editor.core.pool.BitmapPool.getDefaultInstance().clear()
+        // Clear all static caches. Disk-backed caches need a real app Context; using
+        // a synthetic Application here can crash before the real failure is logged.
+        context?.applicationContext?.let { appContext ->
+            runCatching {
+                com.propdf.editor.core.cache.LruBitmapCache.getInstance(appContext).clear()
+            }.onFailure { Log.w(TAG, "Unable to clear bitmap cache during emergency cleanup", it) }
+        }
+        runCatching { com.propdf.editor.core.pool.BitmapPool.getDefaultInstance().clear() }
+            .onFailure { Log.w(TAG, "Unable to clear bitmap pool during emergency cleanup", it) }
 
         // Suggest GC
         System.gc()

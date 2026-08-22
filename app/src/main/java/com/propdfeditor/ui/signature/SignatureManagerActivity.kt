@@ -16,8 +16,8 @@ import androidx.recyclerview.widget.GridLayoutManager
 import com.google.android.material.dialog.MaterialAlertDialogBuilder
 import com.google.android.material.snackbar.Snackbar
 import com.google.android.material.tabs.TabLayoutMediator
-import com.propdf.editor.R
-import com.propdf.editor.databinding.ActivitySignatureManagerBinding
+import com.propdfeditor.R
+import com.propdfeditor.databinding.ActivitySignatureManagerBinding
 import com.propdfeditor.core.database.entity.SignatureEntity
 import com.propdfeditor.security.SignatureViewModel
 import dagger.hilt.android.AndroidEntryPoint

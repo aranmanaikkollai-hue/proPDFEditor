@@ -6,7 +6,7 @@ import androidx.recyclerview.widget.DiffUtil
 import androidx.recyclerview.widget.ListAdapter
 import androidx.recyclerview.widget.RecyclerView
 import com.propdf.core.domain.model.OcrTextBlock
-import com.propdf.editor.databinding.ItemOcrBlockBinding
+import com.propdfeditor.databinding.ItemOcrBlockBinding
 
 class OcrResultAdapter(
     private val onBlockClick: (OcrTextBlock) -> Unit

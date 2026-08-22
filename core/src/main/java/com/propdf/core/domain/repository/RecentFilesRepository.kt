@@ -36,6 +36,9 @@ interface RecentFilesRepository {
     /** Set category for a file. */
     suspend fun setCategory(uri: String, category: String): AppResult<Unit>
 
+    /** Rename a file's display name (label only — does not rename the underlying physical file/URI). */
+    suspend fun rename(uri: String, newDisplayName: String): AppResult<Unit>
+
     /** Update page count for a file. */
     suspend fun updatePageCount(uri: String, count: Int): AppResult<Unit>
 
@@ -47,4 +50,16 @@ interface RecentFilesRepository {
 
     /** Get a single file by URI. */
     suspend fun getByUri(uri: String): AppResult<RecentFile>
+
+    /**
+     * One-time migration: mirrors every existing recent-file row into
+     * core.ProPDFDatabase's pdf_documents table. Needed because pdf_documents
+     * had no writer before the add()/setFavourite() dual-write was added, so
+     * users with existing history would otherwise never get backfilled.
+     * Safe to call more than once — uses the same find-by-uri-then-update
+     * logic as add(), so it won't duplicate or overwrite existing rows'
+     * favorite/tag/collection state beyond what's tracked here.
+     * Returns the number of rows backfilled.
+     */
+    suspend fun backfillDocumentTable(): Int
 }

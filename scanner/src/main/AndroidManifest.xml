@@ -16,13 +16,11 @@
         android:required="false" />
 
     <application>
-        <!-- Scanner Activity -->
-        <activity
-            android:name=".presentation.ScannerActivity"
-            android:exported="false"
-            android:screenOrientation="portrait"
-            android:theme="@style/Theme.AppCompat.NoActionBar"
-            android:windowSoftInputMode="stateAlwaysHidden" />
+        <!-- The presentation.ScannerActivity/ScannerViewModel that used to be
+             declared here were fully orphaned (never launched by any code
+             path in :app) and have been removed. The real, reachable scanner
+             is app's ModernScannerActivity, backed by
+             com.propdf.scanner.ui.ScannerViewModel. -->
 
         <!-- FileProvider is declared in :app's AndroidManifest.xml with the same
              "${applicationId}.fileprovider" authority; its file_paths.xml already

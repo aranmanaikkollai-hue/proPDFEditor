@@ -1,9 +1,11 @@
 package com.propdf.editor.di
 
 import com.propdf.core.data.local.RecentFilesRepositoryImpl
+import com.propdf.core.domain.repository.ActivityRepository
 import com.propdf.core.domain.repository.CollectionRepository
 import com.propdf.core.domain.repository.RecentFilesRepository
 import com.propdf.core.domain.repository.TagRepository
+import com.propdf.editor.data.repository.ActivityRepositoryImpl
 import com.propdf.editor.data.repository.CollectionRepositoryImpl
 import com.propdf.editor.data.repository.DocumentRepositoryImpl
 import com.propdf.editor.data.repository.EditorDocumentRepositoryImpl
@@ -55,6 +57,12 @@ abstract class CoreRepositoryBindingsModule {
     abstract fun bindFolderRepository(
         impl: FolderRepositoryImpl
     ): FolderRepository
+
+    @Binds
+    @Singleton
+    abstract fun bindActivityRepository(
+        impl: ActivityRepositoryImpl
+    ): ActivityRepository
 
     // PdfViewerRepository is bound in com.propdf.viewer.di.ViewerBindsModule
     // (to PdfViewerRepositoryImpl). A duplicate @Binds for it used to live

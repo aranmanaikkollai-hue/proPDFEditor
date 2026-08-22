@@ -6,7 +6,7 @@ import androidx.recyclerview.widget.DiffUtil
 import androidx.recyclerview.widget.ListAdapter
 import androidx.recyclerview.widget.RecyclerView
 import com.propdf.core.domain.model.OcrLanguage
-import com.propdf.editor.databinding.ItemOcrLanguageBinding
+import com.propdfeditor.databinding.ItemOcrLanguageBinding
 
 class OcrLanguageAdapter(
     private val onLanguageToggled: (OcrLanguage, Boolean) -> Unit

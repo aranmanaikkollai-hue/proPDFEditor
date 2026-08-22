@@ -24,8 +24,8 @@ import androidx.lifecycle.repeatOnLifecycle
 import androidx.recyclerview.widget.LinearLayoutManager
 import com.google.android.material.dialog.MaterialAlertDialogBuilder
 import com.propdf.core.domain.model.*
-import com.propdf.editor.R
-import com.propdf.editor.databinding.ActivityOcrBinding
+import com.propdfeditor.R
+import com.propdfeditor.databinding.ActivityOcrBinding
 import dagger.hilt.android.AndroidEntryPoint
 import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.launch

@@ -47,6 +47,32 @@ class SecurityRepository @Inject constructor(
         private const val SECURE_DELETE_PASSES = 3
     }
 
+    /**
+     * Writes PDF output to a local cache file, then streams that file's bytes into
+     * [outputUri] via the ContentResolver.
+     *
+     * All the iText-based operations below (encrypt, redact, sanitize, strip metadata)
+     * used to construct `PdfWriter(outputUri.path ?: ...)` directly against the caller's
+     * output URI. That only produces a usable filesystem path for `file://` URIs. Every
+     * real caller in this app obtains its output location from the
+     * `ActivityResultContracts.CreateDocument(...)` SAF picker, which always hands back a
+     * `content://` URI -- `.path` on those is not a real path on disk, so PdfWriter would
+     * either throw immediately or silently write to the wrong place. Routing every write
+     * through a local temp file + ContentResolver.openOutputStream fixes that uniformly,
+     * the same way sourceUri is already read via `contentResolver.openInputStream`.
+     */
+    private fun writePdfToUri(outputUri: Uri, block: (File) -> Unit) {
+        val tempOutput = File.createTempFile("pdf_out", ".pdf", context.cacheDir)
+        try {
+            block(tempOutput)
+            context.contentResolver.openOutputStream(outputUri)?.use { out ->
+                FileInputStream(tempOutput).use { input -> input.copyTo(out) }
+            } ?: throw IllegalStateException("Could not open output stream for $outputUri")
+        } finally {
+            tempOutput.delete()
+        }
+    }
+
     // ==================== OPERATIONS ====================
 
     fun getAllOperations(): Flow<List<SecurityOperationEntity>> = operationDao.getAllOperations()
@@ -167,24 +193,23 @@ class SecurityRepository @Inject constructor(
                 }
             }
 
-            val reader = PdfReader(tempFile.absolutePath)
-            val writer = PdfWriter(
-                outputUri.path ?: throw IllegalStateException("Invalid output URI"),
-                WriterProperties().setStandardEncryption(
-                    userPassword?.toByteArray(),
-                    ownerPassword?.toByteArray(),
-                    permissions,
-                    when (encryptionAlgorithm) {
-                        EncryptionType.AES_256 -> EncryptionConstants.ENCRYPTION_AES_256
-                        EncryptionType.AES_128 -> EncryptionConstants.ENCRYPTION_AES_128
-                        EncryptionType.STANDARD_128 -> EncryptionConstants.STANDARD_ENCRYPTION_128
-                        else -> EncryptionConstants.STANDARD_ENCRYPTION_128
-                    }
+            writePdfToUri(outputUri) { tempOutput ->
+                val reader = PdfReader(tempFile.absolutePath)
+                val writer = PdfWriter(
+                    tempOutput.absolutePath,
+                    WriterProperties().setStandardEncryption(
+                        userPassword?.toByteArray(),
+                        ownerPassword?.toByteArray(),
+                        permissions,
+                        when (encryptionAlgorithm) {
+                            EncryptionType.AES_256 -> EncryptionConstants.ENCRYPTION_AES_256
+                            EncryptionType.AES_128 -> EncryptionConstants.ENCRYPTION_AES_128
+                            EncryptionType.STANDARD_128 -> EncryptionConstants.STANDARD_ENCRYPTION_128
+                            else -> EncryptionConstants.STANDARD_ENCRYPTION_128
+                        }
+                    )
                 )
-            )
-
-            PdfDocument(reader, writer).use { pdfDoc ->
-                pdfDoc.close()
+                PdfDocument(reader, writer).use { pdfDoc -> pdfDoc.close() }
             }
 
             // Update secure document record
@@ -222,19 +247,18 @@ class SecurityRepository @Inject constructor(
                 }
             }
 
-            val reader = PdfReader(tempFile.absolutePath)
-            val writer = PdfWriter(
-                outputUri.path ?: throw IllegalStateException("Invalid output URI"),
-                WriterProperties().setStandardEncryption(
-                    null,
-                    ownerPassword.toByteArray(),
-                    newPermissions,
-                    EncryptionConstants.ENCRYPTION_AES_256
+            writePdfToUri(outputUri) { tempOutput ->
+                val reader = PdfReader(tempFile.absolutePath)
+                val writer = PdfWriter(
+                    tempOutput.absolutePath,
+                    WriterProperties().setStandardEncryption(
+                        null,
+                        ownerPassword.toByteArray(),
+                        newPermissions,
+                        EncryptionConstants.ENCRYPTION_AES_256
+                    )
                 )
-            )
-
-            PdfDocument(reader, writer).use { pdfDoc ->
-                pdfDoc.close()
+                PdfDocument(reader, writer).use { pdfDoc -> pdfDoc.close() }
             }
 
             tempFile.delete()
@@ -259,28 +283,30 @@ class SecurityRepository @Inject constructor(
                 }
             }
 
-            val reader = PdfReader(tempFile.absolutePath)
-            val writer = PdfWriter(outputUri.path ?: throw IllegalStateException("Invalid output URI"))
-            
-            PdfDocument(reader, writer).use { pdfDoc ->
-                val info = pdfDoc.documentInfo
-                info.title = null
-                info.author = null
-                info.subject = null
-                info.keywords = null
-                info.creator = null
-                info.producer = null
-                pdfDoc.getTrailer().getAsDictionary(PdfName.Info)?.remove(PdfName.CreationDate)
-                pdfDoc.getTrailer().getAsDictionary(PdfName.Info)?.remove(PdfName.ModDate)
-                
-                // Remove XMP metadata
-                val catalog = pdfDoc.catalog
-                catalog.pdfObject.remove(PdfName.Metadata)
-                
-                // Remove document ID
-                catalog.pdfObject.remove(PdfName.ID)
-                
-                pdfDoc.close()
+            writePdfToUri(outputUri) { tempOutput ->
+                val reader = PdfReader(tempFile.absolutePath)
+                val writer = PdfWriter(tempOutput.absolutePath)
+
+                PdfDocument(reader, writer).use { pdfDoc ->
+                    val info = pdfDoc.documentInfo
+                    info.title = null
+                    info.author = null
+                    info.subject = null
+                    info.keywords = null
+                    info.creator = null
+                    info.producer = null
+                    pdfDoc.getTrailer().getAsDictionary(PdfName.Info)?.remove(PdfName.CreationDate)
+                    pdfDoc.getTrailer().getAsDictionary(PdfName.Info)?.remove(PdfName.ModDate)
+
+                    // Remove XMP metadata
+                    val catalog = pdfDoc.catalog
+                    catalog.pdfObject.remove(PdfName.Metadata)
+
+                    // Remove document ID
+                    catalog.pdfObject.remove(PdfName.ID)
+
+                    pdfDoc.close()
+                }
             }
 
             tempFile.delete()
@@ -305,59 +331,60 @@ class SecurityRepository @Inject constructor(
                 }
             }
 
-            val reader = PdfReader(tempFile.absolutePath)
-            val writer = PdfWriter(outputUri.path ?: throw IllegalStateException("Invalid output URI"))
-            
-            PdfDocument(reader, writer).use { pdfDoc ->
-                // Remove JavaScript
-                val catalog = pdfDoc.catalog
-                catalog.pdfObject.remove(PdfName.Names)
-                catalog.pdfObject.remove(PdfName.OpenAction)
-                catalog.pdfObject.remove(PdfName.AA)
-                catalog.pdfObject.remove(PdfName.JavaScript)
-                catalog.pdfObject.remove(PdfName.JS)
-                
-                // Remove embedded files
-                catalog.pdfObject.remove(PdfName.EmbeddedFiles)
-                
-                // Remove annotations (except links if needed)
-                for (i in 1..pdfDoc.numberOfPages) {
-                    val page = pdfDoc.getPage(i)
-                    val annotations = page.annotations
-                    annotations?.forEach { annot ->
-                        val subtype = annot.getPdfObject().getAsName(PdfName.Subtype)
-                        if (subtype != PdfName.Link) {
-                            page.removeAnnotation(annot)
+            writePdfToUri(outputUri) { tempOutput ->
+                val reader = PdfReader(tempFile.absolutePath)
+                val writer = PdfWriter(tempOutput.absolutePath)
+
+                PdfDocument(reader, writer).use { pdfDoc ->
+                    // Remove JavaScript
+                    val catalog = pdfDoc.catalog
+                    catalog.pdfObject.remove(PdfName.Names)
+                    catalog.pdfObject.remove(PdfName.OpenAction)
+                    catalog.pdfObject.remove(PdfName.AA)
+                    catalog.pdfObject.remove(PdfName.JavaScript)
+                    catalog.pdfObject.remove(PdfName.JS)
+
+                    // Remove embedded files
+                    catalog.pdfObject.remove(PdfName.EmbeddedFiles)
+
+                    // Remove annotations (except links if needed)
+                    for (i in 1..pdfDoc.numberOfPages) {
+                        val page = pdfDoc.getPage(i)
+                        val annotations = page.annotations
+                        annotations?.forEach { annot ->
+                            val subtype = annot.getPdfObject().getAsName(PdfName.Subtype)
+                            if (subtype != PdfName.Link) {
+                                page.removeAnnotation(annot)
+                            }
                         }
+
+                        // Remove page actions
+                        page.pdfObject.remove(PdfName.AA)
                     }
-                    
-                    // Remove page actions
-                    page.pdfObject.remove(PdfName.AA)
+
+                    // Remove form fields
+                    val form = PdfAcroForm.getAcroForm(pdfDoc, false)
+                    form?.getFormFields()?.values?.forEach { field ->
+                        form.removeField(field.getFieldName().toString())
+                    }
+
+                    // Remove metadata
+                    pdfDoc.documentInfo.title = null
+                    pdfDoc.documentInfo.author = null
+                    pdfDoc.documentInfo.subject = null
+                    pdfDoc.documentInfo.keywords = null
+                    pdfDoc.documentInfo.creator = null
+                    pdfDoc.documentInfo.producer = null
+                    catalog.pdfObject.remove(PdfName.Metadata)
+
+                    // Remove hidden layers
+                    val ocProperties = catalog.pdfObject.getAsDictionary(PdfName.OCProperties)
+                    ocProperties?.let {
+                        catalog.pdfObject.remove(PdfName.OCProperties)
+                    }
+
+                    pdfDoc.close()
                 }
-                
-                // Remove form fields
-                val form = PdfAcroForm.getAcroForm(pdfDoc, false)
-                form?.getFormFields()?.values?.forEach { field ->
-                    form.removeField(field.getFieldName().toString())
-                }
-                
-                // Remove metadata
-                pdfDoc.documentInfo.title = null
-                pdfDoc.documentInfo.author = null
-                pdfDoc.documentInfo.subject = null
-                pdfDoc.documentInfo.keywords = null
-                pdfDoc.documentInfo.creator = null
-                pdfDoc.documentInfo.producer = null
-                catalog.pdfObject.remove(PdfName.Metadata)
-                
-                // Flatten transparency
-                // Remove hidden layers
-                val ocProperties = catalog.pdfObject.getAsDictionary(PdfName.OCProperties)
-                ocProperties?.let {
-                    catalog.pdfObject.remove(PdfName.OCProperties)
-                }
-                
-                pdfDoc.close()
             }
 
             // Update record
@@ -419,58 +446,60 @@ class SecurityRepository @Inject constructor(
                 }
             }
 
-            val reader = PdfReader(tempFile.absolutePath)
-            val writer = PdfWriter(outputUri.path ?: throw IllegalStateException("Invalid output URI"))
-            
-            PdfDocument(reader, writer).use { pdfDoc ->
-                redactions.groupBy { it.pageNumber }.forEach { (pageNum, pageRedactions) ->
-                    val page = pdfDoc.getPage(pageNum)
-                    
-                    pageRedactions.forEach { redaction ->
-                        val cleanRect = com.itextpdf.kernel.geom.Rectangle(
-                            redaction.rect.left,
-                            redaction.rect.bottom,
-                            redaction.rect.width(),
-                            redaction.rect.height()
-                        )
-                        
-                        if (permanent) {
-                            // Permanent redaction: actually remove content
-                            val canvas = PdfCanvas(page)
-                            canvas.saveState()
-                                .setFillColor(com.itextpdf.kernel.colors.ColorConstants.BLACK)
-                                .rectangle(cleanRect)
-                                .fill()
-                                .restoreState()
-                            
-                            // Add overlay text if specified
-                            redaction.overlayText?.let { text ->
-                                val doc = Document(pdfDoc)
-                                doc.showTextAligned(
-                                    Paragraph(text)
-                                        .setFontColor(com.itextpdf.kernel.colors.ColorConstants.WHITE)
-                                        .setFontSize(8f),
-                                    cleanRect.left + 2,
-                                    cleanRect.top - 10,
-                                    pageNum,
-                                    com.itextpdf.layout.properties.TextAlignment.LEFT,
-                                    com.itextpdf.layout.properties.VerticalAlignment.TOP,
-                                    0f
-                                )
+            writePdfToUri(outputUri) { tempOutput ->
+                val reader = PdfReader(tempFile.absolutePath)
+                val writer = PdfWriter(tempOutput.absolutePath)
+
+                PdfDocument(reader, writer).use { pdfDoc ->
+                    redactions.groupBy { it.pageNumber }.forEach { (pageNum, pageRedactions) ->
+                        val page = pdfDoc.getPage(pageNum)
+
+                        pageRedactions.forEach { redaction ->
+                            val cleanRect = com.itextpdf.kernel.geom.Rectangle(
+                                redaction.rect.left,
+                                redaction.rect.bottom,
+                                redaction.rect.width(),
+                                redaction.rect.height()
+                            )
+
+                            if (permanent) {
+                                // Permanent redaction: actually remove content
+                                val canvas = PdfCanvas(page)
+                                canvas.saveState()
+                                    .setFillColor(com.itextpdf.kernel.colors.ColorConstants.BLACK)
+                                    .rectangle(cleanRect)
+                                    .fill()
+                                    .restoreState()
+
+                                // Add overlay text if specified
+                                redaction.overlayText?.let { text ->
+                                    val doc = Document(pdfDoc)
+                                    doc.showTextAligned(
+                                        Paragraph(text)
+                                            .setFontColor(com.itextpdf.kernel.colors.ColorConstants.WHITE)
+                                            .setFontSize(8f),
+                                        cleanRect.left + 2,
+                                        cleanRect.top - 10,
+                                        pageNum,
+                                        com.itextpdf.layout.properties.TextAlignment.LEFT,
+                                        com.itextpdf.layout.properties.VerticalAlignment.TOP,
+                                        0f
+                                    )
+                                }
+                            } else {
+                                // Visual redaction (black box) but content still exists
+                                val canvas = PdfCanvas(page)
+                                canvas.saveState()
+                                    .setFillColor(com.itextpdf.kernel.colors.ColorConstants.BLACK)
+                                    .rectangle(cleanRect)
+                                    .fill()
+                                    .restoreState()
                             }
-                        } else {
-                            // Visual redaction (black box) but content still exists
-                            val canvas = PdfCanvas(page)
-                            canvas.saveState()
-                                .setFillColor(com.itextpdf.kernel.colors.ColorConstants.BLACK)
-                                .rectangle(cleanRect)
-                                .fill()
-                                .restoreState()
                         }
                     }
+
+                    pdfDoc.close()
                 }
-                
-                pdfDoc.close()
             }
 
             if (permanent) {

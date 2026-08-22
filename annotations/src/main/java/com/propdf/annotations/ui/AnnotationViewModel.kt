@@ -266,8 +266,16 @@ class AnnotationViewModel @Inject constructor(
     }
 
     fun createHighlightAnnotation(pageIndex: Int, highlightType: HighlightAnnotation.HighlightType, rects: List<RectF>) {
+        // HIGHLIGHT is a translucent fill drawn over text, so it needs partial alpha
+        // baked into the color or the text underneath becomes unreadable. UNDERLINE/
+        // STRIKEOUT/SQUIGGLY are thin lines next to (not over) the text, so they should
+        // start fully opaque -- previously they reused the highlight's 50% color alpha
+        // *and* a 0.3 annotation opacity on top of it, multiplying out to ~15% visible
+        // alpha, which is why markup lines looked washed out. Line color and annotation
+        // opacity are now each applied exactly once (see AnnotationRenderer.renderHighlight).
+        val isLineMarkup = highlightType != HighlightAnnotation.HighlightType.HIGHLIGHT
         val colorInt = android.graphics.Color.argb(
-            128,
+            if (isLineMarkup) 255 else 128,
             (_currentColor.value.red * 255).toInt(),
             (_currentColor.value.green * 255).toInt(),
             (_currentColor.value.blue * 255).toInt()
@@ -277,7 +285,7 @@ class AnnotationViewModel @Inject constructor(
             highlightType = highlightType,
             rects = rects,
             color = colorInt,
-            opacity = 0.3f
+            opacity = if (isLineMarkup) 1.0f else 0.35f
         )
         createAnnotation(annotation)
     }
@@ -397,37 +405,63 @@ class AnnotationViewModel @Inject constructor(
         saveAnnotations()
     }
 
-    fun moveSelected(dx: Float, dy: Float) {
-        val moved = selectionTool.moveSelection(dx, dy)
-        val selected = selectionTool.selectedAnnotations
-        selected.zip(moved).forEach { (old, new) ->
-            historyManager.modifyAnnotation(old, new)
+    // ==================== Gesture-batched transforms ====================
+    //
+    // moveSelected/scaleSelected/rotateSelected are called once PER FRAME while a
+    // finger is dragging (see AnnotationOverlay's drag() loop). Previously each of
+    // those per-frame calls pushed its own ModifyAnnotationCommand onto the undo
+    // stack AND triggered a full saveAnnotations() (a Room write of every annotation
+    // on the page) -- so a single half-second drag could enqueue dozens of undo
+    // entries (burying the *actual* semantic edit under near-duplicate micro-steps,
+    // and evicting older real history once the 100-entry cap was hit) and dozens of
+    // redundant concurrent DB writes.
+    //
+    // Fix: gestures now call beginTransformGesture() once when the drag starts, then
+    // moveSelected/scaleSelected/rotateSelected update the live geometry every frame
+    // via LayerManager.updateAnnotationLive (no history, no persistence -- just what's
+    // needed for the overlay to redraw the annotation following the finger), and
+    // endTransformGesture() is called once when the finger lifts to collapse the
+    // whole gesture into exactly one undo command and one save.
+
+    private var gestureSnapshot: List<Annotation>? = null
+
+    /** Call once when a move/resize/rotate drag begins on the current selection. */
+    fun beginTransformGesture() {
+        gestureSnapshot = selectionTool.selectedAnnotations
+    }
+
+    /** Call once when the drag ends (finger lifts) to commit the gesture as one undo step. */
+    fun endTransformGesture() {
+        val before = gestureSnapshot ?: return
+        gestureSnapshot = null
+        val after = selectionTool.selectedAnnotations
+        val pairs = before.mapNotNull { old ->
+            after.find { it.id == old.id }?.let { new -> old to new }
+        }.filter { (old, new) -> old != new }
+        if (pairs.isNotEmpty()) {
+            historyManager.modifyAnnotations(pairs)
+            saveAnnotations()
         }
-        selectionTool.replaceSelection(moved)
-        _selectedAnnotations.update { moved }
-        saveAnnotations()
+    }
+
+    /** Applies a live (non-undoable, non-persisted) update to the selection during a drag. */
+    private fun applyLiveTransform(updated: List<Annotation>) {
+        updated.forEach { layerManager.updateAnnotationLive(it) }
+        selectionTool.replaceSelection(updated)
+        _selectedAnnotations.update { updated }
+        _selectedAnnotation.update { updated.firstOrNull() }
+    }
+
+    fun moveSelected(dx: Float, dy: Float) {
+        applyLiveTransform(selectionTool.moveSelection(dx, dy))
     }
 
     fun scaleSelected(factor: Float, pivotX: Float, pivotY: Float) {
-        val scaled = selectionTool.scaleSelection(factor, pivotX, pivotY)
-        val selected = selectionTool.selectedAnnotations
-        selected.zip(scaled).forEach { (old, new) ->
-            historyManager.modifyAnnotation(old, new)
-        }
-        selectionTool.replaceSelection(scaled)
-        _selectedAnnotations.update { scaled }
-        saveAnnotations()
+        applyLiveTransform(selectionTool.scaleSelection(factor, pivotX, pivotY))
     }
 
     fun rotateSelected(degrees: Float, pivotX: Float, pivotY: Float) {
-        val rotated = selectionTool.rotateSelection(degrees, pivotX, pivotY)
-        val selected = selectionTool.selectedAnnotations
-        selected.zip(rotated).forEach { (old, new) ->
-            historyManager.modifyAnnotation(old, new)
-        }
-        selectionTool.replaceSelection(rotated)
-        _selectedAnnotations.update { rotated }
-        saveAnnotations()
+        applyLiveTransform(selectionTool.rotateSelection(degrees, pivotX, pivotY))
     }
 
     fun bringToFront() {

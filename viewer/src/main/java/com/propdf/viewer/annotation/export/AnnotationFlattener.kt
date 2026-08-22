@@ -7,6 +7,8 @@ import android.net.Uri
 import com.propdf.viewer.annotation.manager.AnnotationManager
 import com.propdf.viewer.annotation.render.AnnotationRenderer
 import com.tom_roush.pdfbox.pdmodel.PDDocument
+import com.tom_roush.pdfbox.pdmodel.PDPageContentStream
+import com.tom_roush.pdfbox.pdmodel.graphics.image.LosslessFactory
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import java.io.File
@@ -32,10 +34,13 @@ class AnnotationFlattener {
                     val canvas = Canvas(bitmap)
                     canvas.drawColor(Color.TRANSPARENT, android.graphics.PorterDuff.Mode.CLEAR)
                     renderer.render(canvas, annotations, width.toFloat(), height.toFloat())
-                    @Suppress("UNUSED_VARIABLE")
-                    val pdImage = com.tom_roush.pdfbox.pdmodel.graphics.image.LosslessFactory.createFromImage(document, bitmap)
-                    // TODO: Add pdImage to page content stream
-                    // This is a simplified implementation
+                    val pdImage = LosslessFactory.createFromImage(document, bitmap)
+                    val contentStream = PDPageContentStream(
+                        document, page,
+                        PDPageContentStream.AppendMode.APPEND, true, true
+                    )
+                    contentStream.drawImage(pdImage, 0f, 0f, mediaBox.width, mediaBox.height)
+                    contentStream.close()
                     bitmap.recycle()
                 }
             }

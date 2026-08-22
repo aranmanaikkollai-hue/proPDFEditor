@@ -14,8 +14,8 @@ import androidx.lifecycle.repeatOnLifecycle
 import androidx.recyclerview.widget.LinearLayoutManager
 import com.google.android.material.dialog.MaterialAlertDialogBuilder
 import com.google.android.material.snackbar.Snackbar
-import com.propdf.editor.R
-import com.propdf.editor.databinding.ActivityCertificateManagerBinding
+import com.propdfeditor.R
+import com.propdfeditor.databinding.ActivityCertificateManagerBinding
 import com.propdfeditor.core.database.entity.CertificateEntity
 import com.propdfeditor.security.SignatureViewModel
 import dagger.hilt.android.AndroidEntryPoint

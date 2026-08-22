@@ -8,7 +8,7 @@ import android.net.Uri
 import android.os.Bundle
 import android.view.MotionEvent
 import androidx.appcompat.app.AppCompatActivity
-import com.propdf.editor.databinding.ActivityOcrCropBinding
+import com.propdfeditor.databinding.ActivityOcrCropBinding
 import kotlin.math.max
 import kotlin.math.min
 

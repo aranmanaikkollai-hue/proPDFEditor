@@ -471,23 +471,26 @@ class PdfOperationsRepositoryImpl @Inject constructor(
         width: Int?
     ): AppResult<Bitmap> = withContext(dispatchers.io) {
         runCatching {
-            val doc = com.itextpdf.kernel.pdf.PdfDocument(PdfReader(inputFile.absolutePath))
+            val pfd = android.os.ParcelFileDescriptor.open(inputFile, android.os.ParcelFileDescriptor.MODE_READ_ONLY)
+            val renderer = android.graphics.pdf.PdfRenderer(pfd)
             try {
-                if (pageNum !in 1..doc.numberOfPages) {
-                    throw PdfProcessingError.InvalidPage("Page $pageNum not in range 1..${doc.numberOfPages}")
+                val index = pageNum - 1
+                if (index !in 0 until renderer.pageCount) {
+                    throw PdfProcessingError.InvalidPage("Page $pageNum not in range 1..${renderer.pageCount}")
                 }
-                val pdfPage = doc.getPage(pageNum)
-                val pageSize = pdfPage.pageSize
-                val targetWidth = width ?: pageSize.width.toInt()
-                val scale = targetWidth.toFloat() / pageSize.width
-                val targetHeight = (pageSize.height * scale).toInt()
-                val bitmap = Bitmap.createBitmap(targetWidth, targetHeight, Bitmap.Config.ARGB_8888)
-                val canvas = android.graphics.Canvas(bitmap)
-                canvas.drawColor(Color.WHITE)
-                // Note: Full PDF rendering requires PdfRenderer or similar
-                // This is a placeholder implementation
-                bitmap
-            } finally { doc.close() }
+                renderer.openPage(index).use { page ->
+                    val targetWidth = width ?: page.width
+                    val scale = targetWidth.toFloat() / page.width
+                    val targetHeight = (page.height * scale).toInt().coerceAtLeast(1)
+                    val bitmap = Bitmap.createBitmap(targetWidth, targetHeight, Bitmap.Config.ARGB_8888)
+                    bitmap.eraseColor(Color.WHITE)
+                    page.render(bitmap, null, null, android.graphics.pdf.PdfRenderer.Page.RENDER_MODE_FOR_DISPLAY)
+                    bitmap
+                }
+            } finally {
+                renderer.close()
+                pfd.close()
+            }
         }.toAppResult()
     }
 

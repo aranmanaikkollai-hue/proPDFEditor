@@ -55,11 +55,11 @@ class DocumentScanWorker @AssistedInject constructor(
 
                 val recentFile = RecentFile(
                     uri = fileUri,
-                    displayName = displayName,
-                    fileSizeBytes = sizeBytes,
-                    lastOpenedAt = lastModified,
+                    name = displayName,
+                    size = sizeBytes,
+                    lastOpened = lastModified,
                     pageCount = 0,
-                    isFavourite = false,
+                    isFavorite = false,
                     category = ""
                 )
                 documentRepository.insertOrUpdateRecentFile(recentFile)

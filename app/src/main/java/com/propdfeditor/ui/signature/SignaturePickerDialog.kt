@@ -12,8 +12,8 @@ import androidx.lifecycle.lifecycleScope
 import androidx.lifecycle.repeatOnLifecycle
 import androidx.recyclerview.widget.GridLayoutManager
 import com.google.android.material.dialog.MaterialAlertDialogBuilder
-import com.propdf.editor.R
-import com.propdf.editor.databinding.DialogSignaturePickerBinding
+import com.propdfeditor.R
+import com.propdfeditor.databinding.DialogSignaturePickerBinding
 import com.propdfeditor.core.database.entity.SignatureEntity
 import com.propdfeditor.security.SignatureViewModel
 import dagger.hilt.android.AndroidEntryPoint

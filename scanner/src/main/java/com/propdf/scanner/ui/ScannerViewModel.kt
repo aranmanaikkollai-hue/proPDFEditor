@@ -211,6 +211,15 @@ class ScannerViewModel @Inject constructor(
         _uiState.value = _uiState.value.copy(error = "JPEG export not yet implemented")
     }
 
+    /**
+     * Clears the just-consumed export Uri after the screen has handed it off
+     * to the viewer, so a previously generated PDF's Uri can never be
+     * re-delivered (e.g. if this ViewModel outlives a single scan session).
+     */
+    fun consumeLastOutputUri() {
+        _uiState.value = _uiState.value.copy(lastOutputUri = null)
+    }
+
     fun clearAll() {
         _capturedPages.value = emptyList()
         _currentPage.value = null

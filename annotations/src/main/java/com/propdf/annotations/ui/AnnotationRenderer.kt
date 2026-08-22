@@ -113,7 +113,7 @@ class AnnotationRenderer {
                         color = Color(annotation.color),
                         start = Offset(screenRect.left, y),
                         end = Offset(screenRect.right, y),
-                        strokeWidth = 2f * pageScale,
+                        strokeWidth = (2.5f * pageScale).coerceAtLeast(3f),
                         alpha = annotation.opacity
                     )
                 }
@@ -123,7 +123,7 @@ class AnnotationRenderer {
                         color = Color(annotation.color),
                         start = Offset(screenRect.left, y),
                         end = Offset(screenRect.right, y),
-                        strokeWidth = 2f * pageScale,
+                        strokeWidth = (2.5f * pageScale).coerceAtLeast(3f),
                         alpha = annotation.opacity
                     )
                 }
@@ -656,7 +656,7 @@ class AnnotationRenderer {
         drawPath(
             path = path,
             color = Color(color),
-            style = Stroke(1.5f * pageScale),
+            style = Stroke((2f * pageScale).coerceAtLeast(2.5f)),
             alpha = opacity
         )
     }

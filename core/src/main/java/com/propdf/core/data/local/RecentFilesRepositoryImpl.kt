@@ -1,18 +1,22 @@
 package com.propdf.core.data.local
 
+import com.propdf.core.data.entity.PdfDocumentEntity
+import com.propdf.core.data.local.dao.PdfDocumentDao
 import com.propdf.core.domain.model.RecentFile
 import com.propdf.core.domain.repository.RecentFilesRepository
 import com.propdf.core.domain.result.AppException
 import com.propdf.core.domain.result.AppResult
 import com.propdf.core.domain.result.toAppException
 import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.map
 import javax.inject.Inject
 import javax.inject.Singleton
 
 @Singleton
 class RecentFilesRepositoryImpl @Inject constructor(
-    private val dao: RecentFilesDao
+    private val dao: RecentFilesDao,
+    private val pdfDocumentDao: PdfDocumentDao
 ) : RecentFilesRepository {
 
     override fun observeAll(): Flow<List<RecentFile>> =
@@ -31,9 +35,69 @@ class RecentFilesRepositoryImpl @Inject constructor(
 
     override suspend fun add(file: RecentFile): AppResult<Unit> = try {
         dao.insert(file.toEntity())
+        syncToDocumentTable(file)
         AppResult.Success(Unit)
     } catch (e: Exception) {
         AppResult.Error(e.toAppException())
+    }
+
+    override suspend fun setFavourite(uri: String, isFavourite: Boolean): AppResult<Unit> = try {
+        dao.setFavourite(uri, isFavourite)
+        try {
+            pdfDocumentDao.getByUri(uri)?.let { pdfDocumentDao.setFavorite(it.id, isFavourite) }
+        } catch (_: Exception) {
+            // Non-fatal — see syncToDocumentTable
+        }
+        AppResult.Success(Unit)
+    } catch (e: Exception) {
+        AppResult.Error(e.toAppException())
+    }
+
+    /**
+     * Interim dual-write bridge: core.ProPDFDatabase's pdf_documents table
+     * (read by Home, Duplicate Finder, Storage Analyzer, Recent Activity)
+     * previously had nothing writing to it — every file open/scan only ever
+     * reached RecentFilesDatabase. This keeps pdf_documents in sync from the
+     * one real ingestion path (DocumentScanWorker + MainViewModel.openPdf,
+     * both of which call add()) without disturbing existing rows: matches
+     * are found by uri and updated in place, so the row's id (and any tags/
+     * collections already linked to it) survive repeated scans. REPLACE-on-
+     * insert would otherwise delete+recreate the row on every rescan and
+     * silently drop those associations.
+     *
+     * This is a bridge, not the final state — see the consolidation plan.
+     */
+    private suspend fun syncToDocumentTable(file: RecentFile) {
+        try {
+            val existing = pdfDocumentDao.getByUri(file.uri)
+            if (existing != null) {
+                pdfDocumentDao.update(
+                    existing.copy(
+                        fileName = file.name,
+                        sizeBytes = file.size,
+                        pageCount = if (file.pageCount > 0) file.pageCount else existing.pageCount,
+                        lastOpened = file.lastOpened,
+                        isFavorite = file.isFavorite
+                    )
+                )
+            } else {
+                pdfDocumentDao.insert(
+                    PdfDocumentEntity(
+                        uriString = file.uri,
+                        fileName = file.name,
+                        filePath = file.uri,
+                        sizeBytes = file.size,
+                        pageCount = file.pageCount,
+                        lastModified = file.lastOpened,
+                        lastOpened = file.lastOpened,
+                        isFavorite = file.isFavorite
+                    )
+                )
+            }
+        } catch (_: Exception) {
+            // Non-fatal: the recent-files write above already succeeded — a
+            // user action shouldn't fail because the mirror write failed.
+        }
     }
 
     override suspend fun remove(uri: String): AppResult<Unit> = try {
@@ -43,15 +107,20 @@ class RecentFilesRepositoryImpl @Inject constructor(
         AppResult.Error(e.toAppException())
     }
 
-    override suspend fun setFavourite(uri: String, isFavourite: Boolean): AppResult<Unit> = try {
-        dao.setFavourite(uri, isFavourite)
+    override suspend fun setCategory(uri: String, category: String): AppResult<Unit> = try {
+        dao.setCategory(uri, category)
         AppResult.Success(Unit)
     } catch (e: Exception) {
         AppResult.Error(e.toAppException())
     }
 
-    override suspend fun setCategory(uri: String, category: String): AppResult<Unit> = try {
-        dao.setCategory(uri, category)
+    override suspend fun rename(uri: String, newDisplayName: String): AppResult<Unit> = try {
+        dao.setDisplayName(uri, newDisplayName)
+        try {
+            pdfDocumentDao.getByUri(uri)?.let { pdfDocumentDao.setFileName(it.id, newDisplayName) }
+        } catch (_: Exception) {
+            // Non-fatal — see syncToDocumentTable
+        }
         AppResult.Success(Unit)
     } catch (e: Exception) {
         AppResult.Error(e.toAppException())
@@ -91,23 +160,37 @@ class RecentFilesRepositoryImpl @Inject constructor(
         AppResult.Error(e.toAppException())
     }
 
+    override suspend fun backfillDocumentTable(): Int {
+        val allFiles = dao.getAll().first().map { it.toDomain() }
+        var synced = 0
+        allFiles.forEach { file ->
+            try {
+                syncToDocumentTable(file)
+                synced++
+            } catch (_: Exception) {
+                // Skip this row, keep going — one bad row shouldn't abort the backfill
+            }
+        }
+        return synced
+    }
+
     private fun RecentFileEntity.toDomain() = RecentFile(
         uri = uri,
-        displayName = displayName,
-        fileSizeBytes = fileSizeBytes,
-        lastOpenedAt = lastOpenedAt,
+        name = displayName,
+        size = fileSizeBytes,
+        lastOpened = lastOpenedAt,
         pageCount = pageCount,
-        isFavourite = isFavourite,
+        isFavorite = isFavourite,
         category = category
     )
 
     private fun RecentFile.toEntity() = RecentFileEntity(
         uri = uri,
-        displayName = displayName,
-        fileSizeBytes = fileSizeBytes,
-        lastOpenedAt = lastOpenedAt,
+        displayName = name,
+        fileSizeBytes = size,
+        lastOpenedAt = lastOpened,
         pageCount = pageCount,
-        isFavourite = isFavourite,
+        isFavourite = isFavorite,
         category = category
     )
 }

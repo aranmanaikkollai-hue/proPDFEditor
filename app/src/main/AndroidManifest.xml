@@ -2,20 +2,39 @@
 <manifest xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:tools="http://schemas.android.com/tools">
 
+    <!-- ==================== PERMISSIONS ==================== -->
     <uses-permission android:name="android.permission.INTERNET" />
+    <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE" />
     <uses-permission android:name="android.permission.READ_EXTERNAL_STORAGE"
         android:maxSdkVersion="32" />
     <uses-permission android:name="android.permission.WRITE_EXTERNAL_STORAGE"
-        android:maxSdkVersion="28" />
+        android:maxSdkVersion="29"
+        tools:ignore="ScopedStorage" />
     <uses-permission android:name="android.permission.CAMERA" />
-    <uses-permission android:name="android.permission.RECORD_AUDIO" />
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE_DATA_SYNC" />
+    <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
+    <uses-permission android:name="android.permission.WAKE_LOCK" />
+    <uses-permission android:name="android.permission.RECEIVE_BOOT_COMPLETED" />
 
+    <!-- REMOVED: MANAGE_EXTERNAL_STORAGE and REQUEST_INSTALL_PACKAGES
+         These are not justified for basic PDF viewing and may trigger
+         Google Play policy issues. Add back only if genuinely required. -->
+
+    <!-- ==================== HARDWARE FEATURES ==================== -->
     <uses-feature
         android:name="android.hardware.camera"
         android:required="false" />
+    <uses-feature
+        android:name="android.hardware.camera.autofocus"
+        android:required="false" />
+    <uses-feature
+        android:name="android.hardware.touchscreen"
+        android:required="true" />
 
+    <!-- ==================== APPLICATION ==================== -->
     <application
-        android:name=".ProPDFApp"
+        android:name=".ProPDFApplication"
         android:allowBackup="true"
         android:dataExtractionRules="@xml/data_extraction_rules"
         android:fullBackupContent="@xml/backup_rules"
@@ -23,62 +42,121 @@
         android:label="@string/app_name"
         android:roundIcon="@mipmap/ic_launcher_round"
         android:supportsRtl="true"
-        android:theme="@style/Theme.ProPDF.Starting"
+        android:theme="@style/Theme.ProPDF"
+        android:largeHeap="true"
+        android:hardwareAccelerated="true"
+        android:enableOnBackInvokedCallback="true"
         tools:targetApi="34">
 
+        <!-- ==================== MAIN ACTIVITY ==================== -->
+        <!--
+            launchMode="singleTask" ensures onNewIntent() is delivered for
+            warm-start external PDF requests instead of spawning duplicate
+            activity instances.
+        -->
         <activity
             android:name=".ui.main.MainActivity"
             android:exported="true"
-            android:theme="@style/Theme.ProPDF.Starting"
-            android:windowSoftInputMode="adjustResize">
+            android:theme="@style/Theme.ProPDF.Splash"
+            android:launchMode="singleTask"
+            android:windowSoftInputMode="adjustResize"
+            android:configChanges="orientation|screenSize|smallestScreenSize|screenLayout|keyboard|keyboardHidden">
+
+            <!-- Launcher intent -->
             <intent-filter>
                 <action android:name="android.intent.action.MAIN" />
                 <category android:name="android.intent.category.LAUNCHER" />
             </intent-filter>
+
+            <!--
+                PDF MIME type deep link via ACTION_VIEW.
+                Handles content:// and file:// URIs with application/pdf.
+            -->
+            <intent-filter>
+                <action android:name="android.intent.action.VIEW" />
+                <category android:name="android.intent.category.DEFAULT" />
+                <category android:name="android.intent.category.BROWSABLE" />
+                <data android:scheme="content" android:mimeType="application/pdf" />
+                <data android:scheme="file" android:mimeType="application/pdf" />
+            </intent-filter>
+
+            <!--
+                File extension fallback patterns for providers that do not
+                set a reliable MIME type.
+            -->
             <intent-filter>
                 <action android:name="android.intent.action.VIEW" />
                 <category android:name="android.intent.category.DEFAULT" />
                 <category android:name="android.intent.category.BROWSABLE" />
                 <data android:scheme="content" />
-                <data android:mimeType="application/pdf" />
-            </intent-filter>
-            <intent-filter>
-                <action android:name="android.intent.action.VIEW" />
-                <category android:name="android.intent.category.DEFAULT" />
                 <data android:scheme="file" />
+                <data android:host="*" />
+                <data android:pathPattern=".*\\.pdf" />
+                <data android:pathPattern=".*\\..*\\.pdf" />
+                <data android:pathPattern=".*\\..*\\..*\\.pdf" />
+                <data android:pathPattern=".*\\..*\\..*\\..*\\.pdf" />
+            </intent-filter>
+
+            <!--
+                ACTION_SEND support for PDFs shared from other applications.
+                Added to complete external PDF workflow coverage.
+            -->
+            <intent-filter>
+                <action android:name="android.intent.action.SEND" />
+                <category android:name="android.intent.category.DEFAULT" />
                 <data android:mimeType="application/pdf" />
             </intent-filter>
+
+            <!-- App shortcuts -->
+            <meta-data
+                android:name="android.app.shortcuts"
+                android:resource="@xml/shortcuts" />
         </activity>
 
+        <!-- ==================== LEGACY ACTIVITIES (Security) ==================== -->
         <activity
-            android:name=".ui.scanner.DocumentScannerActivity"
-            android:exported="false" />
-
-        <activity
-            android:name=".ui.scanner.ModernScannerActivity"
-            android:exported="false" />
-
-        <activity
-            android:name=".ui.ocr.OcrActivity"
-            android:exported="false" />
-
-        <activity
-            android:name=".ui.ocr.OcrCropActivity"
-            android:exported="false" />
-
-        <activity
-            android:name=".ui.security.SecurityActivity"
-            android:exported="false" />
-
-        <activity
-            android:name=".ui.tools.ToolsActivity"
-            android:exported="false" />
-
-        <activity
-            android:name=".ui.viewer.ViewerActivity"
+            android:name=".ui.signature.SignatureManagerActivity"
             android:exported="false"
-            android:configChanges="orientation|screenSize|smallestScreenSize" />
+            android:label="@string/title_signature_manager" />
+        <activity
+            android:name=".ui.signature.ApplySignatureActivity"
+            android:exported="false"
+            android:label="@string/title_apply_signature" />
+        <activity
+            android:name=".ui.signature.SignatureVerificationActivity"
+            android:exported="false"
+            android:label="@string/title_verify_signature" />
+        <activity
+            android:name=".ui.signature.DrawSignatureActivity"
+            android:exported="false" />
+        <activity
+            android:name=".ui.signature.TypeSignatureActivity"
+            android:exported="false" />
+        <activity
+            android:name=".ui.signature.CertificateManagerActivity"
+            android:exported="false" />
 
+        <!-- ==================== STARTUP INITIALIZERS ==================== -->
+        <!-- CRITICAL FIX: Restored androidx.work.WorkManagerInitializer.
+             The default initializer MUST run so WorkManager can read
+             Configuration from ProPDFApplication (Configuration.Provider).
+             The custom WorkManagerInitializer is now a no-op placeholder. -->
+        <provider
+            android:name="androidx.startup.InitializationProvider"
+            android:authorities="${applicationId}.androidx-startup"
+            android:exported="false"
+            tools:node="merge">
+            <meta-data
+                android:name="com.propdfeditor.startup.PDFBoxInitializer"
+                android:value="androidx.startup" />
+            <meta-data
+                android:name="com.propdfeditor.startup.CoilInitializer"
+                android:value="androidx.startup" />
+            <!-- REMOVED: tools:node="remove" from androidx.work.WorkManagerInitializer -->
+            <!-- The default WorkManagerInitializer is now allowed to run normally. -->
+        </provider>
+
+        <!-- ==================== FILE PROVIDER ==================== -->
         <provider
             android:name="androidx.core.content.FileProvider"
             android:authorities="${applicationId}.fileprovider"
@@ -88,6 +166,17 @@
                 android:name="android.support.FILE_PROVIDER_PATHS"
                 android:resource="@xml/file_paths" />
         </provider>
+
+        <!-- ==================== RECEIVERS ==================== -->
+        <receiver
+            android:name=".receiver.BootReceiver"
+            android:enabled="true"
+            android:exported="true"
+            android:permission="android.permission.RECEIVE_BOOT_COMPLETED">
+            <intent-filter>
+                <action android:name="android.intent.action.BOOT_COMPLETED" />
+            </intent-filter>
+        </receiver>
 
     </application>
 </manifest>

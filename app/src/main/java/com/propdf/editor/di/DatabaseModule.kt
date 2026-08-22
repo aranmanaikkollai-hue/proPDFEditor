@@ -28,7 +28,13 @@ object DatabaseModule {
         return Room.databaseBuilder(
             context,
             AppDatabase::class.java,
-            "propdf_database"
+            // Was "propdf_database" — identical to the SQLite filename used by
+            // core.RecentFilesDatabase (see core/di/DatabaseModule.kt). Two
+            // unrelated Room @Database classes with different entity sets
+            // were opening the same physical file, which fails Room's schema
+            // validation and crashes whichever one opens second. Renamed to
+            // a name unique to this single-entity (ConversionTask) database.
+            "conversion_tasks_database"
         )
             .fallbackToDestructiveMigration()
             .build()
@@ -40,17 +46,11 @@ object DatabaseModule {
         return database.conversionTaskDao()
     }
 
-    @Provides
-    @Singleton
-    fun provideProPDFDatabase(@ApplicationContext context: Context): ProPDFDatabase {
-        return Room.databaseBuilder(
-            context,
-            ProPDFDatabase::class.java,
-            "propdf_core_database"
-        )
-            .fallbackToDestructiveMigration()
-            .build()
-    }
+    // ProPDFDatabase itself is already provided as a @Singleton by
+    // core/di/DatabaseModule.kt — a second @Provides here for the same type
+    // would be a duplicate Hilt binding. These functions just expose the
+    // additional DAOs that database's own entity list didn't have accessors
+    // for until now (see ProPDFDatabase.kt).
 
     @Provides
     fun providePdfDocumentDao(database: ProPDFDatabase): PdfDocumentDao =

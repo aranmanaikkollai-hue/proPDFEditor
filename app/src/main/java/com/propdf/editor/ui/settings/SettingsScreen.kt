@@ -1,5 +1,6 @@
 package com.propdf.editor.ui.settings
 
+import android.widget.Toast
 import androidx.compose.animation.*
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
@@ -15,7 +16,9 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.input.nestedscroll.nestedScroll
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
+import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.navigation.NavController
 import kotlinx.coroutines.launch
 
@@ -26,7 +29,21 @@ fun SettingsScreen(navController: NavController) {
     val sheetState = rememberModalBottomSheetState()
     var showThemeSheet by remember { mutableStateOf(false) }
     var showStorageSheet by remember { mutableStateOf(false) }
+    var showAboutDialog by remember { mutableStateOf(false) }
+    var showPrivacyDialog by remember { mutableStateOf(false) }
+    var showHelpDialog by remember { mutableStateOf(false) }
+    var showEmptyRecycleBinConfirm by remember { mutableStateOf(false) }
     val scope = rememberCoroutineScope()
+    val context = LocalContext.current
+    val settingsViewModel: SettingsViewModel = hiltViewModel()
+    val actionResult by settingsViewModel.actionResult.collectAsState()
+
+    LaunchedEffect(actionResult) {
+        actionResult?.let {
+            Toast.makeText(context, it.message, Toast.LENGTH_SHORT).show()
+            settingsViewModel.consumeActionResult()
+        }
+    }
 
     var darkMode by remember { mutableStateOf(false) }
     var dynamicColors by remember { mutableStateOf(true) }
@@ -137,21 +154,21 @@ fun SettingsScreen(navController: NavController) {
                         icon = Icons.Outlined.Info,
                         title = "About ProPDF",
                         subtitle = "Version 3.0.0 • Build 2024",
-                        onClick = { }
+                        onClick = { showAboutDialog = true }
                     )
                     Divider(modifier = Modifier.padding(horizontal = 16.dp))
                     SettingsClickItem(
                         icon = Icons.Outlined.Policy,
                         title = "Privacy Policy",
                         subtitle = "Read our privacy policy",
-                        onClick = { }
+                        onClick = { showPrivacyDialog = true }
                     )
                     Divider(modifier = Modifier.padding(horizontal = 16.dp))
                     SettingsClickItem(
                         icon = Icons.Outlined.HelpOutline,
                         title = "Help & Support",
                         subtitle = "FAQs, guides, and contact",
-                        onClick = { }
+                        onClick = { showHelpDialog = true }
                     )
                 }
             }
@@ -231,7 +248,7 @@ fun SettingsScreen(navController: NavController) {
                     leadingContent = {
                         Icon(Icons.Outlined.CleaningServices, null)
                     },
-                    modifier = Modifier.clickable { }
+                    modifier = Modifier.clickable { settingsViewModel.clearCache() }
                 )
                 ListItem(
                     headlineContent = { Text("Empty Recycle Bin") },
@@ -239,7 +256,7 @@ fun SettingsScreen(navController: NavController) {
                     leadingContent = {
                         Icon(Icons.Outlined.DeleteForever, null, tint = MaterialTheme.colorScheme.error)
                     },
-                    modifier = Modifier.clickable { }
+                    modifier = Modifier.clickable { showEmptyRecycleBinConfirm = true }
                 )
                 ListItem(
                     headlineContent = { Text("Export Data") },
@@ -247,11 +264,94 @@ fun SettingsScreen(navController: NavController) {
                     leadingContent = {
                         Icon(Icons.Outlined.Backup, null)
                     },
-                    modifier = Modifier.clickable { }
+                    modifier = Modifier.clickable {
+                        // TODO: a real :backup module (BackupRepositoryImpl,
+                        // BackupEncryption, BackupWorker) already exists but has
+                        // never been linked into :app or verified — wiring it in
+                        // blind isn't a safe quick fix like Clear Cache/Empty
+                        // Recycle Bin were. Needs its own pass to verify it first.
+                        Toast.makeText(context, "Export Data is coming soon", Toast.LENGTH_SHORT).show()
+                    }
                 )
                 Spacer(modifier = Modifier.height(32.dp))
             }
         }
+    }
+
+    if (showEmptyRecycleBinConfirm) {
+        AlertDialog(
+            onDismissRequest = { showEmptyRecycleBinConfirm = false },
+            icon = { Icon(Icons.Outlined.DeleteForever, contentDescription = null, tint = MaterialTheme.colorScheme.error) },
+            title = { Text("Empty recycle bin?") },
+            text = { Text("This permanently deletes every file currently in the recycle bin. This can't be undone.") },
+            confirmButton = {
+                TextButton(onClick = {
+                    showEmptyRecycleBinConfirm = false
+                    settingsViewModel.emptyRecycleBin()
+                }) { Text("Delete permanently", color = MaterialTheme.colorScheme.error) }
+            },
+            dismissButton = {
+                TextButton(onClick = { showEmptyRecycleBinConfirm = false }) { Text("Cancel") }
+            }
+        )
+    }
+
+    if (showAboutDialog) {
+        AlertDialog(
+            onDismissRequest = { showAboutDialog = false },
+            icon = { Icon(Icons.Outlined.Info, contentDescription = null) },
+            title = { Text("About ProPDF") },
+            text = {
+                Column {
+                    Text("Version 3.0.0 • Build 2024")
+                    Spacer(modifier = Modifier.height(8.dp))
+                    Text(
+                        "An offline-first PDF suite: view, annotate, edit, scan, and OCR your documents.",
+                        style = MaterialTheme.typography.bodyMedium
+                    )
+                }
+            },
+            confirmButton = {
+                TextButton(onClick = { showAboutDialog = false }) { Text("OK") }
+            }
+        )
+    }
+
+    if (showPrivacyDialog) {
+        AlertDialog(
+            onDismissRequest = { showPrivacyDialog = false },
+            icon = { Icon(Icons.Outlined.Policy, contentDescription = null) },
+            title = { Text("Privacy Policy") },
+            text = {
+                Text(
+                    "ProPDF processes documents entirely on-device. No document content is " +
+                        "uploaded to any server. Full published policy text is not yet linked " +
+                        "in this build.",
+                    style = MaterialTheme.typography.bodyMedium
+                )
+            },
+            confirmButton = {
+                TextButton(onClick = { showPrivacyDialog = false }) { Text("OK") }
+            }
+        )
+    }
+
+    if (showHelpDialog) {
+        AlertDialog(
+            onDismissRequest = { showHelpDialog = false },
+            icon = { Icon(Icons.Outlined.HelpOutline, contentDescription = null) },
+            title = { Text("Help & Support") },
+            text = {
+                Text(
+                    "In-app FAQs and contact options are coming soon. For now, use your " +
+                        "device's app-store listing to leave feedback.",
+                    style = MaterialTheme.typography.bodyMedium
+                )
+            },
+            confirmButton = {
+                TextButton(onClick = { showHelpDialog = false }) { Text("OK") }
+            }
+        )
     }
 }
 

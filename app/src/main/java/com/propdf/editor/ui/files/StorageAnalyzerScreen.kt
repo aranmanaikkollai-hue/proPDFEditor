@@ -14,13 +14,18 @@ import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import androidx.lifecycle.viewModelScope
 import androidx.navigation.NavController
 import com.propdf.editor.domain.model.PdfDocument
 import com.propdf.editor.domain.model.StorageStats
 import com.propdf.editor.utils.formatFileSize
+import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.launch
+import javax.inject.Inject
 import com.propdf.editor.ui.theme.*
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -121,12 +126,58 @@ private fun LargeFilesSection(files: List<PdfDocument>) {
     }
 }
 
-class StorageAnalyzerViewModel : androidx.lifecycle.ViewModel() {
+@HiltViewModel
+class StorageAnalyzerViewModel @Inject constructor(
+    private val coreDocumentRepository: com.propdf.core.domain.repository.DocumentRepository
+) : androidx.lifecycle.ViewModel() {
     data class UiState(
         val stats: StorageStats = StorageStats(),
         val categorySizes: Map<String, Long> = emptyMap(),
-        val largeFiles: List<PdfDocument> = emptyList()
+        val largeFiles: List<PdfDocument> = emptyList(),
+        val isLoading: Boolean = false
     )
     private val _uiState = MutableStateFlow(UiState())
     val uiState: StateFlow<UiState> = _uiState.asStateFlow()
+
+    init {
+        loadAnalysis()
+    }
+
+    private fun loadAnalysis() {
+        viewModelScope.launch {
+            _uiState.value = _uiState.value.copy(isLoading = true)
+            try {
+                val analysis = coreDocumentRepository.getStorageAnalysis()
+                val favoriteCount = try {
+                    coreDocumentRepository.getFavoriteDocuments().first().size
+                } catch (_: Exception) { 0 }
+                _uiState.value = UiState(
+                    stats = StorageStats(
+                        totalDocuments = analysis.pdfFileCount,
+                        totalSize = analysis.pdfFilesBytes,
+                        favoriteCount = favoriteCount
+                    ),
+                    // Grouped by containing folder name (core's storage analysis
+                    // doesn't track the app's DocumentCategory enum, only folders)
+                    categorySizes = analysis.collectionBreakdown,
+                    largeFiles = analysis.largestFiles.map { it.toEditorModel() },
+                    isLoading = false
+                )
+            } catch (_: Exception) {
+                _uiState.value = _uiState.value.copy(isLoading = false)
+            }
+        }
+    }
+
+    private fun com.propdf.core.domain.model.PdfDocument.toEditorModel(): PdfDocument = PdfDocument(
+        id = id,
+        uri = android.net.Uri.parse(uriString),
+        displayName = displayName,
+        fileSize = sizeBytes,
+        dateModified = lastModified,
+        dateAdded = lastModified,
+        isFavorite = isFavorite,
+        isDeleted = isInRecycleBin,
+        pageCount = pageCount
+    )
 }

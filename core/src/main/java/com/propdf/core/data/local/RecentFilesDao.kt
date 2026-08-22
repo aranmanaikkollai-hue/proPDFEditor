@@ -46,6 +46,9 @@ interface RecentFilesDao {
     @Query("UPDATE recent_files SET category = :category WHERE uri = :uri")
     suspend fun setCategory(uri: String, category: String)
 
+    @Query("UPDATE recent_files SET display_name = :displayName WHERE uri = :uri")
+    suspend fun setDisplayName(uri: String, displayName: String)
+
     @Query("UPDATE recent_files SET page_count = :count WHERE uri = :uri")
     suspend fun updatePageCount(uri: String, count: Int)
 

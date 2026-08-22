@@ -25,7 +25,15 @@ jobs:
       run: chmod +x gradlew
       
     - name: Build Debug APK
-      run: ./gradlew clean assembleDebug --no-daemon --stacktrace --refresh-dependencies
+      run: ./gradlew clean assembleDebug --no-daemon --stacktrace --refresh-dependencies --no-build-cache --info
+
+    - name: Dump Kotlin daemon logs on failure
+      if: failure()
+      run: |
+        echo "== Kotlin daemon log files =="
+        find /home/runner/.kotlin/daemon -type f 2>/dev/null -print -exec cat {} \; || echo "No daemon log files found at /home/runner/.kotlin/daemon"
+        echo "== Gradle daemon log files (fallback) =="
+        find /home/runner/.gradle/daemon -name "*.log" -newermt "-15 minutes" 2>/dev/null -print -exec tail -c 20000 {} \; || true
 
     - name: Upload APK Artifact
       uses: actions/upload-artifact@v4

@@ -54,7 +54,24 @@ fun AnnotationOverlay(
     val currentTool by viewModel.currentTool.collectAsState()
     val currentStrokeWidth by viewModel.currentStrokeWidth.collectAsState()
     val selectedAnnotations by viewModel.selectedAnnotations.collectAsState()
-    val annotations = remember { derivedStateOf { viewModel.getAnnotationsForPage(pageIndex) } }.value
+
+    // Recomputed fresh on every recomposition (not cached behind a keyless
+    // remember/derivedStateOf) so it always reflects both the current
+    // pageIndex AND the current annotation content. A previous version used
+    // `remember { derivedStateOf { viewModel.getAnnotationsForPage(pageIndex) } }`
+    // with no keys: the `pageIndex` captured in that lambda was frozen from
+    // the very first composition of this overlay and never re-evaluated, so
+    // if `pageIndex` ever changed after that (e.g. the document viewport's
+    // current-page detection settling on a different page shortly after this
+    // overlay first appeared), annotations kept being read for -- and newly
+    // created annotations kept being written under -- two different page
+    // indices: the live gesture code used the current `pageIndex` parameter
+    // correctly, but this display list stayed stuck on the stale one. A
+    // freshly drawn stroke would render as a live preview while the finger
+    // was down, then disappear the instant it was committed, because the
+    // (mismatched) display list never included it. getAnnotationsForPage is
+    // a cheap in-memory filter, so there's no need for memoization here.
+    val annotations = viewModel.getAnnotationsForPage(pageIndex)
 
     // In-progress drawing state
     var currentStroke by remember { mutableStateOf<List<PointF>>(emptyList()) }
@@ -222,11 +239,13 @@ fun AnnotationOverlay(
                                 if (hit != null) {
                                     viewModel.selectAnnotation(hit, false)
                                     isDragging = true
+                                    viewModel.beginTransformGesture()
                                 } else if (selectedAnnotations.isNotEmpty()) {
                                     val handle = viewModel.getSelectionHandleAt(startPdfPoint.x, startPdfPoint.y, 20f / pageScale)
                                     if (handle != -1) {
                                         isResizing = true
                                         resizeHandle = handle
+                                        viewModel.beginTransformGesture()
                                     }
                                 }
                             }
@@ -405,6 +424,11 @@ fun AnnotationOverlay(
                                 lassoPoints = emptyList()
                             }
                             AnnotationViewModel.AnnotationTool.SELECTOR -> {
+                                if (isDragging || isResizing) {
+                                    // Collapses the whole drag into exactly one undo
+                                    // entry and one save, instead of one per frame.
+                                    viewModel.endTransformGesture()
+                                }
                                 isDragging = false
                                 isResizing = false
                                 resizeHandle = -1

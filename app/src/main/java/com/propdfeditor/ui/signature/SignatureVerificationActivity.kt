@@ -12,8 +12,8 @@ import androidx.lifecycle.lifecycleScope
 import androidx.lifecycle.repeatOnLifecycle
 import androidx.recyclerview.widget.LinearLayoutManager
 import com.google.android.material.snackbar.Snackbar
-import com.propdf.editor.R
-import com.propdf.editor.databinding.ActivitySignatureVerificationBinding
+import com.propdfeditor.R
+import com.propdfeditor.databinding.ActivitySignatureVerificationBinding
 import com.propdfeditor.security.SignatureViewModel
 import dagger.hilt.android.AndroidEntryPoint
 import kotlinx.coroutines.launch

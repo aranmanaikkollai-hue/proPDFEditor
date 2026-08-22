@@ -11,7 +11,6 @@ import com.propdf.editor.domain.model.DocumentCategory
 import com.propdf.editor.domain.model.Folder
 import com.propdf.editor.domain.model.PdfDocument
 import com.propdf.editor.domain.model.StorageStats
-import com.propdf.editor.domain.repository.FolderRepository
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.*
 import kotlinx.coroutines.launch
@@ -31,8 +30,7 @@ data class HomeUiState(
 class HomeViewModel @Inject constructor(
     private val documentRepository: DocumentRepository,
     private val collectionRepository: CollectionRepository,
-    private val tagRepository: TagRepository,
-    private val folderRepository: FolderRepository
+    private val tagRepository: TagRepository
 ) : ViewModel() {
 
     private val _uiState = MutableStateFlow(HomeUiState())
@@ -51,8 +49,7 @@ class HomeViewModel @Inject constructor(
                 collectionRepository.getAllCollections(),
                 tagRepository.getAllTags(),
                 documentRepository.getDocumentCount(),
-                documentRepository.getTotalSize(),
-                folderRepository.getAllFolders()
+                documentRepository.getTotalSize()
             ) { values ->
                 @Suppress("UNCHECKED_CAST")
                 val recent = values[0] as List<com.propdf.core.domain.model.PdfDocument>
@@ -62,8 +59,18 @@ class HomeViewModel @Inject constructor(
                 val tags = values[2] as List<DocumentTag>
                 val count = values[3] as Int
                 val totalSize = values[4] as? Long
-                @Suppress("UNCHECKED_CAST")
-                val folders = values[5] as List<Folder>
+
+                // "Folders" on Home is now derived from core's Collection
+                // system (see the database consolidation plan) — the old
+                // app-local FolderRepository backed this with a table that
+                // was empty for anyone without cloud sync configured.
+                val folders = collections.map {
+                    Folder(
+                        id = it.id, name = it.name, color = it.color,
+                        icon = "folder", documentCount = it.documentCount,
+                        createdAt = it.createdAt, isSystem = false
+                    )
+                }
 
                 val mappedRecent = recent.map { doc ->
                     PdfDocument(

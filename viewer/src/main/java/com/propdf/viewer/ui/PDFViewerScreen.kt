@@ -55,13 +55,18 @@ fun PDFViewerScreen(
     val searchResults by viewModel.searchResults.collectAsState()
     val thumbnails by viewModel.thumbnails.collectAsState()
     val errorMessage by viewModel.errorMessage.collectAsState()
+    val pageLayouts by viewModel.pageLayouts.collectAsState()
+    val layoutWidth by viewModel.layoutWidth.collectAsState()
+    val documentHeight by viewModel.documentHeight.collectAsState()
+    val documentScrollY by viewModel.documentScrollY.collectAsState()
+    val pageBitmaps by viewModel.pageBitmaps.collectAsState()
+    val pageRenderState by viewModel.pageRenderState.collectAsState()
 
     var showSidebar by remember { mutableStateOf(false) }
     var showSearch by remember { mutableStateOf(false) }
     var searchQuery by remember { mutableStateOf("") }
     var currentResultIndex by remember { mutableStateOf(0) }
     var isSearching by remember { mutableStateOf(false) }
-    var viewportSize by remember { mutableStateOf(androidx.compose.ui.unit.IntSize.Zero) }
 
     LaunchedEffect(documentUri) {
         viewModel.openDocument(
@@ -69,17 +74,6 @@ fun PDFViewerScreen(
             documentId = documentId,
             cacheDir = context.cacheDir
         )
-    }
-
-    LaunchedEffect(viewportSize, currentPage) {
-        if (viewportSize.width > 0 && viewportSize.height > 0) {
-            viewModel.updateViewport(
-                left = 0,
-                top = 0,
-                right = viewportSize.width,
-                bottom = viewportSize.height
-            )
-        }
     }
 
     Scaffold(
@@ -137,14 +131,20 @@ fun PDFViewerScreen(
                 }
                 else -> {
                     PDFCanvas(
+                        pageLayouts = pageLayouts,
+                        layoutWidth = layoutWidth,
+                        documentHeight = documentHeight,
+                        pageBitmaps = pageBitmaps,
+                        documentScrollY = documentScrollY,
+                        currentPageIndex = currentPage,
                         zoomLevel = zoomLevel,
                         onZoomChange = { viewModel.updateZoom(it) },
-                        onViewportChange = { left, top, right, bottom ->
-                            viewModel.updateViewport(left, top, right, bottom)
+                        onScrollChange = { scrollY, viewportHeightPts ->
+                            viewModel.updateDocumentScroll(scrollY, viewportHeightPts)
                         },
-                        modifier = Modifier
-                            .fillMaxSize()
-                            .onSizeChanged { viewportSize = it }
+                        isRendering = pageRenderState is PDFViewerViewModel.PageRenderState.Rendering,
+                        hasError = pageRenderState is PDFViewerViewModel.PageRenderState.Error,
+                        modifier = Modifier.fillMaxSize()
                     )
                 }
             }
@@ -210,57 +210,169 @@ fun PDFViewerScreen(
     }
 }
 
+/**
+ * Renders the PDF as a continuous document viewport -- a vertical column of
+ * real page rectangles (from [pageLayouts]) that the user scrolls through,
+ * rather than one floating full-page bitmap. [documentScrollY] is the
+ * authoritative scroll position (see PDFViewerViewModel.documentScrollY);
+ * this composable mirrors it into local state for smooth gesture feedback
+ * and reports gesture-driven scroll/zoom changes back via [onScrollChange]/
+ * [onZoomChange], but the ViewModel remains the single source of truth --
+ * there is no separately-authoritative local viewport model.
+ *
+ * [pageBitmaps] is the small rendered-page window (current page +/- 1);
+ * pages without a bitmap yet still get their correct page-shaped boundary
+ * drawn (from [pageLayouts]), so the document never shows a "hole" or lets a
+ * page look like it's floating independently of the others.
+ *
+ * [gesturesEnabled] should be false while an annotation tool is actively
+ * capturing input, so the viewer's pan/zoom/scroll gesture detector and the
+ * annotation overlay's gesture detector never compete for the same touch
+ * stream. [onGeometryChange] reports the on-screen scale/offset of whichever
+ * page is [currentPageIndex], so overlays (e.g. annotations) can align to
+ * exactly what is drawn for that page.
+ */
 @Composable
-private fun PDFCanvas(
+fun PDFCanvas(
+    pageLayouts: List<PDFViewerViewModel.PageLayout>,
+    layoutWidth: Float,
+    documentHeight: Float,
+    pageBitmaps: Map<Int, android.graphics.Bitmap>,
+    documentScrollY: Float,
+    currentPageIndex: Int,
     zoomLevel: Float,
     onZoomChange: (Float) -> Unit,
-    onViewportChange: (Int, Int, Int, Int) -> Unit,
-    modifier: Modifier = Modifier
+    onScrollChange: (scrollY: Float, viewportHeightPts: Float) -> Unit,
+    modifier: Modifier = Modifier,
+    isRendering: Boolean = false,
+    hasError: Boolean = false,
+    gesturesEnabled: Boolean = true,
+    onGeometryChange: (pageIndex: Int, scale: Float, offsetX: Float, offsetY: Float) -> Unit = { _, _, _, _ -> }
 ) {
+    // Local mirrors of the authoritative ViewModel state, kept in sync via
+    // LaunchedEffect below and updated locally during gestures for smooth
+    // feedback (the same pattern already used for zoom elsewhere in this
+    // codebase). The ViewModel is what actually decides scroll clamping and
+    // current-page detection -- this composable never invents its own
+    // independently-authoritative position.
     var scale by remember { mutableStateOf(zoomLevel) }
-    var offset by remember { mutableStateOf(Offset.Zero) }
+    var scrollY by remember { mutableStateOf(documentScrollY) }
+    var panX by remember { mutableStateOf(0f) }
+    var viewportSizePx by remember { mutableStateOf(androidx.compose.ui.unit.IntSize.Zero) }
 
-    LaunchedEffect(zoomLevel) {
-        scale = zoomLevel
+    LaunchedEffect(zoomLevel) { scale = zoomLevel }
+    LaunchedEffect(documentScrollY) { scrollY = documentScrollY }
+
+    val baseScale = if (layoutWidth > 0f && viewportSizePx.width > 0) {
+        viewportSizePx.width / layoutWidth
+    } else 1f
+
+    // Let the ViewModel know the real viewport height (in document units)
+    // as soon as it's known, so current-page detection is correct from the
+    // very first frame rather than only after the first gesture.
+    LaunchedEffect(viewportSizePx, layoutWidth) {
+        if (viewportSizePx.height > 0 && baseScale > 0f) {
+            val totalScale = (baseScale * scale).coerceAtLeast(0.0001f)
+            onScrollChange(scrollY, viewportSizePx.height / totalScale)
+        }
     }
 
     Box(
         modifier = modifier
-            .pointerInput(Unit) {
+            .onSizeChanged { viewportSizePx = it }
+            .pointerInput(gesturesEnabled, layoutWidth) {
+                if (!gesturesEnabled) return@pointerInput
                 detectTransformGestures { centroid, pan, zoom, _ ->
+                    if (viewportSizePx.width <= 0 || layoutWidth <= 0f) return@detectTransformGestures
+                    val liveBaseScale = viewportSizePx.width / layoutWidth
+                    val totalScaleBefore = (liveBaseScale * scale).coerceAtLeast(0.0001f)
+
+                    // Preserve the pinch focal point: the document-space
+                    // point currently under the gesture centroid should stay
+                    // under the centroid after the zoom is applied.
+                    val docYAtCentroid = scrollY + centroid.y / totalScaleBefore
+
                     val newScale = (scale * zoom).coerceIn(0.25f, 10.0f)
-                    val newOffset = offset + pan
+                    val totalScaleAfter = (liveBaseScale * newScale).coerceAtLeast(0.0001f)
+
+                    var newScrollY = docYAtCentroid - centroid.y / totalScaleAfter
+                    // The drag component of the gesture scrolls the document
+                    // vertically (dragging up reveals content further down).
+                    newScrollY -= pan.y / totalScaleAfter
+                    val viewportHeightPts = viewportSizePx.height / totalScaleAfter
+                    val maxScroll = (documentHeight - viewportHeightPts).coerceAtLeast(0f)
+                    newScrollY = newScrollY.coerceIn(0f, maxScroll)
+
+                    val contentWidthPx = layoutWidth * totalScaleAfter
+                    val maxPanX = ((contentWidthPx - viewportSizePx.width) / 2f).coerceAtLeast(0f)
+                    val newPanX = (panX + pan.x).coerceIn(-maxPanX, maxPanX)
+
                     scale = newScale
-                    offset = newOffset
+                    scrollY = newScrollY
+                    panX = newPanX
+
                     onZoomChange(newScale)
+                    onScrollChange(newScrollY, viewportHeightPts)
                 }
             }
     ) {
         Canvas(modifier = Modifier.fillMaxSize()) {
-            onViewportChange(
-                offset.x.toInt(),
-                offset.y.toInt(),
-                (offset.x + size.width).toInt(),
-                (offset.y + size.height).toInt()
-            )
+            // Document background, visually distinct from a page's own
+            // white background so page boundaries and inter-page gaps read
+            // clearly instead of the page looking like it floats over
+            // nothing in particular.
+            drawRect(Color(0xFFDDDDDD))
 
-            drawRect(Color.LightGray)
+            if (layoutWidth <= 0f || pageLayouts.isEmpty()) return@Canvas
 
-            val tileSize = 512f * scale
-            val cols = (size.width / tileSize).toInt() + 2
-            val rows = (size.height / tileSize).toInt() + 2
+            val totalScale = (baseScale * scale).coerceAtLeast(0.0001f)
+            val viewportHeightPts = size.height / totalScale
+            val screenWidth = layoutWidth * totalScale
+            val screenLeft = (size.width - screenWidth) / 2f + panX
 
-            for (row in 0..rows) {
-                for (col in 0..cols) {
-                    val x = col * tileSize + offset.x % tileSize
-                    val y = row * tileSize + offset.y % tileSize
-                    drawRect(
-                        color = if ((row + col) % 2 == 0) Color.Gray.copy(alpha = 0.3f)
-                                else Color.DarkGray.copy(alpha = 0.3f),
-                        topLeft = Offset(x, y),
-                        size = Size(tileSize, tileSize)
+            pageLayouts.forEach { layout ->
+                val pageBottom = layout.docTop + layout.docHeight
+                if (pageBottom < scrollY || layout.docTop > scrollY + viewportHeightPts) {
+                    return@forEach
+                }
+
+                val screenTop = (layout.docTop - scrollY) * totalScale
+                val screenHeight = layout.docHeight * totalScale
+
+                // The page's own document-space rectangle, drawn first so
+                // every visible page has a defined, non-overlapping bounds
+                // -- a real page in a document, not a floating image --
+                // even before its bitmap has finished rendering.
+                drawRect(
+                    color = Color.White,
+                    topLeft = Offset(screenLeft, screenTop),
+                    size = Size(screenWidth, screenHeight)
+                )
+
+                val bitmap = pageBitmaps[layout.index]
+                if (bitmap != null && !bitmap.isRecycled) {
+                    drawImage(
+                        image = bitmap.asImageBitmap(),
+                        dstOffset = androidx.compose.ui.unit.IntOffset(
+                            screenLeft.toInt(),
+                            screenTop.toInt()
+                        ),
+                        dstSize = androidx.compose.ui.unit.IntSize(
+                            screenWidth.toInt().coerceAtLeast(1),
+                            screenHeight.toInt().coerceAtLeast(1)
+                        )
                     )
                 }
+
+                if (layout.index == currentPageIndex) {
+                    onGeometryChange(layout.index, totalScale, screenLeft, screenTop)
+                }
+            }
+        }
+
+        if (pageBitmaps[currentPageIndex] == null && isRendering && !hasError) {
+            Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+                CircularProgressIndicator()
             }
         }
     }

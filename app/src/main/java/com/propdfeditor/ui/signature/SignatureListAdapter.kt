@@ -6,7 +6,7 @@ import androidx.recyclerview.widget.DiffUtil
 import androidx.recyclerview.widget.ListAdapter
 import androidx.recyclerview.widget.RecyclerView
 import com.bumptech.glide.Glide
-import com.propdf.editor.databinding.ItemSignatureBinding
+import com.propdfeditor.databinding.ItemSignatureBinding
 import com.propdfeditor.core.database.entity.SignatureEntity
 import java.io.File
 

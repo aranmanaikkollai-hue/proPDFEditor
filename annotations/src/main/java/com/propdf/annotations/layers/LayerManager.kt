@@ -90,6 +90,25 @@ class LayerManager {
         return getAllAnnotations().filter { it.pageIndex == pageIndex }
     }
 
+    /**
+     * Updates an annotation in place, in whichever layer currently holds it, without
+     * going through the command history and without any persistence side effect.
+     *
+     * This exists specifically for continuous drag gestures (move/resize/rotate): each
+     * frame of the gesture needs the overlay's live rendering to reflect the annotation's
+     * current position immediately, but must NOT push an undo command or trigger a save
+     * per frame -- see AnnotationViewModel.beginTransformGesture/endTransformGesture,
+     * which wrap a whole gesture into exactly one undo entry and one save.
+     */
+    fun updateAnnotationLive(updated: Annotation) {
+        for (layer in _layers.value) {
+            if (layer.getAnnotation(updated.id) != null) {
+                layer.updateAnnotation(updated)
+                return
+            }
+        }
+    }
+
     fun lockLayer(layerId: String) {
         _layers.update { layers ->
             layers.map { layer ->
