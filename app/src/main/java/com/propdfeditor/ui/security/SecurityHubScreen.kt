@@ -21,12 +21,14 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 
 /**
  * Security Hub: password protect / AES encrypt / remove metadata are fully wired to
- * the real iText engines in :security (see SecurityViewModel). Redact and Verify
- * Signature don't yet have an interactive Compose UI (redaction needs a page-rect
- * marking tool; verification needs a results screen) so they're honestly disabled
- * with a "coming soon" message rather than left as silent no-op buttons. Digital
- * Sign routes to the existing annotation flow's Signature tool, which is the app's
- * one actually-working way to place a signature on a page today.
+ * the real iText engines in :security (see SecurityViewModel). Redact now opens a real
+ * interactive marking screen (see RedactionScreen/RedactionViewModel) backed by
+ * SecurityRepository's redaction engine and RedactionOverlayView, both of which already
+ * existed in :security but were only reachable from the old Fragment UI. Verify
+ * Signature doesn't yet have a results screen, so it's honestly disabled with a
+ * "coming soon" message rather than left as a silent no-op button. Digital Sign routes
+ * to the existing annotation flow's Signature tool, which is the app's one
+ * actually-working way to place a signature on a page today.
  */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -34,6 +36,7 @@ fun SecurityHubScreen(
     documentUri: String,
     onNavigateBack: () -> Unit,
     onNavigateToSign: (String) -> Unit = {},
+    onNavigateToRedact: (String) -> Unit = {},
     viewModel: SecurityViewModel = hiltViewModel()
 ) {
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
@@ -105,7 +108,7 @@ fun SecurityHubScreen(
                                     viewModel.requestAesEncrypt()
                                     saveDocumentLauncher.launch("encrypted_document.pdf")
                                 }
-                                SecurityAction.REDACT -> viewModel.showComingSoon("Redaction")
+                                SecurityAction.REDACT -> onNavigateToRedact(documentUri)
                                 SecurityAction.SIGN -> onNavigateToSign(documentUri)
                                 SecurityAction.VERIFY -> viewModel.showComingSoon("Signature verification")
                                 SecurityAction.METADATA -> {
