@@ -15,6 +15,7 @@ import com.propdfeditor.ui.filemanager.FileManagerScreen
 import com.propdfeditor.ui.home.HomeDashboardScreen
 import com.propdfeditor.ui.ocr.OcrHubScreen
 import com.propdfeditor.ui.security.SecurityHubScreen
+import com.propdfeditor.ui.security.RedactionScreen
 import com.propdf.editor.ui.settings.SettingsScreen
 import com.propdfeditor.ui.tools.ToolsHubScreen
 import com.propdfeditor.ui.share.ShareSheetScreen
@@ -264,6 +265,28 @@ fun AppNavigation(
                     // route to the existing annotation flow, which already has a
                     // working Signature pen tool in its toolbar.
                     navController.navigate("annotate/${uri.encode()}")
+                },
+                onNavigateToRedact = { uri -> navController.navigate("redact/${uri.encode()}") }
+            )
+        }
+
+        // =====================================================================
+        // Redaction (interactive page-rect marking, backed by SecurityRepository's
+        // real redaction engine + RedactionOverlayView, both previously dormant --
+        // see RedactionScreen/RedactionViewModel)
+        // =====================================================================
+        composable(
+            route = "redact/{uri}",
+            arguments = listOf(navArgument("uri") { type = NavType.StringType })
+        ) { backStackEntry ->
+            val encodedUri = backStackEntry.arguments?.getString("uri") ?: ""
+            RedactionScreen(
+                documentUri = encodedUri, // already decoded once by Navigation Compose itself
+                onNavigateBack = { navController.popBackStack() },
+                onRedactionComplete = { uri ->
+                    navController.navigate("viewer/${uri.encode()}") {
+                        popUpTo("home") { inclusive = false }
+                    }
                 }
             )
         }
