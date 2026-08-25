@@ -120,7 +120,7 @@ fun AnnotationOverlay(
                                         currentPolygon = currentPolygon + newPoint
                                     }
                                 }
-                                else -> handleTap(viewModel, currentTool, pdfPoint, pageIndex, { pending ->
+                                else -> handleTap(viewModel, currentTool, pdfPoint, pageIndex, pageScale, { pending ->
                                     pendingTextEdit = pending
                                 }, { tapPoint ->
                                     pendingStampPlacement = tapPoint
@@ -137,7 +137,7 @@ fun AnnotationOverlay(
                                 }
                                 AnnotationViewModel.AnnotationTool.SELECTOR -> {
                                     val allAnnotations = viewModel.getAnnotationsForPage(pageIndex)
-                                    val hit = allAnnotations.find { it.hitTest(pdfPoint.x, pdfPoint.y) }
+                                    val hit = allAnnotations.find { it.hitTest(pdfPoint.x, pdfPoint.y, touchTolerance(pageScale)) }
                                     if (hit is TextAnnotation) {
                                         pendingTextEdit = PendingTextEdit(
                                             pageIndex = pageIndex,
@@ -157,7 +157,7 @@ fun AnnotationOverlay(
                             val pdfPoint = screenToPdf(offset, pageScale, pageOffset)
                             if (currentTool == AnnotationViewModel.AnnotationTool.SELECTOR) {
                                 val allAnnotations = viewModel.getAnnotationsForPage(pageIndex)
-                                val hit = allAnnotations.find { it.hitTest(pdfPoint.x, pdfPoint.y) }
+                                val hit = allAnnotations.find { it.hitTest(pdfPoint.x, pdfPoint.y, touchTolerance(pageScale)) }
                                 if (hit != null) {
                                     viewModel.selectAnnotation(hit, true) // Additive selection
                                 }
@@ -194,7 +194,7 @@ fun AnnotationOverlay(
                             AnnotationViewModel.AnnotationTool.LASSO -> true
                             AnnotationViewModel.AnnotationTool.SELECTOR -> {
                                 val allAnnotations = viewModel.getAnnotationsForPage(pageIndex)
-                                val hit = allAnnotations.find { it.hitTest(startPdfPoint.x, startPdfPoint.y) }
+                                val hit = allAnnotations.find { it.hitTest(startPdfPoint.x, startPdfPoint.y, touchTolerance(pageScale)) }
                                 val handleHit = selectedAnnotations.isNotEmpty() &&
                                     viewModel.getSelectionHandleAt(startPdfPoint.x, startPdfPoint.y, 20f / pageScale) != -1
                                 hit != null || handleHit
@@ -239,7 +239,7 @@ fun AnnotationOverlay(
                             }
                             AnnotationViewModel.AnnotationTool.SELECTOR -> {
                                 val allAnnotations = viewModel.getAnnotationsForPage(pageIndex)
-                                val hit = allAnnotations.find { it.hitTest(startPdfPoint.x, startPdfPoint.y) }
+                                val hit = allAnnotations.find { it.hitTest(startPdfPoint.x, startPdfPoint.y, touchTolerance(pageScale)) }
                                 if (hit != null) {
                                     viewModel.selectAnnotation(hit, false)
                                     isDragging = true
@@ -694,6 +694,7 @@ private fun handleTap(
     tool: AnnotationViewModel.AnnotationTool,
     point: Offset,
     pageIndex: Int,
+    pageScale: Float,
     onRequestTextEdit: (PendingTextEdit) -> Unit,
     onRequestStampPlacement: (Offset) -> Unit
 ) {
@@ -742,7 +743,7 @@ private fun handleTap(
         }
         AnnotationViewModel.AnnotationTool.SELECTOR -> {
             val allAnnotations = viewModel.getAnnotationsForPage(pageIndex)
-            val hit = allAnnotations.find { it.hitTest(point.x, point.y) }
+            val hit = allAnnotations.find { it.hitTest(point.x, point.y, touchTolerance(pageScale)) }
             if (hit != null) {
                 viewModel.selectAnnotation(hit, false)
             } else {
@@ -752,3 +753,14 @@ private fun handleTap(
         else -> {}
     }
 }
+
+/**
+ * Hit-test tolerance in PDF page-coordinate units, derived from a fixed on-screen
+ * touch-target size (in px) divided by the current zoom scale. Passing the model's
+ * bare default tolerance (fixed in page units) meant the effective on-screen touch
+ * target shrank as the user zoomed out, since screenPx = pdfUnits * pageScale.
+ * Using the same 20f/pageScale convention already used for resize-handle hit testing
+ * keeps thin/unfilled shapes (lines, polygons, clouds) reliably tappable at any zoom.
+ */
+private fun touchTolerance(pageScale: Float): Float =
+    if (pageScale > 0f) 20f / pageScale else 20f
