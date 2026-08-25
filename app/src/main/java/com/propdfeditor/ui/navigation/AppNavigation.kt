@@ -8,6 +8,7 @@ import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.navArgument
 import com.propdf.editor.ui.PdfEditorScreen
+import com.propdf.editor.ui.tools.page.PageEditorScreen
 import com.propdf.scanner.ui.ScannerScreen
 import com.propdf.viewer.ui.IntegratedPDFViewerScreen
 import com.propdfeditor.ui.filemanager.FileManagerScreen
@@ -191,6 +192,7 @@ fun AppNavigation(
                 onNavigateToMerge = { navController.navigate("merge") },
                 onNavigateToSplit = { navController.navigate("split") },
                 onNavigateToSecurity = { uri -> navController.navigate("security/${uri.toString().encode()}") },
+                onNavigateToPageEditor = { uri -> navController.navigate("page-editor/${uri.toString().encode()}") },
                 onNavigateBack = { navController.popBackStack() }
             )
         }
@@ -220,6 +222,29 @@ fun AppNavigation(
                 },
                 onNavigateToMerge = { navController.navigate("merge") },
                 onNavigateToSplit = { navController.navigate("split") }
+            )
+        }
+
+        // =====================================================================
+        // Page Editor (organize/crop/resize/insert/reorder -- full page-management
+        // workflow backed by PdfOperationsRepository via PdfOperationWorker). This
+        // screen and its ViewModel were fully built and wired to the real repository
+        // but were never registered in the nav graph or reachable from anywhere in the
+        // app -- Compress/OCR/Merge/Split had entries in the Tools Hub, this didn't.
+        // =====================================================================
+        composable(
+            route = "page-editor/{uri}",
+            arguments = listOf(navArgument("uri") { type = NavType.StringType })
+        ) { backStackEntry ->
+            val encodedUri = backStackEntry.arguments?.getString("uri") ?: ""
+            PageEditorScreen(
+                pdfUri = android.net.Uri.parse(encodedUri), // already decoded once by Navigation Compose itself
+                onNavigateBack = { navController.popBackStack() },
+                onOpenPdf = { uri ->
+                    navController.navigate("viewer/${uri.toString().encode()}") {
+                        popUpTo("home") { inclusive = false }
+                    }
+                }
             )
         }
 
