@@ -36,6 +36,7 @@ fun ToolsHubScreen(
     onNavigateToMerge: () -> Unit,
     onNavigateToSplit: () -> Unit,
     onNavigateToSecurity: (Uri) -> Unit,
+    onNavigateToPageEditor: (Uri) -> Unit = {},
     onNavigateBack: () -> Unit
 ) {
     var comingSoonFeature by remember { mutableStateOf<String?>(null) }
@@ -45,12 +46,25 @@ fun ToolsHubScreen(
     ) { uri: Uri? ->
         uri?.let { onNavigateToSecurity(it) }
     }
+    val pickDocumentForPageEditorLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.OpenDocument()
+    ) { uri: Uri? ->
+        uri?.let { onNavigateToPageEditor(it) }
+    }
 
     val tools = listOf(
         ToolItem("Compress", Icons.Default.Compress) { onNavigateToCompression() },
         ToolItem("OCR", Icons.Default.TextFields) { onNavigateToOcr() },
         ToolItem("Merge", Icons.Default.MergeType) { onNavigateToMerge() },
         ToolItem("Split", Icons.Default.CallSplit) { onNavigateToSplit() },
+        // Organize (delete/duplicate/reorder/extract/rotate/crop/resize/mirror/insert
+        // pages) already has a fully-built screen + ViewModel wired to the real
+        // PdfOperationsRepository (see PageEditorScreen/PageEditorViewModel) -- it just
+        // had no entry point anywhere in the app, same gap Protect/Sign/Redact had
+        // below before they were connected.
+        ToolItem("Organize Pages", Icons.Default.ViewModule) {
+            pickDocumentForPageEditorLauncher.launch(arrayOf("application/pdf"))
+        },
         ToolItem("Protect", Icons.Default.Security) { pickDocumentLauncher.launch(arrayOf("application/pdf")) },
         ToolItem("Sign", Icons.Default.Draw) { pickDocumentLauncher.launch(arrayOf("application/pdf")) },
         ToolItem("Redact", Icons.Default.FormatColorReset) { pickDocumentLauncher.launch(arrayOf("application/pdf")) },
