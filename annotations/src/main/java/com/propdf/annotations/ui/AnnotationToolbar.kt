@@ -50,6 +50,7 @@ fun AnnotationToolbar(
     val currentColor by viewModel.currentColor.collectAsState()
     val currentStrokeWidth by viewModel.currentStrokeWidth.collectAsState()
     val currentOpacity by viewModel.currentOpacity.collectAsState()
+    val selectedAnnotations by viewModel.selectedAnnotations.collectAsState()
     val canUndo by viewModel.canUndo.collectAsState()
     val canRedo by viewModel.canRedo.collectAsState()
     val undoDescription by viewModel.undoDescription.collectAsState()
@@ -342,11 +343,29 @@ fun AnnotationToolbar(
                 }
             }
 
+            // When one or more annotations are selected, the color/stroke/opacity controls
+            // edit those existing annotations in place (via changeSelected*, which goes
+            // through history so it's undoable) instead of only changing the *default*
+            // style used for the next annotation the user draws. Previously these controls
+            // always called setColor/setStrokeWidth/setOpacity, so there was no way to
+            // restyle an already-placed shape, stamp, or markup annotation (e.g. brightening
+            // a too-faint underline/highlight) short of deleting and redrawing it.
+            val hasSelection = selectedAnnotations.isNotEmpty()
+            val selectionColor = selectedAnnotations.firstOrNull()?.color
+            val selectionOpacity = selectedAnnotations.firstOrNull()?.opacity
+            val selectionStrokeWidth = selectedAnnotations.firstOrNull()?.let {
+                when (it) {
+                    is com.propdf.annotations.model.ShapeAnnotation -> it.strokeWidth
+                    is com.propdf.annotations.model.StrokeAnnotation -> it.strokeWidth
+                    else -> null
+                }
+            }
+
             if (showColorPicker) {
                 ColorPicker(
-                    selectedColor = currentColor,
+                    selectedColor = selectionColor?.let { Color(it) } ?: currentColor,
                     onColorSelected = {
-                        viewModel.setColor(it)
+                        if (hasSelection) viewModel.changeSelectedColor(it) else viewModel.setColor(it)
                         showColorPicker = false
                     },
                     modifier = Modifier.padding(top = 8.dp)
@@ -354,11 +373,18 @@ fun AnnotationToolbar(
             }
 
             if (showStrokeWidthSlider) {
+                val strokeValue = selectionStrokeWidth ?: currentStrokeWidth
                 Column(modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp)) {
-                    Text("Stroke: ${currentStrokeWidth.toInt()}px", style = MaterialTheme.typography.labelSmall)
+                    Text(
+                        if (hasSelection) "Selected stroke: ${strokeValue.toInt()}px"
+                        else "Stroke: ${strokeValue.toInt()}px",
+                        style = MaterialTheme.typography.labelSmall
+                    )
                     Slider(
-                        value = currentStrokeWidth,
-                        onValueChange = { viewModel.setStrokeWidth(it) },
+                        value = strokeValue,
+                        onValueChange = {
+                            if (hasSelection) viewModel.changeSelectedStrokeWidth(it) else viewModel.setStrokeWidth(it)
+                        },
                         valueRange = 0.5f..20f,
                         steps = 38
                     )
@@ -366,11 +392,18 @@ fun AnnotationToolbar(
             }
 
             if (showOpacitySlider) {
+                val opacityValue = selectionOpacity ?: currentOpacity
                 Column(modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp)) {
-                    Text("Opacity: ${(currentOpacity * 100).toInt()}%", style = MaterialTheme.typography.labelSmall)
+                    Text(
+                        if (hasSelection) "Selected opacity: ${(opacityValue * 100).toInt()}%"
+                        else "Opacity: ${(opacityValue * 100).toInt()}%",
+                        style = MaterialTheme.typography.labelSmall
+                    )
                     Slider(
-                        value = currentOpacity,
-                        onValueChange = { viewModel.setOpacity(it) },
+                        value = opacityValue,
+                        onValueChange = {
+                            if (hasSelection) viewModel.changeSelectedOpacity(it) else viewModel.setOpacity(it)
+                        },
                         valueRange = 0.1f..1f,
                         steps = 8
                     )
