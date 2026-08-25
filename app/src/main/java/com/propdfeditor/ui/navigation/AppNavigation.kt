@@ -217,7 +217,9 @@ fun AppNavigation(
                     navController.navigate("viewer/${uri.encode()}") {
                         popUpTo("home") { inclusive = false }
                     }
-                }
+                },
+                onNavigateToMerge = { navController.navigate("merge") },
+                onNavigateToSplit = { navController.navigate("split") }
             )
         }
 
