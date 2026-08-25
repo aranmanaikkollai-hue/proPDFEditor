@@ -72,9 +72,31 @@ data class ShapeAnnotation(
                 dist <= tolerance + strokeWidth
             }
             ShapeType.POLYGON, ShapeType.CLOUD -> {
-                isPointInPolygon(PointF(x, y), vertices)
+                if (vertices.size < 2) {
+                    false
+                } else {
+                    isPointInPolygon(PointF(x, y), vertices) ||
+                        distanceToPolygonEdges(x, y, vertices) <= tolerance + strokeWidth
+                }
             }
         }
+    }
+
+    /**
+     * Minimum distance from a point to any edge (including the closing edge) of a polygon.
+     * Used so polygon/cloud shapes are selectable by touching the outline, not just strictly
+     * inside the fill -- important since most polygons/clouds are drawn unfilled.
+     */
+    private fun distanceToPolygonEdges(px: Float, py: Float, polygon: List<PointF>): Float {
+        var minDist = Float.MAX_VALUE
+        val n = polygon.size
+        for (i in 0 until n) {
+            val a = polygon[i]
+            val b = polygon[(i + 1) % n]
+            val d = distanceToLineSegment(px, py, a.x, a.y, b.x, b.y)
+            if (d < minDist) minDist = d
+        }
+        return minDist
     }
 
     override fun translate(dx: Float, dy: Float): Annotation = copy(
