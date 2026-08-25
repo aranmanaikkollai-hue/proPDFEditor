@@ -1,8 +1,18 @@
 package com.propdf.editor.ui
 
+import android.graphics.Bitmap
 import android.net.Uri
+import androidx.compose.foundation.BorderStroke
+import androidx.compose.foundation.Image
+import androidx.compose.foundation.background
+import androidx.compose.foundation.border
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.grid.GridCells
+import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
+import androidx.compose.foundation.lazy.grid.items
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.*
@@ -10,10 +20,14 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import kotlinx.coroutines.launch
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -21,10 +35,14 @@ fun PdfEditorScreen(
     documentUri: String,
     onNavigateBack: () -> Unit,
     onSaveComplete: (String) -> Unit,
+    onNavigateToMerge: () -> Unit = {},
+    onNavigateToSplit: () -> Unit = {},
     viewModel: PdfEditorViewModel = hiltViewModel()
 ) {
     val context = LocalContext.current
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
+    val selectedPages by viewModel.selectedPages.collectAsStateWithLifecycle()
+    val thumbnails by viewModel.thumbnails.collectAsStateWithLifecycle()
     val snackbarHostState = remember { SnackbarHostState() }
 
     LaunchedEffect(documentUri) {
@@ -70,17 +88,18 @@ fun PdfEditorScreen(
                     )
                 }
                 is EditorUiState.Ready -> {
-                    EditorToolsGrid(
+                    EditorContent(
                         pageCount = state.pageCount,
-                        onDeletePages = { viewModel.deletePages(it) },
-                        onDuplicatePage = { viewModel.duplicatePage(it) },
-                        onRotatePage = { viewModel.rotatePage(it) },
-                        onExtractPages = { viewModel.extractPages(it) },
-                        onMergePdf = { /* Launch merge flow */ },
-                        onSplitPdf = { /* Launch split flow */ },
-                        onCompress = { viewModel.compress() },
-                        onAddWatermark = { viewModel.addWatermark(it) },
-                        onAddPageNumbers = { viewModel.addPageNumbers() }
+                        thumbnails = thumbnails,
+                        selectedPages = selectedPages,
+                        onTogglePage = { viewModel.togglePageSelection(it) },
+                        onSelectAll = { viewModel.selectAllPages() },
+                        onClearSelection = { viewModel.clearSelection() },
+                        onDeleteSelected = { viewModel.deletePages(selectedPages.toList()) },
+                        onDuplicateSelected = { viewModel.duplicatePages(selectedPages.toList()) },
+                        onRotateSelected = { viewModel.rotatePages(selectedPages.toList()) },
+                        onMergePdf = onNavigateToMerge,
+                        onSplitPdf = onNavigateToSplit
                     )
                 }
                 is EditorUiState.Saved -> {
@@ -94,154 +113,254 @@ fun PdfEditorScreen(
 }
 
 @Composable
-private fun EditorToolsGrid(
+private fun EditorContent(
     pageCount: Int,
-    onDeletePages: (List<Int>) -> Unit,
-    onDuplicatePage: (Int) -> Unit,
-    onRotatePage: (Int) -> Unit,
-    onExtractPages: (List<Int>) -> Unit,
+    thumbnails: Map<Int, Bitmap>,
+    selectedPages: Set<Int>,
+    onTogglePage: (Int) -> Unit,
+    onSelectAll: () -> Unit,
+    onClearSelection: () -> Unit,
+    onDeleteSelected: () -> Unit,
+    onDuplicateSelected: () -> Unit,
+    onRotateSelected: () -> Unit,
     onMergePdf: () -> Unit,
-    onSplitPdf: () -> Unit,
-    onCompress: () -> Unit,
-    onAddWatermark: (String) -> Unit,
-    onAddPageNumbers: () -> Unit
+    onSplitPdf: () -> Unit
 ) {
-    var showWatermarkDialog by remember { mutableStateOf(false) }
-    var watermarkText by remember { mutableStateOf("") }
+    val scope = rememberCoroutineScope()
+    val snackbarHostState = remember { SnackbarHostState() }
 
-    LazyColumn(
-        modifier = Modifier
-            .fillMaxSize()
-            .padding(16.dp),
-        verticalArrangement = Arrangement.spacedBy(12.dp)
-    ) {
-        item {
-            Text(
-                "Page Operations",
-                style = MaterialTheme.typography.titleMedium
-            )
-        }
-        item {
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.spacedBy(12.dp)
-            ) {
-                EditorToolCard(
-                    icon = Icons.Default.Delete,
-                    label = "Delete",
-                    onClick = { onDeletePages(emptyList()) },
-                    modifier = Modifier.weight(1f)
-                )
-                EditorToolCard(
-                    icon = Icons.Default.ContentCopy,
-                    label = "Duplicate",
-                    onClick = { onDuplicatePage(0) },
-                    modifier = Modifier.weight(1f)
-                )
-                EditorToolCard(
-                    icon = Icons.Default.RotateRight,
-                    label = "Rotate",
-                    onClick = { onRotatePage(0) },
-                    modifier = Modifier.weight(1f)
-                )
-            }
-        }
-        item {
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.spacedBy(12.dp)
-            ) {
-                EditorToolCard(
-                    icon = Icons.Default.MergeType,
-                    label = "Merge",
-                    onClick = onMergePdf,
-                    modifier = Modifier.weight(1f)
-                )
-                EditorToolCard(
-                    icon = Icons.Default.CallSplit,
-                    label = "Split",
-                    onClick = onSplitPdf,
-                    modifier = Modifier.weight(1f)
-                )
-                EditorToolCard(
-                    icon = Icons.Default.Compress,
-                    label = "Compress",
-                    onClick = onCompress,
-                    modifier = Modifier.weight(1f)
-                )
-            }
-        }
-
-        item {
-            HorizontalDivider(modifier = Modifier.padding(vertical = 8.dp))
-            Text(
-                "Content",
-                style = MaterialTheme.typography.titleMedium
-            )
-        }
-        item {
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.spacedBy(12.dp)
-            ) {
-                EditorToolCard(
-                    icon = Icons.Default.WaterDrop,
-                    label = "Watermark",
-                    onClick = { showWatermarkDialog = true },
-                    modifier = Modifier.weight(1f)
-                )
-                EditorToolCard(
-                    icon = Icons.Default.FormatListNumbered,
-                    label = "Page Numbers",
-                    onClick = onAddPageNumbers,
-                    modifier = Modifier.weight(1f)
-                )
-                EditorToolCard(
-                    icon = Icons.Default.Crop,
-                    label = "Crop",
-                    onClick = { },
-                    modifier = Modifier.weight(1f)
-                )
-            }
-        }
-
-        item {
-            HorizontalDivider(modifier = Modifier.padding(vertical = 8.dp))
-            Text(
-                "$pageCount pages",
-                style = MaterialTheme.typography.bodyMedium,
-                color = MaterialTheme.colorScheme.onSurfaceVariant
-            )
+    fun notifyUnavailable(feature: String) {
+        scope.launch {
+            snackbarHostState.showSnackbar("$feature isn't available in this build yet")
         }
     }
 
-    if (showWatermarkDialog) {
-        AlertDialog(
-            onDismissRequest = { showWatermarkDialog = false },
-            title = { Text("Add Watermark") },
-            text = {
-                OutlinedTextField(
-                    value = watermarkText,
-                    onValueChange = { watermarkText = it },
-                    label = { Text("Watermark Text") },
-                    singleLine = true
-                )
-            },
-            confirmButton = {
-                TextButton(
-                    onClick = {
-                        showWatermarkDialog = false
-                        onAddWatermark(watermarkText)
-                    }
+    Box(modifier = Modifier.fillMaxSize()) {
+        LazyColumn(
+            modifier = Modifier
+                .fillMaxSize()
+                .padding(16.dp),
+            verticalArrangement = Arrangement.spacedBy(12.dp)
+        ) {
+            item {
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
                 ) {
-                    Text("Apply")
-                }
-            },
-            dismissButton = {
-                TextButton(onClick = { showWatermarkDialog = false }) {
-                    Text("Cancel")
+                    Text(
+                        if (selectedPages.isEmpty()) "$pageCount pages"
+                        else "${selectedPages.size} of $pageCount selected",
+                        style = MaterialTheme.typography.titleMedium
+                    )
+                    Row {
+                        TextButton(onClick = onSelectAll) { Text("Select all") }
+                        TextButton(
+                            onClick = onClearSelection,
+                            enabled = selectedPages.isNotEmpty()
+                        ) { Text("Clear") }
+                    }
                 }
             }
+
+            item {
+                // Real page-management workflow: tap a thumbnail to select/deselect it,
+                // then the operation buttons below act on the actual selection. Previously
+                // there was no selection model at all -- Delete/Duplicate/Rotate always
+                // called into the ViewModel with a hardcoded page (0, or an empty list),
+                // so the buttons appeared functional but silently acted on the wrong page
+                // or nothing.
+                LazyVerticalGrid(
+                    columns = GridCells.Fixed(4),
+                    modifier = Modifier.heightIn(max = 480.dp),
+                    horizontalArrangement = Arrangement.spacedBy(8.dp),
+                    verticalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
+                    items(pageCount) { pageIndex ->
+                        PageThumbnail(
+                            pageNumber = pageIndex + 1,
+                            bitmap = thumbnails[pageIndex],
+                            selected = selectedPages.contains(pageIndex),
+                            onClick = { onTogglePage(pageIndex) }
+                        )
+                    }
+                }
+            }
+
+            item {
+                HorizontalDivider(modifier = Modifier.padding(vertical = 8.dp))
+                Text("Page Operations", style = MaterialTheme.typography.titleMedium)
+            }
+            item {
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.spacedBy(12.dp)
+                ) {
+                    EditorToolCard(
+                        icon = Icons.Default.Delete,
+                        label = "Delete",
+                        enabled = selectedPages.isNotEmpty(),
+                        onClick = onDeleteSelected,
+                        modifier = Modifier.weight(1f)
+                    )
+                    EditorToolCard(
+                        icon = Icons.Default.ContentCopy,
+                        label = "Duplicate",
+                        enabled = selectedPages.isNotEmpty(),
+                        onClick = onDuplicateSelected,
+                        modifier = Modifier.weight(1f)
+                    )
+                    EditorToolCard(
+                        icon = Icons.Default.RotateRight,
+                        label = "Rotate",
+                        enabled = selectedPages.isNotEmpty(),
+                        onClick = onRotateSelected,
+                        modifier = Modifier.weight(1f)
+                    )
+                }
+            }
+            item {
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.spacedBy(12.dp)
+                ) {
+                    EditorToolCard(
+                        icon = Icons.Default.MergeType,
+                        label = "Merge",
+                        onClick = onMergePdf,
+                        modifier = Modifier.weight(1f)
+                    )
+                    EditorToolCard(
+                        icon = Icons.Default.CallSplit,
+                        label = "Split",
+                        onClick = onSplitPdf,
+                        modifier = Modifier.weight(1f)
+                    )
+                    EditorToolCard(
+                        icon = Icons.Default.Output,
+                        label = "Extract",
+                        enabled = false,
+                        onClick = { notifyUnavailable("Extract pages") },
+                        modifier = Modifier.weight(1f)
+                    )
+                }
+            }
+
+            item {
+                HorizontalDivider(modifier = Modifier.padding(vertical = 8.dp))
+                Text("Content", style = MaterialTheme.typography.titleMedium)
+            }
+            item {
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.spacedBy(12.dp)
+                ) {
+                    EditorToolCard(
+                        icon = Icons.Default.Compress,
+                        label = "Compress",
+                        enabled = false,
+                        onClick = { notifyUnavailable("Compress") },
+                        modifier = Modifier.weight(1f)
+                    )
+                    EditorToolCard(
+                        icon = Icons.Default.WaterDrop,
+                        label = "Watermark",
+                        enabled = false,
+                        onClick = { notifyUnavailable("Watermark") },
+                        modifier = Modifier.weight(1f)
+                    )
+                    EditorToolCard(
+                        icon = Icons.Default.FormatListNumbered,
+                        label = "Page Numbers",
+                        enabled = false,
+                        onClick = { notifyUnavailable("Page numbers") },
+                        modifier = Modifier.weight(1f)
+                    )
+                }
+            }
+            item {
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.spacedBy(12.dp)
+                ) {
+                    EditorToolCard(
+                        icon = Icons.Default.Crop,
+                        label = "Crop",
+                        enabled = false,
+                        onClick = { notifyUnavailable("Crop") },
+                        modifier = Modifier.weight(1f)
+                    )
+                    Spacer(modifier = Modifier.weight(1f))
+                    Spacer(modifier = Modifier.weight(1f))
+                }
+            }
+        }
+
+        SnackbarHost(
+            hostState = snackbarHostState,
+            modifier = Modifier.align(Alignment.BottomCenter)
+        )
+    }
+}
+
+@Composable
+private fun PageThumbnail(
+    pageNumber: Int,
+    bitmap: Bitmap?,
+    selected: Boolean,
+    onClick: () -> Unit
+) {
+    Column(
+        horizontalAlignment = Alignment.CenterHorizontally
+    ) {
+        Box(
+            modifier = Modifier
+                .aspectRatio(0.75f)
+                .clip(RoundedCornerShape(6.dp))
+                .background(MaterialTheme.colorScheme.surfaceVariant)
+                .then(
+                    if (selected) {
+                        Modifier.border(
+                            BorderStroke(2.5.dp, MaterialTheme.colorScheme.primary),
+                            RoundedCornerShape(6.dp)
+                        )
+                    } else Modifier
+                )
+                .clickable(onClick = onClick),
+            contentAlignment = Alignment.Center
+        ) {
+            if (bitmap != null) {
+                Image(
+                    bitmap = bitmap.asImageBitmap(),
+                    contentDescription = "Page $pageNumber",
+                    modifier = Modifier.fillMaxSize()
+                )
+            } else {
+                CircularProgressIndicator(modifier = Modifier.size(20.dp), strokeWidth = 2.dp)
+            }
+            if (selected) {
+                Box(
+                    modifier = Modifier
+                        .align(Alignment.TopEnd)
+                        .padding(4.dp)
+                        .size(18.dp)
+                        .clip(RoundedCornerShape(50))
+                        .background(MaterialTheme.colorScheme.primary),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Icon(
+                        Icons.Default.Check,
+                        contentDescription = null,
+                        tint = Color.White,
+                        modifier = Modifier.size(12.dp)
+                    )
+                }
+            }
+        }
+        Text(
+            "$pageNumber",
+            style = MaterialTheme.typography.labelSmall,
+            modifier = Modifier.padding(top = 2.dp)
         )
     }
 }
@@ -251,10 +370,12 @@ private fun EditorToolCard(
     icon: androidx.compose.ui.graphics.vector.ImageVector,
     label: String,
     onClick: () -> Unit,
-    modifier: Modifier = Modifier
+    modifier: Modifier = Modifier,
+    enabled: Boolean = true
 ) {
     ElevatedCard(
         onClick = onClick,
+        enabled = enabled,
         modifier = modifier.aspectRatio(1f)
     ) {
         Column(
@@ -268,12 +389,15 @@ private fun EditorToolCard(
                 imageVector = icon,
                 contentDescription = null,
                 modifier = Modifier.size(28.dp),
-                tint = MaterialTheme.colorScheme.primary
+                tint = if (enabled) MaterialTheme.colorScheme.primary
+                       else MaterialTheme.colorScheme.onSurface.copy(alpha = 0.38f)
             )
             Spacer(modifier = Modifier.height(8.dp))
             Text(
                 text = label,
-                style = MaterialTheme.typography.labelLarge
+                style = MaterialTheme.typography.labelLarge,
+                color = if (enabled) MaterialTheme.colorScheme.onSurface
+                        else MaterialTheme.colorScheme.onSurface.copy(alpha = 0.38f)
             )
         }
     }
