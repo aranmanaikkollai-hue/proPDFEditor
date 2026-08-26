@@ -17,6 +17,9 @@ import com.propdfeditor.ui.ocr.OcrHubScreen
 import com.propdfeditor.ui.security.SecurityHubScreen
 import com.propdfeditor.ui.security.RedactionScreen
 import com.propdf.editor.ui.settings.SettingsScreen
+import com.propdf.editor.ui.files.DocumentManagerScreen
+import com.propdf.editor.ui.files.FolderBrowserScreen
+import com.propdf.editor.ui.files.RecentActivityScreen
 import com.propdfeditor.ui.tools.ToolsHubScreen
 import com.propdfeditor.ui.share.ShareSheetScreen
 import com.propdfeditor.ui.compression.CompressionScreen
@@ -203,6 +206,44 @@ fun AppNavigation(
         // =====================================================================
         composable("settings") {
             SettingsScreen(navController = navController)
+        }
+
+        // =====================================================================
+        // Library: Document Manager / Folders / Recent Activity
+        // (real screens + ViewModels, previously built but never given a route --
+        // see the "Library" section added to SettingsScreen)
+        // =====================================================================
+        composable("document_manager") {
+            DocumentManagerScreen(
+                navController = navController,
+                onOpenDocument = { uri ->
+                    navController.navigate("viewer/${uri.encode()}") {
+                        popUpTo("home") { inclusive = false }
+                    }
+                },
+                onNavigateToViewer = { navController.navigate("files") },
+                onNavigateToMerge = { navController.navigate("merge") },
+                onNavigateToSplit = { navController.navigate("split") },
+                onNavigateToFolder = { navController.navigate("folder_browser") }
+            )
+        }
+
+        composable("folder_browser") {
+            FolderBrowserScreen(navController = navController, folderId = null)
+        }
+
+        composable(
+            route = "folder_browser/{folderId}",
+            arguments = listOf(navArgument("folderId") { type = NavType.StringType })
+        ) { backStackEntry ->
+            FolderBrowserScreen(
+                navController = navController,
+                folderId = backStackEntry.arguments?.getString("folderId")
+            )
+        }
+
+        composable("recent_activity") {
+            RecentActivityScreen(navController = navController)
         }
 
         // =====================================================================
