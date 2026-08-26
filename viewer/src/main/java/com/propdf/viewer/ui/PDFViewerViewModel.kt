@@ -28,6 +28,7 @@ import dagger.hilt.android.qualifiers.ApplicationContext
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -188,6 +189,22 @@ class PDFViewerViewModel @Inject constructor(
 
     private var currentDocumentId: String? = null
     private val renderJobs = mutableListOf<Job>()
+
+    // The scale multiplier (relative to screen-width resolution) that each
+    // currently-cached page bitmap in [_pageBitmaps] was actually rendered
+    // at. renderPage() was previously always rendering at a fixed
+    // screen-width resolution and skipping any page already in the cache --
+    // so pinch-zooming in just stretched that fixed-resolution bitmap larger
+    // via drawImage's dstSize, producing visibly blurry pages at any zoom
+    // above ~1x, even though a full tile-rendering pipeline
+    // (TileRenderer/TileGrid) already existed to solve exactly this and was
+    // computing tiles that PDFCanvas never actually draws. Fully rewiring
+    // PDFCanvas onto that generic tile grid is a larger, riskier change,
+    // so the smaller, safe fix here is to let the current page's fallback
+    // bitmap itself be re-rendered at a higher resolution once the user has
+    // zoomed in far enough that the screen-width bitmap would visibly blur.
+    private val pageBitmapScale = mutableMapOf<Int, Float>()
+    private var zoomRenderJob: Job? = null
 
     // Bumped every time a document is closed/replaced. In-flight coroutines
     // from a previous document capture this value before their IO/render
@@ -428,6 +445,8 @@ class PDFViewerViewModel @Inject constructor(
             current.values.forEach { bmp -> if (!bmp.isRecycled) bmp.recycle() }
             emptyMap()
         }
+        pageBitmapScale.clear()
+        zoomRenderJob?.cancel()
         _pageLayouts.update { emptyList() }
         _layoutWidth.update { 0f }
         _documentHeight.update { 0f }
@@ -476,6 +495,24 @@ class PDFViewerViewModel @Inject constructor(
             }
             scheduleTileRender()
         }
+
+        // Debounced: a pinch gesture calls updateZoom on every frame, and a
+        // higher-resolution render is real decode+allocation work, not
+        // something to repeat on every intermediate zoom value while the
+        // user's fingers are still moving.
+        val targetMultiplier = scaleMultiplierFor(clamped)
+        zoomRenderJob?.cancel()
+        zoomRenderJob = viewModelScope.launch {
+            delay(250)
+            renderPage(_currentPage.value, minScaleMultiplier = targetMultiplier)
+        }
+    }
+
+    /** Maps a live zoom level to the resolution multiplier the current-page fallback bitmap should be rendered at. */
+    private fun scaleMultiplierFor(zoom: Float): Float = when {
+        zoom > 3f -> 4f
+        zoom > 1.5f -> 2f
+        else -> 1f
     }
 
     /**
@@ -578,7 +615,12 @@ class PDFViewerViewModel @Inject constructor(
         }
 
         trimPageBitmapWindow()
-        renderPage(newPage)
+        // Render the incoming page at whatever resolution the user is
+        // currently zoomed to, not always screen-width -- otherwise
+        // scrolling to a new page while zoomed in would show it blurry
+        // until the next pinch gesture retriggers a high-res render.
+        val currentMultiplier = scaleMultiplierFor(_zoomLevel.value)
+        renderPage(newPage, minScaleMultiplier = currentMultiplier)
         renderPage(newPage - 1)
         renderPage(newPage + 1)
 
@@ -593,6 +635,7 @@ class PDFViewerViewModel @Inject constructor(
             val toEvict = existing.filterKeys { it !in keepRange }
             if (toEvict.isEmpty()) return@update existing
             toEvict.values.forEach { bmp -> if (!bmp.isRecycled) bmp.recycle() }
+            toEvict.keys.forEach { pageBitmapScale.remove(it) }
             existing.filterKeys { it in keepRange }
         }
     }
@@ -610,25 +653,42 @@ class PDFViewerViewModel @Inject constructor(
      * lifecycle (RENDERING -> SUCCESS or RENDERING -> FAILURE), and a render
      * is never left silently "in progress" forever.
      */
-    private fun renderPage(pageIndex: Int) {
+    private fun renderPage(pageIndex: Int, minScaleMultiplier: Float = 1f) {
         val renderer = pdfRenderer ?: return
         if (pageIndex < 0) return
         val myGeneration = documentGeneration.get()
         val isCurrent = pageIndex == _currentPage.value
-
-        if (isCurrent) {
-            _pageRenderState.update { PageRenderState.Rendering }
-            Log.i(TAG, "DOCUMENT_RENDER_START")
-        }
+        // Cap how far above screen-width resolution a single fallback page
+        // bitmap will go, so a 10x pinch-zoom can't request an absurdly
+        // large allocation (e.g. an 8000px-wide bitmap) and OOM instead of
+        // just capping visual sharpness.
+        val clampedMultiplier = minScaleMultiplier.coerceIn(1f, 4f)
 
         val job = viewModelScope.launch(Dispatchers.Default) {
             renderMutex.withLock {
                 // Stale by the time we acquired the lock -- a newer
-                // document has since taken over, or this page is already
-                // cached (e.g. a previous prefetch already completed it).
+                // document has since taken over. A page already cached at
+                // this resolution or higher (e.g. a previous prefetch, or a
+                // prior zoom-triggered re-render) needs no more work; a page
+                // cached only at a lower resolution than now requested (the
+                // user has since zoomed in) falls through and re-renders.
                 if (documentGeneration.get() != myGeneration) return@withLock
                 if (pageIndex !in 0 until renderer.pageCount) return@withLock
-                if (_pageBitmaps.value.containsKey(pageIndex)) return@withLock
+                val cachedScale = pageBitmapScale[pageIndex] ?: 0f
+                if (_pageBitmaps.value.containsKey(pageIndex) && cachedScale >= clampedMultiplier) {
+                    // No actual render needed -- pageRenderState must NOT be
+                    // set to Rendering for this call, or it would be left
+                    // stuck there forever with nothing to move it back to
+                    // Success (this previously happened whenever
+                    // onCurrentPageChanged's already-cached fast path ran
+                    // straight into a renderPage() call for the same page).
+                    return@withLock
+                }
+
+                if (isCurrent) {
+                    _pageRenderState.update { PageRenderState.Rendering }
+                    Log.i(TAG, "DOCUMENT_RENDER_START")
+                }
 
                 var page: PdfRenderer.Page? = null
                 try {
@@ -636,12 +696,14 @@ class PDFViewerViewModel @Inject constructor(
                     val pageWidthPts = page.width.toFloat()
                     val pageHeightPts = page.height.toFloat()
 
-                    val targetWidth = appContext.resources.displayMetrics.widthPixels
+                    val targetWidth = (appContext.resources.displayMetrics.widthPixels * clampedMultiplier)
+                        .toInt()
                         .coerceAtLeast(1)
                     val scale = targetWidth.toFloat() / page.width.coerceAtLeast(1)
                     var bw = (page.width * scale).toInt().coerceAtLeast(1)
                     var bh = (page.height * scale).toInt().coerceAtLeast(1)
 
+                    var actualMultiplier = clampedMultiplier
                     val bitmap = try {
                         Bitmap.createBitmap(bw, bh, Bitmap.Config.ARGB_8888)
                     } catch (oom: OutOfMemoryError) {
@@ -652,6 +714,7 @@ class PDFViewerViewModel @Inject constructor(
                         System.gc()
                         bw = (bw / 2).coerceAtLeast(1)
                         bh = (bh / 2).coerceAtLeast(1)
+                        actualMultiplier = clampedMultiplier / 2f
                         Bitmap.createBitmap(bw, bh, Bitmap.Config.ARGB_8888)
                     }
 
@@ -669,7 +732,18 @@ class PDFViewerViewModel @Inject constructor(
                         return@withLock
                     }
 
+                    // Replacing a lower-resolution bitmap for this page (a
+                    // zoom-triggered re-render) -- recycle the one being
+                    // superseded so both copies don't stay resident.
+                    // Bitmap.recycle() is safe to call more than once, so no
+                    // extra guard is needed against the currentPageBitmap
+                    // mirror below also recycling the same object.
+                    val replaced = _pageBitmaps.value[pageIndex]
                     _pageBitmaps.update { current -> current + (pageIndex to bitmap) }
+                    pageBitmapScale[pageIndex] = actualMultiplier
+                    if (replaced != null && replaced !== bitmap && !replaced.isRecycled) {
+                        replaced.recycle()
+                    }
 
                     if (pageIndex == _currentPage.value) {
                         _currentPageSize.update { SizeF(pageWidthPts, pageHeightPts) }
