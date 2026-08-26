@@ -128,6 +128,40 @@ fun SettingsScreen(navController: NavController) {
                 }
             }
 
+            // These three screens (DocumentManagerScreen, FolderBrowserScreen,
+            // RecentActivityScreen) were fully built with real, working ViewModels
+            // wired to existing repositories, but had no navigation route and no
+            // entry point anywhere in the app -- the same "complete but unreachable"
+            // gap found and fixed for the page editor and signature features earlier.
+            item {
+                SettingsSectionHeader("Library")
+            }
+
+            item {
+                SettingsCard {
+                    SettingsClickItem(
+                        icon = Icons.Outlined.Description,
+                        title = "Manage Documents",
+                        subtitle = "Browse, favorite, and delete documents",
+                        onClick = { navController.navigate("document_manager") }
+                    )
+                    Divider(modifier = Modifier.padding(horizontal = 16.dp))
+                    SettingsClickItem(
+                        icon = Icons.Outlined.Folder,
+                        title = "Folders",
+                        subtitle = "Organize documents into folders",
+                        onClick = { navController.navigate("folder_browser") }
+                    )
+                    Divider(modifier = Modifier.padding(horizontal = 16.dp))
+                    SettingsClickItem(
+                        icon = Icons.Outlined.History,
+                        title = "Recent Activity",
+                        subtitle = "See what you've opened, edited, and shared",
+                        onClick = { navController.navigate("recent_activity") }
+                    )
+                }
+            }
+
             item {
                 SettingsSectionHeader("Reading")
             }
