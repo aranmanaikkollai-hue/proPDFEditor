@@ -260,12 +260,6 @@ fun AppNavigation(
             SecurityHubScreen(
                 documentUri = encodedUri, // already decoded once by Navigation Compose itself
                 onNavigateBack = { navController.popBackStack() },
-                onNavigateToSign = { uri ->
-                    // Digital Sign has no dedicated signature-placement screen yet;
-                    // route to the existing annotation flow, which already has a
-                    // working Signature pen tool in its toolbar.
-                    navController.navigate("annotate/${uri.encode()}")
-                },
                 onNavigateToRedact = { uri -> navController.navigate("redact/${uri.encode()}") }
             )
         }
