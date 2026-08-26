@@ -1,5 +1,6 @@
 package com.propdfeditor.ui.security
 
+import android.content.Intent
 import android.net.Uri
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
@@ -15,30 +16,39 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import com.propdfeditor.ui.signature.ApplySignatureActivity
+import com.propdfeditor.ui.signature.SignatureVerificationActivity
 
 /**
  * Security Hub: password protect / AES encrypt / remove metadata are fully wired to
- * the real iText engines in :security (see SecurityViewModel). Redact now opens a real
+ * the real iText engines in :security (see SecurityViewModel). Redact opens a real
  * interactive marking screen (see RedactionScreen/RedactionViewModel) backed by
  * SecurityRepository's redaction engine and RedactionOverlayView, both of which already
- * existed in :security but were only reachable from the old Fragment UI. Verify
- * Signature doesn't yet have a results screen, so it's honestly disabled with a
- * "coming soon" message rather than left as a silent no-op button. Digital Sign routes
- * to the existing annotation flow's Signature tool, which is the app's one
- * actually-working way to place a signature on a page today.
+ * existed in :security but were only reachable from the old Fragment UI.
+ *
+ * Digital Sign and Verify Signature both turned out to have a complete, real,
+ * cryptographic implementation already built (PdfSignatureEngine: BouncyCastle/PKCS7
+ * digital signing + verification, plus SignatureViewModel/SignatureRepository for
+ * drawn/typed/image signatures and certificate management) -- but it lived entirely in
+ * a legacy View/Activity stack (ApplySignatureActivity, SignatureManagerActivity,
+ * SignatureVerificationActivity, all manifest-registered) that nothing in the Compose
+ * app ever launched. Rather than duplicate that logic in Compose, both actions now
+ * launch those real Activities directly, replacing the previous fake stand-ins (Sign
+ * routed to the annotation flow's plain drawing pen; Verify was a "coming soon" stub).
  */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun SecurityHubScreen(
     documentUri: String,
     onNavigateBack: () -> Unit,
-    onNavigateToSign: (String) -> Unit = {},
     onNavigateToRedact: (String) -> Unit = {},
     viewModel: SecurityViewModel = hiltViewModel()
 ) {
+    val context = LocalContext.current
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
     val snackbarHostState = remember { SnackbarHostState() }
     var passwordDialogAction by remember { mutableStateOf<PendingAction?>(null) }
@@ -109,8 +119,12 @@ fun SecurityHubScreen(
                                     saveDocumentLauncher.launch("encrypted_document.pdf")
                                 }
                                 SecurityAction.REDACT -> onNavigateToRedact(documentUri)
-                                SecurityAction.SIGN -> onNavigateToSign(documentUri)
-                                SecurityAction.VERIFY -> viewModel.showComingSoon("Signature verification")
+                                SecurityAction.SIGN -> context.startActivity(
+                                    ApplySignatureActivity.createIntent(context, Uri.parse(documentUri))
+                                )
+                                SecurityAction.VERIFY -> context.startActivity(
+                                    Intent(context, SignatureVerificationActivity::class.java)
+                                )
                                 SecurityAction.METADATA -> {
                                     viewModel.requestRemoveMetadata()
                                     saveDocumentLauncher.launch("cleaned_document.pdf")
