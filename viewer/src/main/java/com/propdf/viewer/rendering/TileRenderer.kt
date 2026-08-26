@@ -22,7 +22,21 @@ import java.util.concurrent.ConcurrentHashMap
 class TileRenderer(
     private val bitmapPool: BitmapPool,
     private val pdfRenderer: PdfRenderer,
-    private val pageCount: Int
+    private val pageCount: Int,
+    // Same mutex the owning ViewModel uses around its own full-page
+    // fallback renders (PDFViewerViewModel.renderMutex). android.graphics.
+    // pdf.PdfRenderer/PdfRenderer.Page are not safe for concurrent
+    // openPage()/render()/close() calls from different threads -- this
+    // renderer's own renderSemaphore only ever serialized *tile* renders
+    // against each other, so activating this class alongside the
+    // ViewModel's independent full-page render path (which was previously
+    // never actually exercised together, since the tile pipeline never
+    // received real tiles to render -- see ViewportManager/PDFCanvas
+    // wiring) would reintroduce exactly the concurrent-PdfRenderer-access
+    // crash class already fixed once before in this codebase. Sharing one
+    // mutex around every openPage()/render()/close() call, in both places,
+    // is what actually makes that safe.
+    private val rendererMutex: Mutex
 ) {
     companion object {
         private const val TAG = "TileRenderer"
@@ -66,40 +80,42 @@ class TileRenderer(
             val bitmap = bitmapPool.acquire(tile.tileSize, tile.tileSize)
             val canvas = Canvas(bitmap)
 
-            val page = pdfRenderer.openPage(tile.pageIndex)
-            try {
+            rendererMutex.withLock {
                 if (!isActive) {
                     bitmapPool.release(bitmap)
                     tile.isRendering = false
                     return@withContext null
                 }
 
-                val pageWidth = page.width.toFloat()
-                val pageHeight = page.height.toFloat()
+                val page = pdfRenderer.openPage(tile.pageIndex)
+                try {
+                    val pageWidth = page.width.toFloat()
+                    val pageHeight = page.height.toFloat()
 
-                val tileScaleX = pageWidth / tile.srcRect.width()
-                val tileScaleY = pageHeight / tile.srcRect.height()
+                    val tileScaleX = pageWidth / tile.srcRect.width()
+                    val tileScaleY = pageHeight / tile.srcRect.height()
 
-                val matrix = Matrix().apply {
-                    val scale = tile.tileSize.toFloat() / tile.srcRect.width()
-                    postScale(scale * tile.zoomLevel * tile.scaleFactor, scale * tile.zoomLevel * tile.scaleFactor)
-                    postTranslate(-tile.srcRect.left * scale * tile.zoomLevel * tile.scaleFactor,
-                                  -tile.srcRect.top * scale * tile.zoomLevel * tile.scaleFactor)
+                    val matrix = Matrix().apply {
+                        val scale = tile.tileSize.toFloat() / tile.srcRect.width()
+                        postScale(scale * tile.zoomLevel * tile.scaleFactor, scale * tile.zoomLevel * tile.scaleFactor)
+                        postTranslate(-tile.srcRect.left * scale * tile.zoomLevel * tile.scaleFactor,
+                                      -tile.srcRect.top * scale * tile.zoomLevel * tile.scaleFactor)
+                    }
+
+                    val renderRect = Rect(0, 0, tile.tileSize, tile.tileSize)
+                    page.render(bitmap, renderRect, matrix, PdfRenderer.Page.RENDER_MODE_FOR_DISPLAY)
+
+                    if (tileCache.size >= CACHE_SIZE_TILES) {
+                        evictOldestFromCache()
+                    }
+                    tileCache[tile.id] = bitmap
+
+                    tile.bitmapRef = bitmap
+                    tile.isRendering = false
+                    return@withContext bitmap
+                } finally {
+                    page.close()
                 }
-
-                val renderRect = Rect(0, 0, tile.tileSize, tile.tileSize)
-                page.render(bitmap, renderRect, matrix, PdfRenderer.Page.RENDER_MODE_FOR_DISPLAY)
-
-                if (tileCache.size >= CACHE_SIZE_TILES) {
-                    evictOldestFromCache()
-                }
-                tileCache[tile.id] = bitmap
-
-                tile.bitmapRef = bitmap
-                tile.isRendering = false
-                return@withContext bitmap
-            } finally {
-                page.close()
             }
         } catch (e: CancellationException) {
             Log.d(TAG, "Tile render cancelled: ${tile.id}")
