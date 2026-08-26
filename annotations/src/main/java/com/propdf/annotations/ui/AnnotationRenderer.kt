@@ -125,13 +125,15 @@ class AnnotationRenderer(private val context: Context? = null) {
         pageOffset: Offset,
         alpha: Int
     ) {
-        val paint = paintCache.getOrPut(annotation.id) {
-            AndroidPaint().apply {
-                color = annotation.color
-                this.alpha = alpha
-                style = AndroidPaint.Style.FILL
-            }
-        }
+        // Paint is cached per-annotation-id for allocation reuse across frames, but its
+        // color/alpha are re-applied on every call below. Annotation ids are stable across
+        // copy()-based edits (color/opacity change via the toolbar keeps the same id), so a
+        // create-once cache here previously froze the HIGHLIGHT fill at whatever color/alpha
+        // it had the first time it was rendered -- editing a selected highlight's color or
+        // opacity updated the model but the canvas kept drawing the stale cached Paint.
+        val paint = paintCache.getOrPut(annotation.id) { AndroidPaint().apply { style = AndroidPaint.Style.FILL } }
+        paint.color = annotation.color
+        paint.alpha = alpha
 
         annotation.rects.forEach { rect ->
             val screenRect = rect.toScreen(pageScale, pageOffset)
@@ -181,27 +183,37 @@ class AnnotationRenderer(private val context: Context? = null) {
         val strokeWidth = annotation.strokeWidth * pageScale
         val color = Color(annotation.color)
 
+        // As with the highlight paint above, these are cached by id purely for object reuse --
+        // every property that can change on a live/selected shape (color, opacity, stroke
+        // width, dash pattern) is reapplied below on every render call. Previously these were
+        // baked in only at first creation, so using the toolbar to change a selected shape's
+        // color, opacity, or stroke width silently did nothing on screen even though the
+        // annotation model had genuinely updated (Phase 3 "changes must immediately appear on
+        // canvas" requirement).
         val paint = paintCache.getOrPut(annotation.id + "_stroke") {
             AndroidPaint().apply {
-                this.color = annotation.color
-                this.alpha = alpha
                 style = AndroidPaint.Style.STROKE
-                this.strokeWidth = annotation.strokeWidth
                 isAntiAlias = true
-                if (annotation.isDashed) {
-                    pathEffect = DashPathEffect(annotation.dashPattern.map { it * pageScale }.toFloatArray(), 0f)
-                }
             }
+        }
+        paint.color = annotation.color
+        paint.alpha = alpha
+        paint.strokeWidth = annotation.strokeWidth
+        paint.pathEffect = if (annotation.isDashed) {
+            DashPathEffect(annotation.dashPattern.map { it * pageScale }.toFloatArray(), 0f)
+        } else {
+            null
         }
 
         val fillPaint = annotation.fillColor?.let { fillColor ->
             paintCache.getOrPut(annotation.id + "_fill") {
                 AndroidPaint().apply {
-                    this.color = fillColor
-                    this.alpha = alpha
                     style = AndroidPaint.Style.FILL
                     isAntiAlias = true
                 }
+            }.also {
+                it.color = fillColor
+                it.alpha = alpha
             }
         }
 
@@ -334,16 +346,19 @@ class AnnotationRenderer(private val context: Context? = null) {
         pageOffset: Offset,
         alpha: Int
     ) {
+        // Same stale-cache fix as the other renderers: color/opacity are editable on a
+        // selected ink/signature stroke via the toolbar, so they can't be baked in once.
+        // strokeWidth was already being refreshed per-frame below; color/alpha were not.
         val paint = paintCache.getOrPut(annotation.id) {
             AndroidPaint().apply {
-                color = annotation.color
-                this.alpha = alpha
                 style = AndroidPaint.Style.STROKE
                 strokeCap = AndroidPaint.Cap.ROUND
                 strokeJoin = AndroidPaint.Join.ROUND
                 isAntiAlias = true
             }
         }
+        paint.color = annotation.color
+        paint.alpha = alpha
 
         val path = pathCache.getOrPut(annotation.id) { AndroidPath() }
         path.reset()
@@ -513,19 +528,20 @@ class AnnotationRenderer(private val context: Context? = null) {
             }
         }
 
+        // Same stale-cache issue as the shape/highlight paints above: color, opacity, font
+        // size, and bold/italic are all editable on a selected text annotation, so they must
+        // be re-applied every render rather than baked in once at first creation.
         val textPaint = paintCache.getOrPut(annotation.id + "_text") {
-            AndroidPaint().apply {
-                color = annotation.color
-                this.alpha = alpha
-                textSize = annotation.fontSize * pageScale
-                isAntiAlias = true
-                typeface = when {
-                    annotation.isBold && annotation.isItalic -> Typeface.defaultFromStyle(Typeface.BOLD_ITALIC)
-                    annotation.isBold -> Typeface.DEFAULT_BOLD
-                    annotation.isItalic -> Typeface.defaultFromStyle(Typeface.ITALIC)
-                    else -> Typeface.DEFAULT
-                }
-            }
+            AndroidPaint().apply { isAntiAlias = true }
+        }
+        textPaint.color = annotation.color
+        textPaint.alpha = alpha
+        textPaint.textSize = annotation.fontSize * pageScale
+        textPaint.typeface = when {
+            annotation.isBold && annotation.isItalic -> Typeface.defaultFromStyle(Typeface.BOLD_ITALIC)
+            annotation.isBold -> Typeface.DEFAULT_BOLD
+            annotation.isItalic -> Typeface.defaultFromStyle(Typeface.ITALIC)
+            else -> Typeface.DEFAULT
         }
 
         val lines = annotation.text.split("\n")
