@@ -22,9 +22,9 @@ import java.util.concurrent.atomic.AtomicBoolean
  *
  * ProPDFApplication.onCreate() calls [initialize] once. Every OpenCV call
  * site then routes its native work through [runSafely] instead of calling
- * Mat()/Imgproc.*/Utils.* directly: once a native failure is observed
- * (here, or during initialization), no call site touches native OpenCV
- * again for the remainder of the process lifetime -- they get their
+ * Mat(), Imgproc calls, or Utils calls directly: once a native failure is
+ * observed (here, or during initialization), no call site touches native
+ * OpenCV again for the remainder of the process lifetime -- they get their
  * caller-supplied fallback value immediately instead.
  */
 object OpenCvAvailability {
