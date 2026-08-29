@@ -66,6 +66,10 @@ class RecentFileRepositoryImpl @Inject constructor(
         }
     }
 
+    override suspend fun clearRecentHistory() {
+        recentFileDao.clearRecentOnly()
+    }
+
     private fun RecentFileEntity.toDomain() = RecentFile(
         uri = uri,
         name = name,
