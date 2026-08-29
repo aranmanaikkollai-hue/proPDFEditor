@@ -15,4 +15,11 @@ interface RecentFileRepository {
     suspend fun favoriteFile(uri: String, favorite: Boolean)
     suspend fun deleteFile(uri: String)
     fun searchFiles(query: String): Flow<List<RecentFile>>
+
+    /**
+     * Clears the recent-history list only: pinned and favorited files are
+     * preserved, and nothing on disk (the actual PDFs, folders, or the
+     * recycle bin) is touched -- this only forgets that files were opened.
+     */
+    suspend fun clearRecentHistory()
 }
