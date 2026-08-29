@@ -80,6 +80,19 @@ class FileManagerViewModel @Inject constructor(
         }
     }
 
+    /**
+     * Clears recent-history entries only (pinned/favorited files are kept,
+     * and nothing on disk is touched -- see RecentFileRepository.
+     * clearRecentHistory()). The list refreshes immediately afterward since
+     * loadRecentFiles() re-collects from the same repository.
+     */
+    fun clearRecentFiles() {
+        viewModelScope.launch {
+            recentFileRepository.clearRecentHistory()
+            loadRecentFiles()
+        }
+    }
+
     private fun sortFiles(files: List<RecentFile>, sort: FileSort): List<RecentFile> {
         return when (sort) {
             FileSort.NAME -> files.sortedBy { it.name }
