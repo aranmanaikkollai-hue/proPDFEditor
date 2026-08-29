@@ -43,6 +43,8 @@ fun FileManagerScreen(
 
     var showSortMenu by remember { mutableStateOf(false) }
     var showFilterMenu by remember { mutableStateOf(false) }
+    var showOverflowMenu by remember { mutableStateOf(false) }
+    var showClearRecentConfirm by remember { mutableStateOf(false) }
     var searchQuery by remember { mutableStateOf("") }
 
     val openDocumentLauncher = rememberLauncherForActivityResult(
@@ -105,6 +107,23 @@ fun FileManagerScreen(
                                     }
                                 )
                             }
+                        }
+                    }
+                    Box {
+                        IconButton(onClick = { showOverflowMenu = true }) {
+                            Icon(Icons.Default.MoreVert, contentDescription = "More")
+                        }
+                        DropdownMenu(
+                            expanded = showOverflowMenu,
+                            onDismissRequest = { showOverflowMenu = false }
+                        ) {
+                            DropdownMenuItem(
+                                text = { Text("Clear Recent Files") },
+                                onClick = {
+                                    showOverflowMenu = false
+                                    showClearRecentConfirm = true
+                                }
+                            )
                         }
                     }
                 }
@@ -183,6 +202,30 @@ fun FileManagerScreen(
                 }
             }
         }
+    }
+
+    if (showClearRecentConfirm) {
+        AlertDialog(
+            onDismissRequest = { showClearRecentConfirm = false },
+            title = { Text("Clear Recent Files?") },
+            text = {
+                Text("This only clears your recent-files history. Pinned and favorited files are kept, and no PDFs are deleted.")
+            },
+            confirmButton = {
+                TextButton(onClick = {
+                    showClearRecentConfirm = false
+                    viewModel.clearRecentFiles()
+                    scope.launch { snackbarHostState.showSnackbar("Recent files history cleared") }
+                }) {
+                    Text("Clear")
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = { showClearRecentConfirm = false }) {
+                    Text("Cancel")
+                }
+            }
+        )
     }
 }
 
