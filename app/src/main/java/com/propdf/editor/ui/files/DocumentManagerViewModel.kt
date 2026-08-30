@@ -40,9 +40,9 @@ class DocumentManagerViewModel @Inject constructor(
         }
     }
 
-    fun toggleFavorite(documentId: Long) {
+    fun toggleFavorite(documentId: Long, favorite: Boolean) {
         viewModelScope.launch {
-            documentRepository.setFavorite(documentId, true)
+            documentRepository.setFavorite(documentId, favorite)
             loadDocuments()
         }
     }
@@ -50,6 +50,36 @@ class DocumentManagerViewModel @Inject constructor(
     fun deleteDocument(documentId: Long) {
         viewModelScope.launch {
             documentRepository.deleteDocument(documentId)
+            loadDocuments()
+        }
+    }
+
+    /** Undoes deleteDocument's soft-delete -- deleteDocument moves the document to the recycle bin rather than deleting it outright, so this is a real restore, not a re-add. */
+    fun restoreDocument(documentId: Long) {
+        viewModelScope.launch {
+            documentRepository.restoreDocument(documentId)
+            loadDocuments()
+        }
+    }
+
+    /**
+     * Adds a picked PDF to the document library. The interface only exposes
+     * insertOrUpdateRecentFile (there's no direct "insert a PdfDocument"
+     * method), so this goes through the same RecentFile path
+     * FileManagerScreen's own document picker already uses -- getAllDocuments()
+     * is sourced from the same underlying repository, so the new file
+     * appears here too after the next loadDocuments().
+     */
+    fun addDocument(uri: String, name: String, size: Long) {
+        viewModelScope.launch {
+            documentRepository.insertOrUpdateRecentFile(
+                com.propdf.core.domain.model.RecentFile(
+                    uri = uri,
+                    name = name,
+                    size = size,
+                    lastOpened = System.currentTimeMillis()
+                )
+            )
             loadDocuments()
         }
     }
