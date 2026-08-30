@@ -177,7 +177,7 @@ fun FileManagerScreen(
                         files = state.files,
                         onOpenFile = onOpenPdf,
                         onPin = { viewModel.pinFile(it) },
-                        onFavorite = { viewModel.favoriteFile(it) },
+                        onFavorite = { uri, favorite -> viewModel.favoriteFile(uri, favorite) },
                         onDelete = {
                             scope.launch {
                                 viewModel.deleteFile(it)
@@ -234,7 +234,7 @@ private fun FileList(
     files: List<RecentFile>,
     onOpenFile: (String) -> Unit,
     onPin: (String) -> Unit,
-    onFavorite: (String) -> Unit,
+    onFavorite: (String, Boolean) -> Unit,
     onDelete: (String) -> Unit,
     onShare: (String) -> Unit
 ) {
@@ -248,7 +248,7 @@ private fun FileList(
                 file = file,
                 onClick = { onOpenFile(file.uri) },
                 onPin = { onPin(file.uri) },
-                onFavorite = { onFavorite(file.uri) },
+                onFavorite = { onFavorite(file.uri, !file.isFavorite) },
                 onDelete = { onDelete(file.uri) },
                 onShare = { onShare(file.uri) }
             )
