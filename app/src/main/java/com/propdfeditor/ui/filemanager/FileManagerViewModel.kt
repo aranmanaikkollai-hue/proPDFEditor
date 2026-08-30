@@ -68,9 +68,9 @@ class FileManagerViewModel @Inject constructor(
         }
     }
 
-    fun favoriteFile(uri: String) {
+    fun favoriteFile(uri: String, favorite: Boolean) {
         viewModelScope.launch {
-            recentFileRepository.favoriteFile(uri, true)
+            recentFileRepository.favoriteFile(uri, favorite)
         }
     }
 
