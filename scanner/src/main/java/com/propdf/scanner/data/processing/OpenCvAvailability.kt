@@ -99,4 +99,21 @@ object OpenCvAvailability {
             fallback
         }
     }
+
+    /** Lazy fallback variant for bitmap-producing callers. */
+    inline fun <T> runSafely(source: String, fallback: () -> T, block: () -> T): T {
+        if (!isAvailable()) return fallback()
+        return try {
+            block()
+        } catch (e: UnsatisfiedLinkError) {
+            markUnavailable(source, e)
+            fallback()
+        } catch (e: LinkageError) {
+            markUnavailable(source, e)
+            fallback()
+        } catch (e: NoClassDefFoundError) {
+            markUnavailable(source, e)
+            fallback()
+        }
+    }
 }

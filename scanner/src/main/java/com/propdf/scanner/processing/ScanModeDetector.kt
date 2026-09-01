@@ -1,6 +1,7 @@
 package com.propdf.scanner.processing
 
 import android.graphics.Bitmap
+import com.propdf.scanner.data.processing.OpenCvAvailability
 import com.propdf.scanner.model.ScanMode
 import org.opencv.android.Utils
 import org.opencv.core.*
@@ -20,7 +21,12 @@ class ScanModeDetector {
         private const val ID_CARD_MAX_AREA = 0.25f
     }
 
-    fun detectScanMode(bitmap: Bitmap): ScanMode {
+    fun detectScanMode(bitmap: Bitmap): ScanMode =
+        OpenCvAvailability.runSafely("ScanModeDetector.detectScanMode", ScanMode.DOCUMENT) {
+            detectScanModeWithOpenCv(bitmap)
+        }
+
+    private fun detectScanModeWithOpenCv(bitmap: Bitmap): ScanMode {
         val mat = Mat()
         Utils.bitmapToMat(bitmap, mat)
         return try { detectScanModeInternal(mat, bitmap.width, bitmap.height) } finally { mat.release() }

@@ -2,6 +2,7 @@ package com.propdf.scanner.processing
 
 import android.graphics.Bitmap
 import android.graphics.PointF
+import com.propdf.scanner.data.processing.OpenCvAvailability
 import com.propdf.scanner.model.DocumentEdge
 import org.opencv.android.Utils
 import org.opencv.core.*
@@ -16,20 +17,24 @@ class PerspectiveCorrector {
         private const val MAX_OUTPUT_HEIGHT = 3200
     }
 
-    fun correctPerspective(bitmap: Bitmap, edge: DocumentEdge): Bitmap {
+    /**
+     * Native OpenCV is optional at runtime (some device/APK combinations do
+     * not package its JNI symbols).  Keep manual crop/export usable by
+     * returning the original image when the centralized circuit breaker says
+     * OpenCV is unavailable or a native symbol fails at this call site.
+     */
+    fun correctPerspective(bitmap: Bitmap, edge: DocumentEdge): Bitmap =
+        OpenCvAvailability.runSafely("PerspectiveCorrector.correctPerspective", bitmap) {
+            correctPerspectiveWithOpenCv(bitmap, edge)
+        }
+
+    private fun correctPerspectiveWithOpenCv(bitmap: Bitmap, edge: DocumentEdge): Bitmap {
         val srcMat = Mat()
         Utils.bitmapToMat(bitmap, srcMat)
         return try { correctPerspectiveInternal(srcMat, edge, bitmap.width, bitmap.height) } finally { srcMat.release() }
     }
 
     private fun correctPerspectiveInternal(srcMat: Mat, edge: DocumentEdge, srcWidth: Int, srcHeight: Int): Bitmap {
-        val srcPoints = MatOfPoint2f(
-            Point(edge.topLeft.x.toDouble(), edge.topLeft.y.toDouble()),
-            Point(edge.topRight.x.toDouble(), edge.topRight.y.toDouble()),
-            Point(edge.bottomRight.x.toDouble(), edge.bottomRight.y.toDouble()),
-            Point(edge.bottomLeft.x.toDouble(), edge.bottomLeft.y.toDouble())
-        )
-
         val topEdge = distance(edge.topLeft, edge.topRight)
         val rightEdge = distance(edge.topRight, edge.bottomRight)
         val bottomEdge = distance(edge.bottomRight, edge.bottomLeft)
@@ -37,6 +42,19 @@ class PerspectiveCorrector {
 
         val maxWidth = max(topEdge, bottomEdge).toInt()
         val maxHeight = max(leftEdge, rightEdge).toInt()
+        // A malformed/partially dragged quadrilateral may temporarily have
+        // zero area. Do not pass zero dimensions into OpenCV or divide by it.
+        if (maxWidth <= 0 || maxHeight <= 0) {
+            return Bitmap.createBitmap(srcWidth, srcHeight, Bitmap.Config.ARGB_8888).also {
+                Utils.matToBitmap(srcMat, it)
+            }
+        }
+        val srcPoints = MatOfPoint2f(
+            Point(edge.topLeft.x.toDouble(), edge.topLeft.y.toDouble()),
+            Point(edge.topRight.x.toDouble(), edge.topRight.y.toDouble()),
+            Point(edge.bottomRight.x.toDouble(), edge.bottomRight.y.toDouble()),
+            Point(edge.bottomLeft.x.toDouble(), edge.bottomLeft.y.toDouble())
+        )
         val scale = min(MAX_OUTPUT_WIDTH.toFloat() / maxWidth, MAX_OUTPUT_HEIGHT.toFloat() / maxHeight).coerceAtMost(1.0f)
         val outputWidth = (maxWidth * scale).toInt()
         val outputHeight = (maxHeight * scale).toInt()
@@ -57,7 +75,12 @@ class PerspectiveCorrector {
         return result
     }
 
-    fun autoCrop(bitmap: Bitmap): Bitmap {
+    fun autoCrop(bitmap: Bitmap): Bitmap =
+        OpenCvAvailability.runSafely("PerspectiveCorrector.autoCrop", bitmap) {
+            autoCropWithOpenCv(bitmap)
+        }
+
+    private fun autoCropWithOpenCv(bitmap: Bitmap): Bitmap {
         val mat = Mat()
         Utils.bitmapToMat(bitmap, mat)
         return try { autoCropInternal(mat, bitmap) } finally { mat.release() }

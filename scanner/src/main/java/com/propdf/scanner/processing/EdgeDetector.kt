@@ -2,6 +2,7 @@ package com.propdf.scanner.processing
 
 import android.graphics.Bitmap
 import android.graphics.PointF
+import com.propdf.scanner.data.processing.OpenCvAvailability
 import com.propdf.scanner.model.DocumentEdge
 import org.opencv.android.Utils
 import org.opencv.core.*
@@ -18,7 +19,12 @@ class EdgeDetector {
         private const val CORNER_REFINE_EPSILON = 0.001
     }
 
-    fun detectEdges(bitmap: Bitmap): DocumentEdge? {
+    fun detectEdges(bitmap: Bitmap): DocumentEdge? =
+        OpenCvAvailability.runSafely("EdgeDetector.detectEdges", null) {
+            detectEdgesWithOpenCv(bitmap)
+        }
+
+    private fun detectEdgesWithOpenCv(bitmap: Bitmap): DocumentEdge? {
         val mat = Mat()
         Utils.bitmapToMat(bitmap, mat)
         return try { detectEdgesInMat(mat, bitmap.width.toFloat(), bitmap.height.toFloat()) } finally { mat.release() }
@@ -68,7 +74,12 @@ class EdgeDetector {
         return null
     }
 
-    fun detectEdgesFast(bitmap: Bitmap): DocumentEdge? {
+    fun detectEdgesFast(bitmap: Bitmap): DocumentEdge? =
+        OpenCvAvailability.runSafely("EdgeDetector.detectEdgesFast", null) {
+            detectEdgesFastWithOpenCv(bitmap)
+        }
+
+    private fun detectEdgesFastWithOpenCv(bitmap: Bitmap): DocumentEdge? {
         val mat = Mat()
         Utils.bitmapToMat(bitmap, mat)
         return try { detectEdgesFastInMat(mat, bitmap.width.toFloat(), bitmap.height.toFloat()) } finally { mat.release() }
