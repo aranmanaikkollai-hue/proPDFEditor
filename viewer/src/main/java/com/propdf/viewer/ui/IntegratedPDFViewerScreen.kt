@@ -60,6 +60,10 @@ fun IntegratedPDFViewerScreen(
     val totalPages by viewerViewModel.totalPages.collectAsState()
     val zoomLevel by viewerViewModel.zoomLevel.collectAsState()
     val isLoading by viewerViewModel.isLoading.collectAsState()
+    val searchResults by viewerViewModel.searchResults.collectAsState()
+    val searchQuery by viewerViewModel.searchQuery.collectAsState()
+    val isSearching by viewerViewModel.isSearching.collectAsState()
+    val currentSearchResultIndex by viewerViewModel.currentSearchResultIndex.collectAsState()
     val thumbnails by viewerViewModel.thumbnails.collectAsState()
     val errorMessage by viewerViewModel.errorMessage.collectAsState()
     val currentPageSize by viewerViewModel.currentPageSize.collectAsState()
@@ -137,7 +141,7 @@ fun IntegratedPDFViewerScreen(
         if (annotationMode && viewerState is PDFViewerViewModel.ViewerState.Ready) {
             annotationViewModel.initializeDocument(
                 documentId = documentId,
-                documentPath = uri.path ?: ""
+                documentUri = uri
             )
         }
     }
@@ -287,14 +291,14 @@ fun IntegratedPDFViewerScreen(
                 modifier = Modifier.align(Alignment.TopCenter)
             ) {
                 SearchOverlayV2(
-                    searchResults = emptyList(),
-                    currentResultIndex = 0,
-                    searchQuery = "",
-                    isSearching = false,
+                    searchResults = searchResults,
+                    currentResultIndex = currentSearchResultIndex,
+                    searchQuery = searchQuery,
+                    isSearching = isSearching,
                     onSearch = { query -> viewerViewModel.search(query) },
-                    onNextResult = {},
-                    onPreviousResult = {},
-                    onResultSelected = { result -> viewerViewModel.goToPage(result.pageIndex) },
+                    onNextResult = viewerViewModel::nextSearchResult,
+                    onPreviousResult = viewerViewModel::previousSearchResult,
+                    onResultSelected = viewerViewModel::selectSearchResult,
                     onDismiss = { showSearch = false }
                 )
             }

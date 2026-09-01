@@ -12,6 +12,9 @@ import android.util.SizeF
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.propdf.core.domain.usecase.OpenDocumentUseCase
+import com.propdf.core.domain.repository.PdfViewerRepository
+import com.propdf.core.domain.result.AppResult
+import com.propdf.core.saf.SafEngine
 import com.propdf.viewer.model.SearchResult
 import com.propdf.viewer.model.ThumbnailPage
 import com.propdf.viewer.model.Tile
@@ -52,7 +55,9 @@ class PDFViewerViewModel @Inject constructor(
     private val bitmapPool: BitmapPool,
     private val searchIndex: SearchIndex,
     private val memoryPressureHandler: MemoryPressureHandler,
-    private val openDocumentUseCase: OpenDocumentUseCase
+    private val openDocumentUseCase: OpenDocumentUseCase,
+    private val viewerRepository: PdfViewerRepository,
+    private val safEngine: SafEngine
 ) : ViewModel() {
 
     companion object {
@@ -108,6 +113,17 @@ class PDFViewerViewModel @Inject constructor(
 
     private val _searchResults = MutableStateFlow<List<SearchResult>>(emptyList())
     val searchResults: StateFlow<List<SearchResult>> = _searchResults.asStateFlow()
+
+    private val _searchQuery = MutableStateFlow("")
+    val searchQuery: StateFlow<String> = _searchQuery.asStateFlow()
+
+    private val _isSearching = MutableStateFlow(false)
+    val isSearching: StateFlow<Boolean> = _isSearching.asStateFlow()
+
+    private val _currentSearchResultIndex = MutableStateFlow(-1)
+    val currentSearchResultIndex: StateFlow<Int> = _currentSearchResultIndex.asStateFlow()
+
+    private var searchJob: Job? = null
 
     private val _thumbnails = MutableStateFlow<List<ThumbnailPage>>(emptyList())
     val thumbnails: StateFlow<List<ThumbnailPage>> = _thumbnails.asStateFlow()
@@ -189,6 +205,8 @@ class PDFViewerViewModel @Inject constructor(
     private val gridsMutex = Mutex()
 
     private var currentDocumentId: String? = null
+    private var currentDocumentUri: Uri? = null
+    private var indexedDocumentId: String? = null
     // A viewport update is frequent while scrolling/pinching. It must only
     // replace obsolete tile work, never cancel the full-page fallback render
     // that owns the visible page's Rendering -> Success/Error transition.
@@ -256,6 +274,7 @@ class PDFViewerViewModel @Inject constructor(
                 Log.i(TAG, "DOCUMENT_OPEN_START")
 
                 currentDocumentId = documentId
+                currentDocumentUri = uri
 
                 // "file" URIs point at a real filesystem path, so they can be
                 // opened directly. Everything else (content:// from SAF,
@@ -478,6 +497,8 @@ class PDFViewerViewModel @Inject constructor(
             searchIndex.clearDocumentIndex(docId)
         }
         currentDocumentId = null
+        currentDocumentUri = null
+        indexedDocumentId = null
 
         _viewerState.update { ViewerState.Idle }
         _currentPage.update { 0 }
@@ -829,17 +850,82 @@ class PDFViewerViewModel @Inject constructor(
 
     fun search(query: String) {
         val docId = currentDocumentId ?: return
-        viewModelScope.launch(Dispatchers.IO) {
+        searchJob?.cancel()
+        _searchQuery.value = query
+        if (query.isBlank()) {
+            _searchResults.value = emptyList()
+            _currentSearchResultIndex.value = -1
+            _isSearching.value = false
+            return
+        }
+        searchJob = viewModelScope.launch(Dispatchers.IO) {
             try {
-                _isLoading.update { true }
+                _isSearching.value = true
+                ensureDocumentIndexedForSearch(docId)
                 val results = searchIndex.search(docId, query)
-                _searchResults.update { results }
-                _isLoading.update { false }
+                // A cancelled older request must not replace a newer query's results.
+                if (_searchQuery.value == query) {
+                    _searchResults.value = results
+                    _currentSearchResultIndex.value = if (results.isEmpty()) -1 else 0
+                }
             } catch (e: Exception) {
-                _errorMessage.update { "Search failed: ${e.message}" }
-                _isLoading.update { false }
+                if (e !is CancellationException) {
+                    _errorMessage.update { "Search failed: ${e.message}" }
+                }
+            } finally {
+                if (_searchQuery.value == query) _isSearching.value = false
             }
         }
+    }
+
+    /**
+     * SearchIndex intentionally stores extracted text rather than opening a PDF for each
+     * keystroke. The active renderer can read a content Uri directly, but PDF text extraction
+     * needs random file access, so resolve that Uri through the shared SAF engine first.
+     */
+    private suspend fun ensureDocumentIndexedForSearch(documentId: String) {
+        val uri = currentDocumentUri ?: return
+        if (indexedDocumentId == documentId) return
+        val file = when (val result = safEngine.resolveToFile(uri)) {
+            is AppResult.Success -> result.data
+            is AppResult.Error -> throw IllegalStateException("Cannot access document for search: ${result.message}")
+            is AppResult.Loading -> return
+        }
+        val pageTexts = buildMap {
+            repeat(_totalPages.value) { pageIndex ->
+                when (val text = viewerRepository.getPageText(file, pageIndex)) {
+                    is AppResult.Success -> put(pageIndex, text.data)
+                    is AppResult.Error -> Log.w(TAG, "SEARCH_TEXT_EXTRACTION_FAILED page=$pageIndex", text.exception)
+                    is AppResult.Loading -> Unit
+                }
+            }
+        }
+        // Do not let a just-replaced document overwrite the new document's index.
+        if (currentDocumentId == documentId) {
+            searchIndex.indexDocument(documentId, pageTexts)
+            indexedDocumentId = documentId
+        }
+    }
+
+    fun nextSearchResult() = moveSearchResult(1)
+
+    fun previousSearchResult() = moveSearchResult(-1)
+
+    fun selectSearchResult(result: SearchResult) {
+        val index = _searchResults.value.indexOf(result)
+        if (index >= 0) {
+            _currentSearchResultIndex.value = index
+            goToPage(result.pageIndex)
+        }
+    }
+
+    private fun moveSearchResult(delta: Int) {
+        val results = _searchResults.value
+        if (results.isEmpty()) return
+        val current = _currentSearchResultIndex.value.coerceIn(0, results.lastIndex)
+        val next = (current + delta).coerceIn(0, results.lastIndex)
+        _currentSearchResultIndex.value = next
+        goToPage(results[next].pageIndex)
     }
 
     fun indexDocumentForSearch(pageTexts: Map<Int, String>) {

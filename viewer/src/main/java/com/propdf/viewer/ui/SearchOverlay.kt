@@ -46,7 +46,7 @@ fun SearchOverlayV2(
     onResultSelected: (SearchResult) -> Unit,
     onDismiss: () -> Unit
 ) {
-    var query by remember { mutableStateOf(searchQuery) }
+    var query by remember(searchQuery) { mutableStateOf(searchQuery) }
     var showResults by remember { mutableStateOf(false) }
 
     Surface(
@@ -67,10 +67,11 @@ fun SearchOverlayV2(
                     value = query,
                     onValueChange = {
                         query = it
-                        if (it.length >= 2) {
+                        if (it.isNotBlank()) {
                             onSearch(it)
                             showResults = true
                         } else if (it.isEmpty()) {
+                            onSearch("")
                             showResults = false
                         }
                     },
@@ -81,6 +82,7 @@ fun SearchOverlayV2(
                         if (query.isNotEmpty()) {
                             IconButton(onClick = {
                                 query = ""
+                                onSearch("")
                                 showResults = false
                             }) {
                                 Icon(Icons.Default.Close, "Clear")
@@ -131,7 +133,7 @@ fun SearchOverlayV2(
             }
 
             // Results count
-            if (query.length >= 2 && !isSearching) {
+            if (query.isNotBlank() && !isSearching) {
                 Text(
                     text = if (searchResults.isEmpty()) "No results found"
                            else "${searchResults.size} results found",

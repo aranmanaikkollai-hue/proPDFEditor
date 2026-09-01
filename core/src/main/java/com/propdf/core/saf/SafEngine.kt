@@ -171,7 +171,10 @@ class SafEngine @Inject constructor(
             }
 
             val safeName = sanitizeFileName(info.name)
-            val cacheFile = File(context.cacheDir, "$CACHE_DIR/${safeName}")
+            // Provider display names are not unique. Include the URI identity so opening
+            // two SAF documents called e.g. "document.pdf" cannot overwrite the other's
+            // controlled working copy while an operation is still using it.
+            val cacheFile = File(context.cacheDir, "$CACHE_DIR/${uri.toString().hashCode()}_$safeName")
             cacheFile.parentFile?.mkdirs()
 
             contentResolver.openInputStream(uri)?.use { input ->
