@@ -1,6 +1,7 @@
 package com.propdf.annotations.ui
 
 import android.graphics.RectF
+import android.net.Uri
 import androidx.compose.ui.graphics.Color
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
@@ -12,6 +13,8 @@ import com.propdf.annotations.model.Annotation
 import com.propdf.annotations.persistence.AnnotationRepository
 import com.propdf.annotations.transform.AnnotationTransformer
 import com.propdf.annotations.transform.SelectionTool
+import com.propdf.core.domain.result.AppResult
+import com.propdf.core.saf.SafEngine
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -35,7 +38,8 @@ class AnnotationViewModel @Inject constructor(
     val layerManager: LayerManager,
     val historyManager: HistoryManager,
     private val transformer: AnnotationTransformer,
-    private val pdfExporter: PdfAnnotationExporter
+    private val pdfExporter: PdfAnnotationExporter,
+    private val safEngine: SafEngine
 ) : ViewModel() {
 
     // Tool state
@@ -71,6 +75,10 @@ class AnnotationViewModel @Inject constructor(
 
     private val _currentDocumentPath = MutableStateFlow<String>("")
     val currentDocumentPath: StateFlow<String> = _currentDocumentPath.asStateFlow()
+
+    // The persisted document reference and the local exporter input are deliberately
+    // separate: a content:// Uri is an opaque provider identifier, never a File path.
+    private var resolvedWorkingFile: File? = null
 
     // UI state
     private val _showAnnotationList = MutableStateFlow(false)
@@ -114,12 +122,31 @@ class AnnotationViewModel @Inject constructor(
      * re-add every already-loaded annotation into the layer again, duplicating them and never
      * completing (which also left `_isLoading` stuck at true forever).
      */
-    fun initializeDocument(documentId: String, documentPath: String = "") {
+    fun initializeDocument(
+        documentId: String,
+        documentPath: String = "",
+        documentUri: Uri? = null
+    ) {
+        if (_currentDocumentId.value == documentId && resolvedWorkingFile != null) return
         _currentDocumentId.value = documentId
-        _currentDocumentPath.value = documentPath
         viewModelScope.launch {
             _isLoading.value = true
             try {
+                _currentDocumentPath.value = documentUri?.toString() ?: documentPath
+                resolvedWorkingFile = when {
+                    documentUri != null -> when (val result = safEngine.resolveToFile(documentUri)) {
+                        is AppResult.Success -> result.data
+                        is AppResult.Error -> throw IllegalStateException(
+                            "Cannot access document: ${result.message}", result.exception
+                        )
+                        is AppResult.Loading -> null
+                    }
+                    documentPath.isNotBlank() -> File(documentPath).takeIf { it.exists() && it.canRead() }
+                    else -> null
+                }
+                if ((documentUri != null || documentPath.isNotBlank()) && resolvedWorkingFile == null) {
+                    throw IllegalStateException("Cannot access document")
+                }
                 layerManager.createLayer("Default")
                 val existing = repository.getAnnotationsForDocument(documentId).first()
                 existing.forEach { annotation ->
@@ -140,6 +167,7 @@ class AnnotationViewModel @Inject constructor(
      */
     fun setDocumentPath(path: String) {
         _currentDocumentPath.value = path
+        resolvedWorkingFile = File(path).takeIf { it.exists() && it.canRead() }
     }
 
     // ==================== Tool Management ====================
@@ -734,15 +762,15 @@ class AnnotationViewModel @Inject constructor(
      */
     fun flattenAnnotations(outputFile: File) {
         viewModelScope.launch {
-            val inputPath = _currentDocumentPath.value
             val docId = _currentDocumentId.value
-            if (inputPath.isBlank() || docId == null) {
+            val inputFile = resolvedWorkingFile
+            if (inputFile == null || docId == null) {
                 _saveEvent.emit(SaveEvent.Failure("Document is still loading, please wait"))
                 return@launch
             }
             _isExporting.value = true
             try {
-                val success = pdfExporter.flattenAnnotations(File(inputPath), outputFile, docId)
+                val success = pdfExporter.flattenAnnotations(inputFile, outputFile, docId)
                 _saveEvent.emit(
                     if (success) SaveEvent.ExportSuccess(outputFile.absolutePath)
                     else SaveEvent.Failure("Flatten failed")
@@ -761,15 +789,15 @@ class AnnotationViewModel @Inject constructor(
      */
     fun burnAnnotationsIntoPdf(outputFile: File, dpi: Int = 300) {
         viewModelScope.launch {
-            val inputPath = _currentDocumentPath.value
             val docId = _currentDocumentId.value
-            if (inputPath.isBlank() || docId == null) {
+            val inputFile = resolvedWorkingFile
+            if (inputFile == null || docId == null) {
                 _saveEvent.emit(SaveEvent.Failure("Document is still loading, please wait"))
                 return@launch
             }
             _isExporting.value = true
             try {
-                val success = pdfExporter.burnAnnotationsIntoPdf(File(inputPath), outputFile, docId, dpi)
+                val success = pdfExporter.burnAnnotationsIntoPdf(inputFile, outputFile, docId, dpi)
                 _saveEvent.emit(
                     if (success) SaveEvent.ExportSuccess(outputFile.absolutePath)
                     else SaveEvent.Failure("Burn failed")
