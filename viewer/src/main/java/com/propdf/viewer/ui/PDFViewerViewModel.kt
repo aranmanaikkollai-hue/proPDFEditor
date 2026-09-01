@@ -39,6 +39,7 @@ import kotlinx.coroutines.sync.withLock
 import java.io.File
 import java.io.FileNotFoundException
 import java.io.IOException
+import java.util.Collections
 import java.util.concurrent.atomic.AtomicInteger
 import javax.inject.Inject
 
@@ -188,7 +189,11 @@ class PDFViewerViewModel @Inject constructor(
     private val gridsMutex = Mutex()
 
     private var currentDocumentId: String? = null
-    private val renderJobs = mutableListOf<Job>()
+    // A viewport update is frequent while scrolling/pinching. It must only
+    // replace obsolete tile work, never cancel the full-page fallback render
+    // that owns the visible page's Rendering -> Success/Error transition.
+    private val pageRenderJobs = Collections.synchronizedList(mutableListOf<Job>())
+    private val tileRenderJobs = Collections.synchronizedList(mutableListOf<Job>())
 
     // The scale multiplier (relative to screen-width resolution) that each
     // currently-cached page bitmap in [_pageBitmaps] was actually rendered
@@ -311,6 +316,19 @@ class PDFViewerViewModel @Inject constructor(
                     pfd.close()
                     failDocumentOpen(classifyOpenFailure(e))
                     return@launch
+                } catch (e: OutOfMemoryError) {
+                    // PdfRenderer construction itself can allocate native
+                    // memory. Convert that failure into a recoverable viewer
+                    // error and release the descriptor we still own.
+                    pfd.close()
+                    bitmapPool.trim(1.0f)
+                    failDocumentOpen(
+                        ViewerState.Error(
+                            "Not enough memory to open this PDF. Try closing other apps.",
+                            isAccessError = false
+                        )
+                    )
+                    return@launch
                 }
 
                 if (documentGeneration.get() != myGeneration) {
@@ -416,8 +434,10 @@ class PDFViewerViewModel @Inject constructor(
         // Invalidate any in-flight work tied to the document being closed.
         documentGeneration.incrementAndGet()
 
-        renderJobs.forEach { it.cancel() }
-        renderJobs.clear()
+        pageRenderJobs.toList().forEach { it.cancel() }
+        pageRenderJobs.clear()
+        tileRenderJobs.toList().forEach { it.cancel() }
+        tileRenderJobs.clear()
 
         preloadManager?.cancelAll()
         preloadManager = null
@@ -803,7 +823,8 @@ class PDFViewerViewModel @Inject constructor(
                 }
             }
         }
-        renderJobs.add(job)
+        pageRenderJobs.add(job)
+        job.invokeOnCompletion { pageRenderJobs.remove(job) }
     }
 
     fun search(query: String) {
@@ -874,8 +895,12 @@ class PDFViewerViewModel @Inject constructor(
     }
 
     private fun scheduleTileRender() {
-        renderJobs.forEach { it.cancel() }
-        renderJobs.clear()
+        // New viewport bounds obsolete only tile work. Cancelling page
+        // renders here used to cancel the operation that had set
+        // PageRenderState.Rendering, leaving a spinner with no completion
+        // path whenever the user scrolled or pinched during loading.
+        tileRenderJobs.toList().forEach { it.cancel() }
+        tileRenderJobs.clear()
 
         val currentPage = _currentPage.value
         val zoom = _zoomLevel.value
@@ -896,7 +921,8 @@ class PDFViewerViewModel @Inject constructor(
                             publishRenderedTile(tile)
                         }
                     }
-                    renderJobs.add(job)
+                    tileRenderJobs.add(job)
+                    job.invokeOnCompletion { tileRenderJobs.remove(job) }
                 }
 
                 preloadManager?.queuePreload(

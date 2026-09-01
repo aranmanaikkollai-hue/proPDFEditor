@@ -5,6 +5,7 @@ import android.graphics.ColorMatrix
 import android.graphics.ColorMatrixColorFilter
 import android.graphics.Paint
 import android.graphics.Canvas
+import com.propdf.scanner.data.processing.OpenCvAvailability
 import com.propdf.scanner.model.ColorFilter
 import org.opencv.android.Utils
 import org.opencv.core.*
@@ -19,7 +20,12 @@ class ImageEnhancer {
         private const val GLARE_THRESHOLD = 240
     }
 
-    fun applyFilter(bitmap: Bitmap, filter: ColorFilter): Bitmap = when (filter) {
+    fun applyFilter(bitmap: Bitmap, filter: ColorFilter): Bitmap =
+        OpenCvAvailability.runSafely("ImageEnhancer.applyFilter", { bitmap.copy(Bitmap.Config.ARGB_8888, true) }) {
+            applyFilterWithOpenCv(bitmap, filter)
+        }
+
+    private fun applyFilterWithOpenCv(bitmap: Bitmap, filter: ColorFilter): Bitmap = when (filter) {
         ColorFilter.ORIGINAL -> bitmap.copy(Bitmap.Config.ARGB_8888, true)
         ColorFilter.MAGIC_COLOR -> applyMagicColor(bitmap)
         ColorFilter.GRAYSCALE -> applyGrayscale(bitmap)
@@ -134,7 +140,12 @@ class ImageEnhancer {
         } finally { mat.release() }
     }
 
-    fun autoRotate(bitmap: Bitmap): Bitmap {
+    fun autoRotate(bitmap: Bitmap): Bitmap =
+        OpenCvAvailability.runSafely("ImageEnhancer.autoRotate", { bitmap.copy(Bitmap.Config.ARGB_8888, true) }) {
+            autoRotateWithOpenCv(bitmap)
+        }
+
+    private fun autoRotateWithOpenCv(bitmap: Bitmap): Bitmap {
         val orientations = listOf(0, 90, 180, 270)
         var bestOrientation = 0
         var bestScore = -1.0
