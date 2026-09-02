@@ -136,4 +136,17 @@ class LayerManager {
             layers.filter { it.id != sourceId }
         }
     }
+
+    /**
+     * Clears all layers and the active-layer pointer. Must be called when switching to a
+     * genuinely different document -- createLayer() only appends and only claims the active
+     * slot when it was null, so without this a new document's createLayer("Default") call
+     * leaves the previous document's layer (and its annotations) as the active one, and the
+     * new document's annotations get added into that stale layer instead of its own.
+     */
+    fun reset() {
+        _layers.value = emptyList()
+        _activeLayerId.value = null
+        nextZIndex = 0
+    }
 }
