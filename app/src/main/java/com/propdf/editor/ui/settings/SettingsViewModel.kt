@@ -53,12 +53,26 @@ class SettingsViewModel @Inject constructor(
     val isDynamicColor: StateFlow<Boolean> = settingsDataStore.isDynamicColor
         .stateIn(viewModelScope, SharingStarted.Eagerly, true)
 
+    val isCompactView: StateFlow<Boolean> = settingsDataStore.isCompactView
+        .stateIn(viewModelScope, SharingStarted.Eagerly, false)
+
+    val autoDeleteDays: StateFlow<Int> = settingsDataStore.autoDeleteDays
+        .stateIn(viewModelScope, SharingStarted.Eagerly, 30)
+
     fun setDarkMode(enabled: Boolean) {
         viewModelScope.launch { settingsDataStore.setDarkMode(enabled) }
     }
 
     fun setDynamicColor(enabled: Boolean) {
         viewModelScope.launch { settingsDataStore.setDynamicColor(enabled) }
+    }
+
+    fun setCompactView(enabled: Boolean) {
+        viewModelScope.launch { settingsDataStore.setCompactView(enabled) }
+    }
+
+    fun setAutoDeleteDays(days: Int) {
+        viewModelScope.launch { settingsDataStore.setAutoDeleteDays(days) }
     }
 
     fun consumeActionResult() {
