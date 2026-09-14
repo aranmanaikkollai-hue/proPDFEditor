@@ -48,8 +48,9 @@ fun SettingsScreen(navController: NavController) {
 
     val darkMode by settingsViewModel.isDarkMode.collectAsState()
     val dynamicColors by settingsViewModel.isDynamicColor.collectAsState()
-    var autoDeleteDays by remember { mutableStateOf(30f) }
-    var compactView by remember { mutableStateOf(false) }
+    val autoDeleteDays by settingsViewModel.autoDeleteDays.collectAsState()
+    var autoDeleteSliderPos by remember(autoDeleteDays) { mutableStateOf(autoDeleteDays.toFloat()) }
+    val compactView by settingsViewModel.isCompactView.collectAsState()
 
     Scaffold(
         modifier = Modifier.nestedScroll(scrollBehavior.nestedScrollConnection),
@@ -121,10 +122,11 @@ fun SettingsScreen(navController: NavController) {
                         icon = Icons.Outlined.Timer,
                         title = "Auto-delete from recycle bin",
                         subtitle = "Files will be permanently deleted after",
-                        value = autoDeleteDays,
-                        onValueChange = { autoDeleteDays = it },
+                        value = autoDeleteSliderPos,
+                        onValueChange = { autoDeleteSliderPos = it },
+                        onValueChangeFinished = { settingsViewModel.setAutoDeleteDays(autoDeleteSliderPos.toInt()) },
                         valueRange = 1f..90f,
-                        valueLabel = "${autoDeleteDays.toInt()} days"
+                        valueLabel = "${autoDeleteSliderPos.toInt()} days"
                     )
                 }
             }
@@ -174,7 +176,7 @@ fun SettingsScreen(navController: NavController) {
                         title = "Compact View",
                         subtitle = "Show more items per screen",
                         checked = compactView,
-                        onCheckedChange = { compactView = it }
+                        onCheckedChange = { settingsViewModel.setCompactView(it) }
                     )
                 }
             }
@@ -511,7 +513,8 @@ fun SettingsSliderItem(
     value: Float,
     onValueChange: (Float) -> Unit,
     valueRange: ClosedFloatingPointRange<Float>,
-    valueLabel: String
+    valueLabel: String,
+    onValueChangeFinished: (() -> Unit)? = null
 ) {
     Column(
         modifier = Modifier
@@ -553,6 +556,7 @@ fun SettingsSliderItem(
         Slider(
             value = value,
             onValueChange = onValueChange,
+            onValueChangeFinished = onValueChangeFinished,
             valueRange = valueRange,
             modifier = Modifier.padding(start = 56.dp, top = 8.dp),
             steps = (valueRange.endInclusive - valueRange.start).toInt() - 1
