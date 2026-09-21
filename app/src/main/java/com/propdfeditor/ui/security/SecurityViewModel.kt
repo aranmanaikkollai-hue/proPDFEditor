@@ -12,6 +12,7 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
+import com.propdfeditor.core.util.toSafeUserMessage
 import javax.inject.Inject
 
 /**
@@ -107,7 +108,7 @@ class SecurityViewModel @Inject constructor(
                     Log.e("SecurityViewModel", "Security operation failed", e)
                     _uiState.value = _uiState.value.copy(
                         isProcessing = false,
-                        message = e.message ?: "Something went wrong. Please try again."
+                        message = e.toSafeUserMessage()
                     )
                 }
             )
