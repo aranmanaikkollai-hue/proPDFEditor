@@ -30,7 +30,16 @@ fun PdfFormViewer(
     pageHeight: Float,
     scaleFactor: Float,
     modifier: Modifier = Modifier,
-    viewModel: PdfFormViewModel = hiltViewModel()
+    viewModel: PdfFormViewModel = hiltViewModel(),
+    // Host screens (e.g. FormsScreen) need to know when a save/flatten actually
+    // finished so they can offer to write the cache-dir output to a real SAF
+    // location and tell the user honestly whether it worked -- previously
+    // operationState's Success/Error were both just silently discarded here
+    // (Section 9: "avoid silent failures... success before the file is
+    // actually written"), so there was no way for anything hosting this
+    // composable to know the outcome at all.
+    onSaved: (File) -> Unit = {},
+    onError: (String) -> Unit = {}
 ) {
     val context = LocalContext.current
     val uiState by viewModel.uiState.collectAsState()
@@ -43,17 +52,20 @@ fun PdfFormViewer(
     var showSignatureDialog by remember { mutableStateOf(false) }
     var showAddFieldDialog by remember { mutableStateOf<FormFieldType?>(null) }
     var pendingSignatureField by remember { mutableStateOf<PdfFormField?>(null) }
+    var lastOutputFile by remember { mutableStateOf<File?>(null) }
 
     LaunchedEffect(documentUri) {
         viewModel.loadDocument(documentUri)
     }
 
     LaunchedEffect(operationState) {
-        when (operationState) {
+        when (val state = operationState) {
             is FormOperationState.Error -> {
+                onError(state.message)
                 viewModel.clearOperationState()
             }
             is FormOperationState.Success -> {
+                lastOutputFile?.let(onSaved)
                 viewModel.clearOperationState()
             }
             else -> {}
@@ -105,10 +117,12 @@ fun PdfFormViewer(
             onFillForm = { viewModel.fillForm() },
             onSaveForm = {
                 val output = File(context.cacheDir, "saved_form_${System.currentTimeMillis()}.pdf")
+                lastOutputFile = output
                 viewModel.saveForm(output)
             },
             onFlattenForm = {
                 val output = File(context.cacheDir, "flattened_${System.currentTimeMillis()}.pdf")
+                lastOutputFile = output
                 viewModel.flattenForm(output)
             },
             onExportXFDF = {},
