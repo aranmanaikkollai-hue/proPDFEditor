@@ -15,6 +15,7 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
+import com.propdfeditor.core.util.toSafeUserMessage
 import javax.inject.Inject
 
 @HiltViewModel
@@ -55,7 +56,7 @@ class SplitViewModel @Inject constructor(
                     )
                 }
             } catch (e: Exception) {
-                _uiState.value = SplitUiState.Error(e.message ?: "Failed to load PDF")
+                _uiState.value = SplitUiState.Error(e.toSafeUserMessage("Unable to open this PDF."))
             }
         }
     }
@@ -120,7 +121,7 @@ class SplitViewModel @Inject constructor(
                 }
                 _uiState.value = SplitUiState.Done(_pageRanges.value.size)
             } catch (e: Exception) {
-                _uiState.value = SplitUiState.Error(e.message ?: "Split failed")
+                _uiState.value = SplitUiState.Error(e.toSafeUserMessage("This document could not be split."))
             }
         }
     }
