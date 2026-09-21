@@ -20,6 +20,7 @@ import com.propdf.editor.ui.settings.SettingsScreen
 import com.propdf.editor.ui.files.DocumentManagerScreen
 import com.propdf.editor.ui.files.FolderBrowserScreen
 import com.propdf.editor.ui.files.RecentActivityScreen
+import com.propdf.editor.ui.forms.screen.FormsScreen
 import com.propdfeditor.ui.tools.ToolsHubScreen
 import com.propdfeditor.ui.share.ShareSheetScreen
 import com.propdfeditor.ui.compression.CompressionScreen
@@ -207,6 +208,7 @@ fun AppNavigation(
                 onNavigateToSplit = { navController.navigate("split") },
                 onNavigateToSecurity = { uri -> navController.navigate("security/${uri.toString().encode()}") },
                 onNavigateToPageEditor = { uri -> navController.navigate("page-editor/${uri.toString().encode()}") },
+                onNavigateToForms = { uri -> navController.navigate("forms/${uri.toString().encode()}") },
                 onNavigateBack = { navController.popBackStack() }
             )
         }
@@ -297,6 +299,23 @@ fun AppNavigation(
                         popUpTo("home") { inclusive = false }
                     }
                 }
+            )
+        }
+
+        // =====================================================================
+        // Forms (fill/edit/sign/save/flatten AcroForm fields -- the engine and UI
+        // already existed complete in PdfFormViewer/PdfFormViewModel, just had no
+        // host screen or nav entry anywhere. See FormsScreen/FormsHostViewModel.
+        // NOT independently re-verified end-to-end in this environment.)
+        // =====================================================================
+        composable(
+            route = "forms/{uri}",
+            arguments = listOf(navArgument("uri") { type = NavType.StringType })
+        ) { backStackEntry ->
+            val encodedUri = backStackEntry.arguments?.getString("uri") ?: ""
+            FormsScreen(
+                documentUri = encodedUri, // already decoded once by Navigation Compose itself
+                onNavigateBack = { navController.popBackStack() }
             )
         }
 
