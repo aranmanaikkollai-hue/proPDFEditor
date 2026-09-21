@@ -4,6 +4,7 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.propdf.core.domain.model.DashboardData
 import com.propdf.core.domain.usecase.GetDashboardDataUseCase
+import com.propdfeditor.core.util.toSafeUserMessage
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.*
 import kotlinx.coroutines.launch
@@ -43,7 +44,7 @@ class HomeViewModel @Inject constructor(
                     }
                 }
                 .onFailure { e ->
-                    _uiState.value = HomeUiState.Error(e.message ?: "Unknown error")
+                    _uiState.value = HomeUiState.Error(e.toSafeUserMessage("Couldn't load your documents."))
                 }
         }
     }
