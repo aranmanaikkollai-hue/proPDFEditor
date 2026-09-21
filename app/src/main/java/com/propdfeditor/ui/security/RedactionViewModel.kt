@@ -19,6 +19,7 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
+import com.propdfeditor.core.util.toSafeUserMessage
 import javax.inject.Inject
 
 /**
@@ -68,7 +69,7 @@ class RedactionViewModel @Inject constructor(
                 _uiState.value = _uiState.value.copy(isLoading = false, pageCount = count)
                 if (count > 0) goToPage(0)
             } catch (e: Exception) {
-                _uiState.value = _uiState.value.copy(isLoading = false, error = e.message ?: "Failed to open PDF")
+                _uiState.value = _uiState.value.copy(isLoading = false, error = e.toSafeUserMessage("Unable to open this PDF."))
             }
         }
     }
@@ -161,7 +162,7 @@ class RedactionViewModel @Inject constructor(
                     _uiState.value.copy(isApplying = false, completedUri = outputUri.toString(), message = "Redactions applied")
                 },
                 onFailure = { e ->
-                    _uiState.value.copy(isApplying = false, message = e.message ?: "Failed to apply redactions")
+                    _uiState.value.copy(isApplying = false, message = e.toSafeUserMessage("This operation could not be completed."))
                 }
             )
         }
