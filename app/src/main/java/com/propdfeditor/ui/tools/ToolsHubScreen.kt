@@ -37,6 +37,7 @@ fun ToolsHubScreen(
     onNavigateToSplit: () -> Unit,
     onNavigateToSecurity: (Uri) -> Unit,
     onNavigateToPageEditor: (Uri) -> Unit = {},
+    onNavigateToForms: (Uri) -> Unit = {},
     onNavigateBack: () -> Unit
 ) {
     var comingSoonFeature by remember { mutableStateOf<String?>(null) }
@@ -50,6 +51,11 @@ fun ToolsHubScreen(
         contract = ActivityResultContracts.OpenDocument()
     ) { uri: Uri? ->
         uri?.let { onNavigateToPageEditor(it) }
+    }
+    val pickDocumentForFormsLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.OpenDocument()
+    ) { uri: Uri? ->
+        uri?.let { onNavigateToForms(it) }
     }
 
     val tools = listOf(
@@ -68,6 +74,13 @@ fun ToolsHubScreen(
         ToolItem("Protect", Icons.Default.Security) { pickDocumentLauncher.launch(arrayOf("application/pdf")) },
         ToolItem("Sign", Icons.Default.Draw) { pickDocumentLauncher.launch(arrayOf("application/pdf")) },
         ToolItem("Redact", Icons.Default.FormatColorReset) { pickDocumentLauncher.launch(arrayOf("application/pdf")) },
+        // PdfFormViewer (fill/edit/sign/save/flatten AcroForm fields) already existed,
+        // fully built, in :editor/PdfFormEngine + PdfFormRepositoryImpl -- it had zero
+        // navigation callers anywhere. See FormsScreen/FormsHostViewModel for the new
+        // page-rendering host that gives it somewhere to actually run. NOT independently
+        // re-verified end-to-end against real AcroForm PDFs in this environment (no
+        // Android toolchain here) -- test before treating this as fully done.
+        ToolItem("Forms", Icons.Default.Assignment) { pickDocumentForFormsLauncher.launch(arrayOf("application/pdf")) },
         ToolItem("Compare", Icons.Default.CompareArrows) { comingSoonFeature = "Compare" },
         // BatchActivity (com.propdfeditor.batch.ui) is a fully-built Room+WorkManager
         // batch job UI -- merge/split/rename/watermark/rotate/compress/OCR/encrypt/
