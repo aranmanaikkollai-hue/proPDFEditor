@@ -21,6 +21,7 @@ import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.launch
 import timber.log.Timber
 import java.util.UUID
+import com.propdfeditor.core.util.toSafeUserMessage
 import javax.inject.Inject
 
 @HiltViewModel
@@ -121,7 +122,7 @@ class BatchViewModel @Inject constructor(
                 _operationResult.value = OperationResult.Success("Batch operation started", jobId)
             } catch (e: Exception) {
                 Timber.e(e, "Failed to start batch operation")
-                _operationResult.value = OperationResult.Error(e.message ?: "Unknown error")
+                _operationResult.value = OperationResult.Error(e.toSafeUserMessage("This batch job could not be completed."))
             } finally {
                 _isProcessing.value = false
             }
