@@ -1,442 +1,97 @@
-package com.propdfeditor.ui.navigation
+package com.propdfeditor.core.util
 
-import androidx.compose.runtime.Composable
-import androidx.compose.runtime.LaunchedEffect
-import androidx.compose.ui.Modifier
-import androidx.navigation.NavType
-import androidx.navigation.compose.NavHost
-import androidx.navigation.compose.composable
-import androidx.navigation.navArgument
-import com.propdf.editor.ui.PdfEditorScreen
-import com.propdf.editor.ui.tools.page.PageEditorScreen
-import com.propdf.scanner.ui.ScannerScreen
-import com.propdf.viewer.ui.IntegratedPDFViewerScreen
-import com.propdfeditor.ui.filemanager.FileManagerScreen
-import com.propdfeditor.ui.home.HomeDashboardScreen
-import com.propdfeditor.ui.ocr.OcrHubScreen
-import com.propdfeditor.ui.security.SecurityHubScreen
-import com.propdfeditor.ui.security.RedactionScreen
-import com.propdf.editor.ui.settings.SettingsScreen
-import com.propdf.editor.ui.files.DocumentManagerScreen
-import com.propdf.editor.ui.files.FolderBrowserScreen
-import com.propdf.editor.ui.files.RecentActivityScreen
-import com.propdf.editor.ui.forms.screen.FormsScreen
-import com.propdfeditor.ui.tools.ToolsHubScreen
-import com.propdfeditor.ui.share.ShareSheetScreen
-import com.propdfeditor.ui.compression.CompressionScreen
-import com.propdfeditor.ui.merge.MergeScreen
-import com.propdfeditor.ui.split.SplitScreen
+import com.propdf.core.domain.result.AppException
+import java.io.FileNotFoundException
+import java.io.IOException
 
-@Composable
-fun AppNavigation(
-    navController: androidx.navigation.NavHostController,
-    modifier: Modifier = Modifier,
-    startDestination: String = "home",
-    pendingExternalUri: String? = null,
-    onExternalUriConsumed: () -> Unit = {}
-) {
-    // -------------------------------------------------------------------------
-    // EXTERNAL PDF INTENT HANDLING
-    // When MainActivity receives an ACTION_VIEW / ACTION_SEND intent with a
-    // PDF URI, it stores the URI in pendingExternalUri. This LaunchedEffect
-    // navigates to the viewer once, then notifies MainActivity to clear the
-    // pending URI so it is not re-processed on recomposition.
-    // -------------------------------------------------------------------------
-    LaunchedEffect(pendingExternalUri) {
-        pendingExternalUri?.let { uri ->
-            val currentRoute = navController.currentDestination?.route
-            // Avoid duplicate navigation if already on viewer
-            if (currentRoute != "viewer/{uri}?page={page}") {
-                navController.navigate("viewer/${uri.encode()}?page=0") {
-                    popUpTo("home") { inclusive = false }
-                    launchSingleTop = true
-                }
-            }
-            onExternalUriConsumed()
+/**
+ * Maps a caught [Throwable] to a short, safe, non-technical message suitable for
+ * displaying directly to the user (a Snackbar, error state, or dialog).
+ *
+ * This exists because the app has dozens of call sites that currently do
+ * `e.message ?: "X failed"`, which surfaces whatever the underlying library
+ * (iText, PDFBox, Room, the OS) happened to put in its exception message --
+ * things like "Rebuild failed: trailer not found" or a raw stack-trace class
+ * name. That's confusing at best and a support/security-hygiene problem at
+ * worst.
+ *
+ * This is intentionally a single, centralized place for this mapping instead
+ * of duplicating string-matching logic at every call site. Callers that need
+ * the real diagnostic detail for logging should keep logging [Throwable] as
+ * before -- this function is only for the string shown to the user.
+ *
+ * This does not change control flow, retry behavior, or which exceptions are
+ * caught -- it is a pure String -> String mapping applied at the point a
+ * message is about to be shown to the user.
+ *
+ * :core's own AppException/toAppException() (domain.result package) already exists as a
+ * typed error hierarchy, but its subtypes (FileNotFound, InvalidPdf, SecurityError, etc.)
+ * still fall back to `message ?: "<default>"` when wrapping a real exception -- so any
+ * caller reading `AppResult.Error.exception.message` directly still gets the raw
+ * underlying message whenever one was present, the same leak this function exists to
+ * close. Special-casing AppException here (ignoring its wrapped .message on purpose)
+ * lets both error-reporting paths in the app funnel through one safe mapping instead of
+ * needing two.
+ */
+fun Throwable.toSafeUserMessage(fallback: String = "Something went wrong. Please try again."): String {
+    if (this is AppException) {
+        return when (this) {
+            is AppException.FileNotFound -> "The selected file is no longer available."
+            is AppException.FileTooLarge -> "This file is too large for this operation."
+            is AppException.UnsupportedUri -> "This file location isn't supported. Try selecting it again."
+            is AppException.SecurityError -> "Permission was denied for this file. Try selecting it again."
+            is AppException.OutOfMemory -> "This document is too large to process on this device."
+            is AppException.InvalidPdf -> "This PDF couldn't be processed. It may be corrupted or in an unsupported format."
+            is AppException.IOError -> "This document couldn't be saved. Please try again."
+            is AppException.RenderingError -> "This page couldn't be displayed."
+            is AppException.AnnotationError -> "This annotation couldn't be saved."
+            is com.propdf.core.domain.result.PdfProcessingError.InvalidPage -> "That page doesn't exist in this document."
+            is com.propdf.core.domain.result.PdfProcessingError.CorruptedFile -> "This PDF couldn't be processed. It may be corrupted or in an unsupported format."
+            is com.propdf.core.domain.result.PdfProcessingError.ProcessingFailed -> "This operation could not be completed."
+            is AppException.Unknown -> fallback
+            else -> fallback
         }
     }
 
-    NavHost(
-        navController = navController,
-        startDestination = startDestination,
-        modifier = modifier
-    ) {
-        // =====================================================================
-        // Home Dashboard
-        // =====================================================================
-        composable("home") {
-            HomeDashboardScreen(
-                onOpenFile = { uri ->
-                    navController.navigate("viewer/${uri.encode()}") {
-                        launchSingleTop = true
-                    }
-                },
-                onNavigateToFileManager = { navController.navigate("files") },
-                onNavigateToFavorites = { navController.navigate("files?favoritesOnly=true") },
-                onNavigateToScanner = { navController.navigate("scanner") },
-                onNavigateToTools = { navController.navigate("tools") },
-                onNavigateToSettings = { navController.navigate("settings") },
-                onContinueReading = { uri, page ->
-                    navController.navigate("viewer/${uri.encode()}?page=$page") {
-                        launchSingleTop = true
-                    }
-                }
-            )
-        }
+    val className = this::class.java.name
+    val lowerMessage = message?.lowercase().orEmpty()
 
-        // =====================================================================
-        // File Manager
-        // =====================================================================
-        composable(
-            "files?favoritesOnly={favoritesOnly}",
-            arguments = listOf(
-                navArgument("favoritesOnly") {
-                    type = NavType.BoolType
-                    defaultValue = false
-                }
-            )
-        ) { backStackEntry ->
-            FileManagerScreen(
-                onOpenPdf = { uri ->
-                    navController.navigate("viewer/${uri.encode()}") {
-                        popUpTo("home") { inclusive = false }
-                    }
-                },
-                onNavigateBack = { navController.popBackStack() },
-                favoritesOnly = backStackEntry.arguments?.getBoolean("favoritesOnly") ?: false
-            )
-        }
+    return when {
+        // iText throws this specific type when a PDF requires a password it
+        // wasn't given, or the supplied password/permissions are wrong.
+        className.endsWith("BadPasswordException") ||
+            lowerMessage.contains("password") ->
+            "This PDF is password protected."
 
-        // =====================================================================
-        // PDF Viewer
-        // =====================================================================
-        // CRITICAL FIX: Removed invalid deep-link declarations.
-        //
-        // The previous configuration contained:
-        //   deepLinks = listOf(
-        //       navDeepLink { uriPattern = "content://.*\\.pdf" },
-        //       navDeepLink { uriPattern = "file://.*\\.pdf" }
-        //   )
-        //
-        // These patterns are regex wildcards (.*) and do NOT provide a named
-        // {uri} argument that matches the route argument "uri". Jetpack
-        // Navigation validates this at graph-build time and throws:
-        //   IllegalArgumentException:
-        //   "Deep link content://.*\\.pdf can't be used to open destination
-        //    viewer/{uri}?page={page}"
-        //
-        // This caused a FATAL STARTUP CRASH on every launch — the NavHost
-        // could not be constructed, so Home was never reached.
-        //
-        // External PDF opening is now handled in MainActivity via
-        // Intent.ACTION_VIEW / ACTION_SEND intent filters, then passed safely
-        // through pendingExternalUri → LaunchedEffect → navController.navigate().
-        // =====================================================================
-        composable(
-            route = "viewer/{uri}?page={page}",
-            arguments = listOf(
-                navArgument("uri") { type = NavType.StringType },
-                navArgument("page") {
-                    type = NavType.IntType
-                    defaultValue = 0
-                }
-            )
-        ) { backStackEntry ->
-            val encodedUri = backStackEntry.arguments?.getString("uri") ?: ""
-            val page = backStackEntry.arguments?.getInt("page") ?: 0
-            IntegratedPDFViewerScreen(
-                documentUri = encodedUri, // already decoded once by Navigation Compose itself
-                initialPage = page,
-                onNavigateBack = { navController.popBackStack() },
-                onNavigateToEditor = { uri ->
-                    navController.navigate("editor/${uri.encode()}")
-                },
-                onNavigateToAnnotations = { uri ->
-                    navController.navigate("annotate/${uri.encode()}")
-                },
-                onNavigateToShare = { uri ->
-                    navController.navigate("share/${uri.encode()}")
-                },
-                onNavigateToSecurity = { uri ->
-                    navController.navigate("security/${uri.encode()}")
-                }
-            )
-        }
+        this is FileNotFoundException ||
+            lowerMessage.contains("no such file") ||
+            lowerMessage.contains("enoent") ->
+            "The selected file is no longer available."
 
-        // =====================================================================
-        // Annotation mode viewer
-        // =====================================================================
-        composable(
-            route = "annotate/{uri}",
-            arguments = listOf(navArgument("uri") { type = NavType.StringType })
-        ) { backStackEntry ->
-            val encodedUri = backStackEntry.arguments?.getString("uri") ?: ""
-            IntegratedPDFViewerScreen(
-                documentUri = encodedUri, // already decoded once by Navigation Compose itself
-                initialPage = 0,
-                startInAnnotationMode = true,
-                onNavigateBack = { navController.popBackStack() },
-                onNavigateToEditor = { navController.navigate("editor/${it.encode()}") },
-                onNavigateToAnnotations = { },
-                onNavigateToShare = { navController.navigate("share/${it.encode()}") },
-                onNavigateToSecurity = { navController.navigate("security/${it.encode()}") }
-            )
-        }
+        this is SecurityException ||
+            lowerMessage.contains("permission denial") ||
+            lowerMessage.contains("permission is required") ->
+            "Permission was denied for this file. Try selecting it again."
 
-        // =====================================================================
-        // Scanner
-        // =====================================================================
-        composable("scanner") {
-            ScannerScreen(
-                onPdfCreated = { uri ->
-                    navController.navigate("viewer/${uri.encode()}") {
-                        popUpTo("home") { inclusive = false }
-                    }
-                },
-                onNavigateBack = { navController.popBackStack() }
-            )
-        }
+        lowerMessage.contains("not enough space") ||
+            lowerMessage.contains("no space left") ->
+            "Not enough storage space to complete this action."
 
-        // =====================================================================
-        // Tools Hub
-        // =====================================================================
-        composable("tools") {
-            ToolsHubScreen(
-                onNavigateToCompression = { navController.navigate("compression") },
-                onNavigateToOcr = { navController.navigate("ocr") },
-                onNavigateToMerge = { navController.navigate("merge") },
-                onNavigateToSplit = { navController.navigate("split") },
-                onNavigateToSecurity = { uri -> navController.navigate("security/${uri.toString().encode()}") },
-                onNavigateToPageEditor = { uri -> navController.navigate("page-editor/${uri.toString().encode()}") },
-                onNavigateToForms = { uri -> navController.navigate("forms/${uri.toString().encode()}") },
-                onNavigateBack = { navController.popBackStack() }
-            )
-        }
+        // Corrupt/invalid PDF structure -- iText/PDFBox surface this in many
+        // different exception classes and messages, so match on the class
+        // name pattern shared by iText's own hierarchy plus common phrasing
+        // rather than enumerating every concrete type.
+        className.contains("itextpdf") ||
+            lowerMessage.contains("pdf header") ||
+            lowerMessage.contains("trailer") ||
+            lowerMessage.contains("xref") ||
+            lowerMessage.contains("invalid pdf") ||
+            lowerMessage.contains("corrupt") ->
+            "This PDF couldn't be processed. It may be corrupted or in an unsupported format."
 
-        // =====================================================================
-        // Settings
-        // =====================================================================
-        composable("settings") {
-            SettingsScreen(navController = navController)
-        }
+        this is IOException ->
+            "This document couldn't be saved. Please try again."
 
-        // =====================================================================
-        // Library: Document Manager / Folders / Recent Activity
-        // (real screens + ViewModels, previously built but never given a route --
-        // see the "Library" section added to SettingsScreen)
-        // =====================================================================
-        composable("document_manager") {
-            DocumentManagerScreen(
-                navController = navController,
-                onOpenDocument = { uri ->
-                    navController.navigate("viewer/${uri.encode()}") {
-                        popUpTo("home") { inclusive = false }
-                    }
-                },
-                onNavigateToViewer = { navController.navigate("files") },
-                onNavigateToMerge = { navController.navigate("merge") },
-                onNavigateToSplit = { navController.navigate("split") },
-                onNavigateToFolder = { navController.navigate("folder_browser") }
-            )
-        }
-
-        composable("folder_browser") {
-            FolderBrowserScreen(navController = navController, folderId = null)
-        }
-
-        composable(
-            route = "folder_browser/{folderId}",
-            arguments = listOf(navArgument("folderId") { type = NavType.StringType })
-        ) { backStackEntry ->
-            FolderBrowserScreen(
-                navController = navController,
-                folderId = backStackEntry.arguments?.getString("folderId")
-            )
-        }
-
-        composable("recent_activity") {
-            RecentActivityScreen(navController = navController)
-        }
-
-        // =====================================================================
-        // PDF Editor
-        // =====================================================================
-        composable(
-            route = "editor/{uri}",
-            arguments = listOf(navArgument("uri") { type = NavType.StringType })
-        ) { backStackEntry ->
-            val encodedUri = backStackEntry.arguments?.getString("uri") ?: ""
-            PdfEditorScreen(
-                documentUri = encodedUri, // already decoded once by Navigation Compose itself
-                onNavigateBack = { navController.popBackStack() },
-                onSaveComplete = { uri ->
-                    navController.navigate("viewer/${uri.encode()}") {
-                        popUpTo("home") { inclusive = false }
-                    }
-                },
-                onNavigateToMerge = { navController.navigate("merge") },
-                onNavigateToSplit = { navController.navigate("split") }
-            )
-        }
-
-        // =====================================================================
-        // Page Editor (organize/crop/resize/insert/reorder -- full page-management
-        // workflow backed by PdfOperationsRepository via PdfOperationWorker). This
-        // screen and its ViewModel were fully built and wired to the real repository
-        // but were never registered in the nav graph or reachable from anywhere in the
-        // app -- Compress/OCR/Merge/Split had entries in the Tools Hub, this didn't.
-        // =====================================================================
-        composable(
-            route = "page-editor/{uri}",
-            arguments = listOf(navArgument("uri") { type = NavType.StringType })
-        ) { backStackEntry ->
-            val encodedUri = backStackEntry.arguments?.getString("uri") ?: ""
-            PageEditorScreen(
-                pdfUri = android.net.Uri.parse(encodedUri), // already decoded once by Navigation Compose itself
-                onNavigateBack = { navController.popBackStack() },
-                onOpenPdf = { uri ->
-                    navController.navigate("viewer/${uri.toString().encode()}") {
-                        popUpTo("home") { inclusive = false }
-                    }
-                }
-            )
-        }
-
-        // =====================================================================
-        // Forms (fill/edit/sign/save/flatten AcroForm fields -- the engine and UI
-        // already existed complete in PdfFormViewer/PdfFormViewModel, just had no
-        // host screen or nav entry anywhere. See FormsScreen/FormsHostViewModel.
-        // NOT independently re-verified end-to-end in this environment.)
-        // =====================================================================
-        composable(
-            route = "forms/{uri}",
-            arguments = listOf(navArgument("uri") { type = NavType.StringType })
-        ) { backStackEntry ->
-            val encodedUri = backStackEntry.arguments?.getString("uri") ?: ""
-            FormsScreen(
-                documentUri = encodedUri, // already decoded once by Navigation Compose itself
-                onNavigateBack = { navController.popBackStack() }
-            )
-        }
-
-        // =====================================================================
-        // Security Hub
-        // =====================================================================
-        composable(
-            route = "security/{uri}",
-            arguments = listOf(navArgument("uri") { type = NavType.StringType })
-        ) { backStackEntry ->
-            val encodedUri = backStackEntry.arguments?.getString("uri") ?: ""
-            SecurityHubScreen(
-                documentUri = encodedUri, // already decoded once by Navigation Compose itself
-                onNavigateBack = { navController.popBackStack() },
-                onNavigateToRedact = { uri -> navController.navigate("redact/${uri.encode()}") }
-            )
-        }
-
-        // =====================================================================
-        // Redaction (interactive page-rect marking, backed by SecurityRepository's
-        // real redaction engine + RedactionOverlayView, both previously dormant --
-        // see RedactionScreen/RedactionViewModel)
-        // =====================================================================
-        composable(
-            route = "redact/{uri}",
-            arguments = listOf(navArgument("uri") { type = NavType.StringType })
-        ) { backStackEntry ->
-            val encodedUri = backStackEntry.arguments?.getString("uri") ?: ""
-            RedactionScreen(
-                documentUri = encodedUri, // already decoded once by Navigation Compose itself
-                onNavigateBack = { navController.popBackStack() },
-                onRedactionComplete = { uri ->
-                    navController.navigate("viewer/${uri.encode()}") {
-                        popUpTo("home") { inclusive = false }
-                    }
-                }
-            )
-        }
-
-        // =====================================================================
-        // Share
-        // =====================================================================
-        composable(
-            route = "share/{uri}",
-            arguments = listOf(navArgument("uri") { type = NavType.StringType })
-        ) { backStackEntry ->
-            val encodedUri = backStackEntry.arguments?.getString("uri") ?: ""
-            ShareSheetScreen(
-                documentUri = encodedUri, // already decoded once by Navigation Compose itself
-                onNavigateBack = { navController.popBackStack() }
-            )
-        }
-
-        // =====================================================================
-        // OCR Hub
-        // =====================================================================
-        composable("ocr") {
-            OcrHubScreen(
-                onNavigateBack = { navController.popBackStack() }
-            )
-        }
-
-        // =====================================================================
-        // Compression
-        // =====================================================================
-        composable("compression") {
-            CompressionScreen(
-                onNavigateBack = { navController.popBackStack() }
-            )
-        }
-
-        // =====================================================================
-        // Merge
-        // =====================================================================
-        composable("merge") {
-            MergeScreen(
-                onNavigateBack = { navController.popBackStack() }
-            )
-        }
-
-        // =====================================================================
-        // Split
-        // =====================================================================
-        composable("split") {
-            SplitScreen(
-                onNavigateBack = { navController.popBackStack() }
-            )
-        }
+        else -> fallback
     }
 }
-
-// Navigation Compose (2.7.7) implements every composable() route as an
-// implicit deep link internally: when it matches the navigated route string
-// against the declared pattern (e.g. "viewer/{uri}?page={page}"), it parses
-// the route as a real android.net.Uri and applies Uri.decode() to each
-// captured path-segment argument automatically before it ever reaches
-// backStackEntry.arguments. That means the value returned by
-// arguments?.getString("uri") is ALREADY decoded once by Navigation itself.
-//
-// This file used to encode with java.net.URLEncoder (form/application-x-www-
-// form-urlencoded semantics: spaces -> '+', and -- critically -- it also
-// re-escapes any '%' that was already present in the URI, since URLEncoder
-// has no idea the input is itself a URI) and then manually called
-// java.net.URLDecoder.decode() a SECOND time after extracting the argument.
-// For a simple "content://authority/document/123" URI this round-trip
-// happened to cancel out, but real-world SAF/Downloads-provider URIs
-// routinely contain their own embedded percent-encoded segments (e.g.
-// ".../document/raw%3A%2Fstorage%2Femulated%2F0%2FDownload%2Ffile.pdf"). For
-// those, encoding with URLEncoder double-escaped the existing '%' characters,
-// Navigation's automatic single decode pass only unwound one layer of that,
-// and the subsequent manual URLDecoder.decode() then incorrectly decoded the
-// URI's own embedded %3A/%2F segments (which are not supposed to be touched
-// again), producing a string that no longer matched the exact Uri the app
-// held a persisted/transient read permission for -- SecurityException / "File
-// access has expired" on first open, even though the URI had just been picked
-// and granted moments earlier. Re-picking via "Choose PDF Again" appeared to
-// "fix" it only because that path sets the Uri directly from the picker's
-// ActivityResult in memory, bypassing this nav-route round trip entirely.
-//
-// Fix: encode with android.net.Uri.encode() (the counterpart Navigation's
-// internal Uri.decode() actually expects, and idempotent/correct for '%'
-// already present in a URI string), and do NOT decode a second time when
-// reading the argument back out -- Navigation has already decoded it once.
-private fun String.encode(): String = android.net.Uri.encode(this)
