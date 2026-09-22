@@ -11,6 +11,7 @@ import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.catch
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
+import com.propdfeditor.core.util.toSafeUserMessage
 import javax.inject.Inject
 
 @HiltViewModel
@@ -27,7 +28,7 @@ class RecentFilesViewModel @Inject constructor(
     init {
         viewModelScope.launch {
             repository.observeAll()
-                .catch { e -> _uiState.update { it.copy(isLoading = false, error = e.message) } }
+                .catch { e -> _uiState.update { it.copy(isLoading = false, error = e.toSafeUserMessage("Couldn't load recent files.")) } }
                 .collect { files ->
                     _uiState.update { it.copy(files = files, isLoading = false) }
                 }
