@@ -5,6 +5,7 @@ import android.util.Log
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.propdf.security.data.entity.EncryptionType
+import com.propdf.security.domain.usecase.DecryptDocumentUseCase
 import com.propdf.security.domain.usecase.EncryptDocumentUseCase
 import com.propdf.security.domain.usecase.SanitizeDocumentUseCase
 import dagger.hilt.android.lifecycle.HiltViewModel
@@ -30,7 +31,8 @@ import javax.inject.Inject
 @HiltViewModel
 class SecurityViewModel @Inject constructor(
     private val encryptDocumentUseCase: EncryptDocumentUseCase,
-    private val sanitizeDocumentUseCase: SanitizeDocumentUseCase
+    private val sanitizeDocumentUseCase: SanitizeDocumentUseCase,
+    private val decryptDocumentUseCase: DecryptDocumentUseCase
 ) : ViewModel() {
 
     private val _uiState = MutableStateFlow(SecurityUiState())
@@ -51,6 +53,12 @@ class SecurityViewModel @Inject constructor(
 
     fun requestRemoveMetadata() {
         _uiState.value = _uiState.value.copy(pendingAction = PendingAction.REMOVE_METADATA)
+    }
+
+    /** "Remove Password" -- the dialog password entered here is the document's
+     * *existing* password (needed to open it), not a new one being set. */
+    fun requestRemovePassword() {
+        _uiState.value = _uiState.value.copy(pendingAction = PendingAction.REMOVE_PASSWORD)
     }
 
     fun cancelPendingAction() {
@@ -88,6 +96,7 @@ class SecurityViewModel @Inject constructor(
                     outputUri = outputUri
                 )
                 PendingAction.REMOVE_METADATA -> sanitizeDocumentUseCase.removeMetadata(source, outputUri)
+                PendingAction.REMOVE_PASSWORD -> decryptDocumentUseCase(source, password, outputUri)
                 null -> Result.failure(IllegalStateException("No action pending"))
             }
 
@@ -125,7 +134,7 @@ class SecurityViewModel @Inject constructor(
     }
 }
 
-enum class PendingAction { PASSWORD_PROTECT, AES_ENCRYPT, REMOVE_METADATA }
+enum class PendingAction { PASSWORD_PROTECT, AES_ENCRYPT, REMOVE_METADATA, REMOVE_PASSWORD }
 
 data class SecurityUiState(
     val documentUri: String? = null,
