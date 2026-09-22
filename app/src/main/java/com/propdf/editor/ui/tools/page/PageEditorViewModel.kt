@@ -14,6 +14,7 @@ import kotlinx.coroutines.flow.*
 import kotlinx.coroutines.launch
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.encodeToString
+import com.propdfeditor.core.util.toSafeUserMessage
 import javax.inject.Inject
 
 @HiltViewModel
@@ -43,7 +44,7 @@ class PageEditorViewModel @Inject constructor(
                     loadPageThumbnails(uri, (1..pageCount).toList())
                 }
                 is AppResult.Error -> {
-                    _uiState.update { it.copy(isLoading = false, error = result.exception.message) }
+                    _uiState.update { it.copy(isLoading = false, error = result.exception.toSafeUserMessage()) }
                 }
                 else -> {}
             }
@@ -68,7 +69,7 @@ class PageEditorViewModel @Inject constructor(
                     ) }
                 }
                 is AppResult.Error -> {
-                    _uiState.update { it.copy(isLoading = false, error = result.exception.message) }
+                    _uiState.update { it.copy(isLoading = false, error = result.exception.toSafeUserMessage()) }
                 }
                 else -> {}
             }
@@ -187,8 +188,8 @@ class PageEditorViewModel @Inject constructor(
                     loadPdf(result.data)
                 }
                 is AppResult.Error -> {
-                    _uiState.update { it.copy(isLoading = false, error = result.exception.message) }
-                    _operationResult.emit(OperationResult.Error(result.exception.message))
+                    _uiState.update { it.copy(isLoading = false, error = result.exception.toSafeUserMessage()) }
+                    _operationResult.emit(OperationResult.Error(result.exception.toSafeUserMessage()))
                 }
                 else -> {}
             }
@@ -205,8 +206,8 @@ class PageEditorViewModel @Inject constructor(
                     loadPdf(result.data)
                 }
                 is AppResult.Error -> {
-                    _uiState.update { it.copy(isLoading = false, error = result.exception.message) }
-                    _operationResult.emit(OperationResult.Error(result.exception.message))
+                    _uiState.update { it.copy(isLoading = false, error = result.exception.toSafeUserMessage()) }
+                    _operationResult.emit(OperationResult.Error(result.exception.toSafeUserMessage()))
                 }
                 else -> {}
             }
@@ -223,8 +224,8 @@ class PageEditorViewModel @Inject constructor(
                     loadPdf(result.data)
                 }
                 is AppResult.Error -> {
-                    _uiState.update { it.copy(isLoading = false, error = result.exception.message) }
-                    _operationResult.emit(OperationResult.Error(result.exception.message))
+                    _uiState.update { it.copy(isLoading = false, error = result.exception.toSafeUserMessage()) }
+                    _operationResult.emit(OperationResult.Error(result.exception.toSafeUserMessage()))
                 }
                 else -> {}
             }
@@ -315,7 +316,7 @@ class PageEditorViewModel @Inject constructor(
                     loadPdf(result.data)
                 }
                 is AppResult.Error -> {
-                    _uiState.update { it.copy(isLoading = false, error = result.exception.message) }
+                    _uiState.update { it.copy(isLoading = false, error = result.exception.toSafeUserMessage()) }
                 }
                 else -> {}
             }
