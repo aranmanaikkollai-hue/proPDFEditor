@@ -75,6 +75,7 @@ fun SecurityHubScreen(
 
     val tools = listOf(
         SecurityTool("Password Protect", Icons.Default.Password, SecurityAction.PASSWORD),
+        SecurityTool("Remove Password", Icons.Default.LockOpen, SecurityAction.REMOVE_PASSWORD),
         SecurityTool("AES Encrypt", Icons.Default.EnhancedEncryption, SecurityAction.ENCRYPT),
         SecurityTool("Redact", Icons.Default.FormatColorReset, SecurityAction.REDACT),
         SecurityTool("Digital Sign", Icons.Default.Draw, SecurityAction.SIGN),
@@ -129,6 +130,10 @@ fun SecurityHubScreen(
                                     viewModel.requestRemoveMetadata()
                                     saveDocumentLauncher.launch("cleaned_document.pdf")
                                 }
+                                SecurityAction.REMOVE_PASSWORD -> {
+                                    viewModel.requestRemovePassword()
+                                    saveDocumentLauncher.launch("unlocked_document.pdf")
+                                }
                             }
                         }
                     )
@@ -154,12 +159,20 @@ fun SecurityHubScreen(
                 pendingOutputUri = null
                 viewModel.cancelPendingAction()
             },
-            title = { Text(if (action == PendingAction.AES_ENCRYPT) "Set AES-256 password" else "Set password") },
+            title = {
+                Text(
+                    when (action) {
+                        PendingAction.AES_ENCRYPT -> "Set AES-256 password"
+                        PendingAction.REMOVE_PASSWORD -> "Enter current password"
+                        else -> "Set password"
+                    }
+                )
+            },
             text = {
                 OutlinedTextField(
                     value = password,
                     onValueChange = { password = it },
-                    label = { Text("Password") },
+                    label = { Text(if (action == PendingAction.REMOVE_PASSWORD) "Current password" else "Password") },
                     singleLine = true
                 )
             },
@@ -234,5 +247,5 @@ private data class SecurityTool(
 )
 
 private enum class SecurityAction {
-    PASSWORD, ENCRYPT, REDACT, SIGN, VERIFY, METADATA
+    PASSWORD, ENCRYPT, REDACT, SIGN, VERIFY, METADATA, REMOVE_PASSWORD
 }
