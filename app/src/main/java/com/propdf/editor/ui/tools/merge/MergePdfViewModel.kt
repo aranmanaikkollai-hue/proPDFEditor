@@ -12,6 +12,7 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
+import com.propdfeditor.core.util.toSafeUserMessage
 import javax.inject.Inject
 
 @HiltViewModel
@@ -70,7 +71,7 @@ class MergePdfViewModel @Inject constructor(
                     ) }
                 }
                 is AppResult.Error -> {
-                    _uiState.update { it.copy(isLoading = false, error = result.exception.message) }
+                    _uiState.update { it.copy(isLoading = false, error = result.exception.toSafeUserMessage()) }
                 }
                 else -> {}
             }
