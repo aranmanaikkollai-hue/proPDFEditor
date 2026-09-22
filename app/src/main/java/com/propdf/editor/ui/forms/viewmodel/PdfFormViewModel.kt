@@ -11,6 +11,7 @@ import com.propdf.core.domain.repository.PdfFormRepository
 import com.propdf.core.domain.result.AppResult
 import com.propdf.editor.ui.forms.model.FormOperationState
 import com.propdf.editor.ui.forms.model.FormUiState
+import com.propdfeditor.core.util.toSafeUserMessage
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.*
 import kotlinx.coroutines.launch
@@ -66,7 +67,7 @@ class PdfFormViewModel @Inject constructor(
                     else -> { }
                 }
             } catch (e: Exception) {
-                _uiState.value = FormUiState.Error(e.message ?: "Failed to load form fields")
+                _uiState.value = FormUiState.Error(e.toSafeUserMessage("Couldn't load this form."))
             }
         }
     }
@@ -87,7 +88,7 @@ class PdfFormViewModel @Inject constructor(
                     _operationState.value = FormOperationState.Success
                 }
                 is AppResult.Error -> {
-                    _operationState.value = FormOperationState.Error(result.message ?: "Failed to add field")
+                    _operationState.value = FormOperationState.Error(result.exception.toSafeUserMessage("This field could not be added."))
                 }
                 else -> { }
             }
@@ -102,7 +103,7 @@ class PdfFormViewModel @Inject constructor(
                     currentDocumentUri?.let { loadDocument(it) }
                 }
                 is AppResult.Error -> {
-                    _operationState.value = FormOperationState.Error(result.message ?: "Failed to update field")
+                    _operationState.value = FormOperationState.Error(result.exception.toSafeUserMessage("This field could not be updated."))
                 }
                 else -> { }
             }
@@ -116,7 +117,7 @@ class PdfFormViewModel @Inject constructor(
                     currentDocumentUri?.let { loadDocument(it) }
                 }
                 is AppResult.Error -> {
-                    _operationState.value = FormOperationState.Error(result.message ?: "Failed to delete field")
+                    _operationState.value = FormOperationState.Error(result.exception.toSafeUserMessage("This field could not be deleted."))
                 }
                 else -> { }
             }
@@ -139,7 +140,7 @@ class PdfFormViewModel @Inject constructor(
                     _operationState.value = FormOperationState.Success
                 }
                 is AppResult.Error -> {
-                    _operationState.value = FormOperationState.Error(result.message ?: "Failed to fill form")
+                    _operationState.value = FormOperationState.Error(result.exception.toSafeUserMessage("This form could not be filled in."))
                 }
                 else -> { }
             }
@@ -155,7 +156,7 @@ class PdfFormViewModel @Inject constructor(
                     _operationState.value = FormOperationState.Success
                 }
                 is AppResult.Error -> {
-                    _operationState.value = FormOperationState.Error(result.message ?: "Failed to save form")
+                    _operationState.value = FormOperationState.Error(result.exception.toSafeUserMessage("This form could not be saved."))
                 }
                 else -> { }
             }
@@ -171,7 +172,7 @@ class PdfFormViewModel @Inject constructor(
                     _operationState.value = FormOperationState.Success
                 }
                 is AppResult.Error -> {
-                    _operationState.value = FormOperationState.Error(result.message ?: "Failed to flatten form")
+                    _operationState.value = FormOperationState.Error(result.exception.toSafeUserMessage("This form could not be flattened."))
                 }
                 else -> { }
             }
@@ -196,7 +197,7 @@ class PdfFormViewModel @Inject constructor(
                     _operationState.value = FormOperationState.Success
                 }
                 is AppResult.Error -> {
-                    _operationState.value = FormOperationState.Error(result.message ?: "Failed to import XFDF")
+                    _operationState.value = FormOperationState.Error(result.exception.toSafeUserMessage("This form data could not be imported."))
                 }
                 else -> { }
             }
@@ -212,7 +213,7 @@ class PdfFormViewModel @Inject constructor(
                     _operationState.value = FormOperationState.Success
                 }
                 is AppResult.Error -> {
-                    _operationState.value = FormOperationState.Error(result.message ?: "Failed to add signature")
+                    _operationState.value = FormOperationState.Error(result.exception.toSafeUserMessage("The signature could not be added."))
                 }
                 else -> { }
             }
@@ -228,7 +229,7 @@ class PdfFormViewModel @Inject constructor(
                     _operationState.value = FormOperationState.Success
                 }
                 is AppResult.Error -> {
-                    _operationState.value = FormOperationState.Error(result.message ?: "Failed to add image")
+                    _operationState.value = FormOperationState.Error(result.exception.toSafeUserMessage("The image could not be added."))
                 }
                 else -> { }
             }
