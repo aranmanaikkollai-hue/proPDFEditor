@@ -14,6 +14,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
 import androidx.core.content.FileProvider
+import com.propdfeditor.core.util.toSafeUserMessage
 import java.io.File
 import kotlinx.coroutines.launch
 
@@ -103,7 +104,7 @@ fun ShareSheetScreen(
                             // with FileUriExposedException (targetSdk 34, API 24+) instead of
                             // showing a recoverable error.
                             coroutineScope.launch {
-                                snackbarHostState.showSnackbar("Couldn't share this file: ${e.message}")
+                                snackbarHostState.showSnackbar(e.toSafeUserMessage("Couldn't share this file."))
                             }
                         }
                     }
