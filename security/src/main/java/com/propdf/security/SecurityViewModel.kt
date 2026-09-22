@@ -1,353 +1,145 @@
-package com.propdf.security
+package com.propdfeditor.ui.security
 
-import android.graphics.Bitmap
 import android.net.Uri
+import android.util.Log
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
-import com.propdf.core.domain.model.EncryptedBackupConfig
-import com.propdf.core.domain.model.SecurityConfig
-import com.propdf.core.domain.model.SessionState
-import com.propdf.core.domain.model.VaultConfig
-import com.propdf.core.domain.model.VaultEntry
-import com.propdf.core.domain.result.AppResult
-import com.propdf.security.biometric.BiometricAuthManager
-import com.propdf.security.domain.usecase.CreateEncryptedBackupUseCase
-import com.propdf.security.domain.usecase.DecryptFromVaultUseCase
-import com.propdf.security.domain.usecase.DeleteVaultEntryUseCase
-import com.propdf.security.domain.usecase.EncryptPdfUseCase
-import com.propdf.security.domain.usecase.EncryptToVaultUseCase
-import com.propdf.security.domain.usecase.ExportFromVaultUseCase
-import com.propdf.security.domain.usecase.LockSessionUseCase
-import com.propdf.security.domain.usecase.RestoreEncryptedBackupUseCase
-import com.propdf.security.domain.usecase.SetSessionTimeoutUseCase
-import com.propdf.security.domain.usecase.UnlockSessionUseCase
-import com.propdf.security.session.SessionManager
-import com.propdf.security.signature.SignatureEntry
-import com.propdf.security.signature.SignatureManager
-import com.propdf.security.watermark.WatermarkEngine
+import com.propdf.security.data.entity.EncryptionType
+import com.propdf.security.domain.usecase.DecryptDocumentUseCase
+import com.propdf.security.domain.usecase.EncryptDocumentUseCase
+import com.propdf.security.domain.usecase.SanitizeDocumentUseCase
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
-import java.io.File
+import com.propdfeditor.core.util.toSafeUserMessage
 import javax.inject.Inject
 
 /**
- * Enhanced SecurityViewModel for Phase 8  Security Hardening.
+ * Backs the Security Hub screen (Password Protect / AES Encrypt / Remove Metadata).
  *
- * Extends existing functionality with:
- * - Biometric authentication state
- * - Vault operations (encrypt/decrypt/export/delete)
- * - Encrypted backup/restore
- * - Session timeout management
- *
- * Preserves all existing encryption, signature, and watermark APIs.
+ * This previously just set a fake success message ("Password protection applied" /
+ * "AES encryption applied" / "Metadata removed") without touching the document at
+ * all -- none of the three buttons did any actual work. It now calls the real
+ * iText-backed engines in the :security module (EncryptDocumentUseCase,
+ * SanitizeDocumentUseCase), which already existed and were fully implemented but
+ * only reachable from the old Fragment/Activity UI (EncryptionFragment,
+ * SanitizationFragment). No new PDF engine was written here -- this only wires the
+ * Compose screen to the engines that were already there.
  */
 @HiltViewModel
 class SecurityViewModel @Inject constructor(
-    // Existing dependencies
-    private val encryptPdfUseCase: EncryptPdfUseCase,
-    private val decryptPdfUseCase: com.propdf.security.domain.usecase.DecryptPdfUseCase,
-    private val signatureManager: SignatureManager,
-    private val watermarkEngine: WatermarkEngine,
-
-    // Phase 8: Biometric
-    private val biometricAuthManager: BiometricAuthManager,
-
-    // Phase 8: Vault
-    private val encryptToVaultUseCase: EncryptToVaultUseCase,
-    private val decryptFromVaultUseCase: DecryptFromVaultUseCase,
-    private val deleteVaultEntryUseCase: DeleteVaultEntryUseCase,
-    private val exportFromVaultUseCase: ExportFromVaultUseCase,
-
-    // Phase 8: Backups
-    private val createEncryptedBackupUseCase: CreateEncryptedBackupUseCase,
-    private val restoreEncryptedBackupUseCase: RestoreEncryptedBackupUseCase,
-
-    // Phase 8: Session
-    private val sessionManager: SessionManager,
-    private val unlockSessionUseCase: UnlockSessionUseCase,
-    private val lockSessionUseCase: LockSessionUseCase,
-    private val setSessionTimeoutUseCase: SetSessionTimeoutUseCase
+    private val encryptDocumentUseCase: EncryptDocumentUseCase,
+    private val sanitizeDocumentUseCase: SanitizeDocumentUseCase,
+    private val decryptDocumentUseCase: DecryptDocumentUseCase
 ) : ViewModel() {
 
-    //  UI State 
+    private val _uiState = MutableStateFlow(SecurityUiState())
+    val uiState: StateFlow<SecurityUiState> = _uiState.asStateFlow()
 
-    private val _isProcessing = MutableStateFlow(false)
-    val isProcessing: StateFlow<Boolean> = _isProcessing.asStateFlow()
+    fun loadDocument(uri: String) {
+        _uiState.value = _uiState.value.copy(documentUri = uri)
+    }
 
-    private val _uiState = MutableStateFlow(UiState())
-    val uiState: StateFlow<UiState> = _uiState.asStateFlow()
+    /** Opens the password-protect dialog (source of truth for which action a picked output URI is for). */
+    fun requestPasswordProtect() {
+        _uiState.value = _uiState.value.copy(pendingAction = PendingAction.PASSWORD_PROTECT)
+    }
 
-    data class UiState(
-        val error: String? = null,
-        val lastOutputFile: File? = null,
-        val biometricStatus: BiometricAuthManager.BiometricStatus? = null,
-        val sessionState: SessionState = SessionState.Unlocked,
-        val vaultEntries: List<VaultEntry> = emptyList(),
-        val isVaultLoading: Boolean = false
-    )
+    fun requestAesEncrypt() {
+        _uiState.value = _uiState.value.copy(pendingAction = PendingAction.AES_ENCRYPT)
+    }
 
-    //  Session State Observation 
+    fun requestRemoveMetadata() {
+        _uiState.value = _uiState.value.copy(pendingAction = PendingAction.REMOVE_METADATA)
+    }
 
-    val sessionState: StateFlow<SessionState> = sessionManager.sessionState
+    /** "Remove Password" -- the dialog password entered here is the document's
+     * *existing* password (needed to open it), not a new one being set. */
+    fun requestRemovePassword() {
+        _uiState.value = _uiState.value.copy(pendingAction = PendingAction.REMOVE_PASSWORD)
+    }
 
-    init {
-        viewModelScope.launch {
-            sessionManager.sessionState.collect { state: SessionState ->
-                _uiState.value = _uiState.value.copy(sessionState = state)
-            }
+    fun cancelPendingAction() {
+        _uiState.value = _uiState.value.copy(pendingAction = null)
+    }
+
+    /**
+     * Called once the SAF "save as" picker has returned an output location for whichever
+     * action is currently pending. [password] is only used for PASSWORD_PROTECT/AES_ENCRYPT.
+     */
+    fun onOutputLocationChosen(outputUri: Uri, password: String = "") {
+        val source = _uiState.value.documentUri?.let { Uri.parse(it) } ?: run {
+            _uiState.value = _uiState.value.copy(message = "No document loaded", pendingAction = null)
+            return
         }
-        checkBiometricStatus()
-    }
+        val action = _uiState.value.pendingAction
+        _uiState.value = _uiState.value.copy(pendingAction = null, isProcessing = true)
 
-    //  Biometric Authentication 
-
-    fun checkBiometricStatus() {
-        val status = biometricAuthManager.checkStatus()
-        _uiState.value = _uiState.value.copy(biometricStatus = status)
-    }
-
-    fun hasBiometricHardware(): Boolean = biometricAuthManager.hasBiometricHardware()
-
-    fun isBiometricReady(): Boolean = biometricAuthManager.isBiometricReady()
-
-    //  Session Management 
-
-    fun unlockSession() {
         viewModelScope.launch {
-            _isProcessing.value = true
-            try {
-                unlockSessionUseCase()
-            } catch (e: Exception) {
-                _uiState.value = _uiState.value.copy(error = e.message)
-            } finally {
-                _isProcessing.value = false
-            }
-        }
-    }
-
-    fun lockSession() {
-        viewModelScope.launch {
-            lockSessionUseCase()
-        }
-    }
-
-    fun setSessionTimeout(timeoutMs: Long) {
-        viewModelScope.launch {
-            setSessionTimeoutUseCase(timeoutMs)
-        }
-    }
-
-    fun onUserActivity() {
-        sessionManager.onUserActivity()
-    }
-
-    //  Vault Operations 
-
-    fun encryptToVault(sourceFile: File, useBiometric: Boolean = false) {
-        viewModelScope.launch {
-            _isProcessing.value = true
-            _uiState.value = _uiState.value.copy(error = null)
-            try {
-                val result = encryptToVaultUseCase(
-                    EncryptToVaultUseCase.Params(sourceFile, useBiometric)
+            val result = when (action) {
+                PendingAction.PASSWORD_PROTECT -> encryptDocumentUseCase(
+                    sourceUri = source,
+                    userPassword = password.ifBlank { null },
+                    ownerPassword = password.ifBlank { null },
+                    permissions = EncryptDocumentUseCase.FULL_PERMISSIONS,
+                    encryptionType = EncryptionType.STANDARD_128,
+                    outputUri = outputUri
                 )
-                loadVaultEntries()
-            } catch (e: Exception) {
-                _uiState.value = _uiState.value.copy(error = e.message ?: "Vault encryption failed")
-            } finally {
-                _isProcessing.value = false
-            }
-        }
-    }
-
-    fun decryptFromVault(entry: VaultEntry, useBiometric: Boolean = false) {
-        viewModelScope.launch {
-            _isProcessing.value = true
-            _uiState.value = _uiState.value.copy(error = null)
-            try {
-                val result = decryptFromVaultUseCase(
-                    DecryptFromVaultUseCase.Params(entry, useBiometric)
+                PendingAction.AES_ENCRYPT -> encryptDocumentUseCase(
+                    sourceUri = source,
+                    userPassword = password.ifBlank { null },
+                    ownerPassword = password.ifBlank { null },
+                    permissions = EncryptDocumentUseCase.FULL_PERMISSIONS,
+                    encryptionType = EncryptionType.AES_256,
+                    outputUri = outputUri
                 )
-                val tempFile = when (result) {
-                    is AppResult.Success -> result.data
-                    is AppResult.Error -> throw result.exception
-                    else -> throw Exception("Vault decryption failed")
-                }
-                _uiState.value = _uiState.value.copy(lastOutputFile = tempFile)
-            } catch (e: Exception) {
-                _uiState.value = _uiState.value.copy(error = e.message ?: "Vault decryption failed")
-            } finally {
-                _isProcessing.value = false
+                PendingAction.REMOVE_METADATA -> sanitizeDocumentUseCase.removeMetadata(source, outputUri)
+                PendingAction.REMOVE_PASSWORD -> decryptDocumentUseCase(source, password, outputUri)
+                null -> Result.failure(IllegalStateException("No action pending"))
             }
-        }
-    }
 
-    fun exportFromVault(entry: VaultEntry, destination: File, useBiometric: Boolean = false) {
-        viewModelScope.launch {
-            _isProcessing.value = true
-            _uiState.value = _uiState.value.copy(error = null)
-            try {
-                exportFromVaultUseCase(
-                    ExportFromVaultUseCase.Params(entry, destination, useBiometric)
-                )
-            } catch (e: Exception) {
-                _uiState.value = _uiState.value.copy(error = e.message ?: "Vault export failed")
-            } finally {
-                _isProcessing.value = false
-            }
-        }
-    }
-
-    fun deleteVaultEntry(entry: VaultEntry) {
-        viewModelScope.launch {
-            _isProcessing.value = true
-            try {
-                deleteVaultEntryUseCase(entry)
-                loadVaultEntries()
-            } catch (e: Exception) {
-                _uiState.value = _uiState.value.copy(error = e.message ?: "Delete failed")
-            } finally {
-                _isProcessing.value = false
-            }
-        }
-    }
-
-    private fun loadVaultEntries() {
-        // Vault entries loaded from repository in production
-        // Placeholder for integration with storage module
-    }
-
-    //  Encrypted Backups 
-
-    fun createEncryptedBackup(sources: List<File>, outputUri: Uri, password: CharArray) {
-        viewModelScope.launch {
-            _isProcessing.value = true
-            _uiState.value = _uiState.value.copy(error = null)
-            try {
-                val config = EncryptedBackupConfig(password = password)
-                createEncryptedBackupUseCase(
-                    CreateEncryptedBackupUseCase.Params(sources, outputUri, config)
-                )
-            } catch (e: Exception) {
-                _uiState.value = _uiState.value.copy(error = e.message ?: "Backup failed")
-            } finally {
-                _isProcessing.value = false
-                password.fill('\u0000') // Secure clear
-            }
-        }
-    }
-
-    fun restoreEncryptedBackup(backupUri: Uri, destination: File, password: CharArray) {
-        viewModelScope.launch {
-            _isProcessing.value = true
-            _uiState.value = _uiState.value.copy(error = null)
-            try {
-                restoreEncryptedBackupUseCase(
-                    RestoreEncryptedBackupUseCase.Params(backupUri, destination, password)
-                )
-            } catch (e: Exception) {
-                _uiState.value = _uiState.value.copy(error = e.message ?: "Restore failed")
-            } finally {
-                _isProcessing.value = false
-                password.fill('\u0000') // Secure clear
-            }
-        }
-    }
-
-    //  Existing: Signature Operations 
-
-    private val _signatures = MutableStateFlow<List<SignatureEntry>>(emptyList())
-    val signatures: StateFlow<List<SignatureEntry>> = _signatures.asStateFlow()
-
-    init {
-        loadSignatures()
-    }
-
-    fun saveDrawnSignature(bitmap: Bitmap, name: String?) {
-        viewModelScope.launch {
-            _isProcessing.value = true
-            try {
-                signatureManager.saveSignature(bitmap, name)
-                loadSignatures()
-            } catch (e: Exception) {
-                _uiState.value = _uiState.value.copy(error = e.message)
-            } finally {
-                _isProcessing.value = false
-            }
-        }
-    }
-
-    fun saveImageSignature(uri: Uri, name: String?) {
-        viewModelScope.launch {
-            _isProcessing.value = true
-            try {
-                val bitmapResult = signatureManager.imageToSignature(uri)
-                bitmapResult.getOrNull()?.let { bitmap ->
-                    signatureManager.saveSignature(bitmap, name)
-                    loadSignatures()
-                } ?: run {
-                    _uiState.value = _uiState.value.copy(error = "Failed to process image")
-                }
-            } catch (e: Exception) {
-                _uiState.value = _uiState.value.copy(error = e.message)
-            } finally {
-                _isProcessing.value = false
-            }
-        }
-    }
-
-    private fun loadSignatures() {
-        _signatures.value = signatureManager.loadSignatures()
-    }
-
-    //  Existing: PDF Encryption 
-
-    fun passwordProtectPdf(inputFile: File, outputFile: File, password: String) {
-        viewModelScope.launch {
-            _isProcessing.value = true
-            _uiState.value = UiState()
-            try {
-                encryptPdfUseCase(
-                    EncryptPdfUseCase.Params(
-                        inputFile = inputFile,
-                        outputFile = outputFile,
-                        config = SecurityConfig(
-                            userPassword = password,
-                            ownerPassword = password
-                        )
+            result.fold(
+                onSuccess = {
+                    _uiState.value = _uiState.value.copy(
+                        isProcessing = false,
+                        message = "Saved to ${it}",
+                        lastOutputUri = it.toString()
                     )
-                )
-                _uiState.value = UiState(lastOutputFile = outputFile)
-            } catch (e: Exception) {
-                _uiState.value = UiState(error = e.message ?: "Encryption failed")
-            } finally {
-                _isProcessing.value = false
-            }
+                },
+                onFailure = { e ->
+                    // Previously fell back to the raw Java exception class
+                    // name (e.g. "Failed: IOException") whenever the
+                    // exception carried no message -- a technical detail
+                    // that means nothing to the person using the app. The
+                    // real exception is still logged for diagnosis.
+                    Log.e("SecurityViewModel", "Security operation failed", e)
+                    _uiState.value = _uiState.value.copy(
+                        isProcessing = false,
+                        message = e.toSafeUserMessage()
+                    )
+                }
+            )
         }
     }
 
-    //  Existing: Watermark 
-
-    fun addTextWatermark(inputFile: File, outputFile: File, text: String) {
-        viewModelScope.launch {
-            _isProcessing.value = true
-            _uiState.value = UiState()
-            try {
-                watermarkEngine.addTextWatermark(Uri.fromFile(inputFile), outputFile, text)
-                _uiState.value = UiState(lastOutputFile = outputFile)
-            } catch (e: Exception) {
-                _uiState.value = UiState(error = e.message ?: "Watermark failed")
-            } finally {
-                _isProcessing.value = false
-            }
-        }
+    /** Shown for tools that don't have a functional implementation wired up yet. */
+    fun showComingSoon(feature: String) {
+        _uiState.value = _uiState.value.copy(message = "$feature is coming soon")
     }
 
-    override fun onCleared() {
-        super.onCleared()
-        sessionManager.destroy()
+    fun clearMessage() {
+        _uiState.value = _uiState.value.copy(message = null)
     }
 }
+
+enum class PendingAction { PASSWORD_PROTECT, AES_ENCRYPT, REMOVE_METADATA, REMOVE_PASSWORD }
+
+data class SecurityUiState(
+    val documentUri: String? = null,
+    val message: String? = null,
+    val isProcessing: Boolean = false,
+    val pendingAction: PendingAction? = null,
+    val lastOutputUri: String? = null
+)
