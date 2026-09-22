@@ -24,6 +24,7 @@ import androidx.documentfile.provider.DocumentFile
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.propdf.core.domain.model.RecentFile
+import com.propdfeditor.core.util.toSafeUserMessage
 import kotlinx.coroutines.launch
 import java.text.SimpleDateFormat
 import java.util.*
@@ -203,7 +204,7 @@ fun FileManagerScreen(
                                 context.startActivity(Intent.createChooser(shareIntent, "Share PDF"))
                             } catch (e: Exception) {
                                 scope.launch {
-                                    snackbarHostState.showSnackbar("Couldn't share this file: ${e.message}")
+                                    snackbarHostState.showSnackbar(e.toSafeUserMessage("Couldn't share this file."))
                                 }
                             }
                         }
