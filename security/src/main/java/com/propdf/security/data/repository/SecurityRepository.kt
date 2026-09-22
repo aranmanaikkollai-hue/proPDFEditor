@@ -610,22 +610,27 @@ class SecurityRepository @Inject constructor(
     ): Result<Uri> = withContext(Dispatchers.IO) {
         try {
             val tempFile = File.createTempFile("pdf_decrypt", ".pdf", context.cacheDir)
-            
+
             context.contentResolver.openInputStream(sourceUri)?.use { input ->
                 FileOutputStream(tempFile).use { output ->
                     input.copyTo(output)
                 }
             }
 
-            val reader = PdfReader(
-                tempFile.absolutePath,
-                com.itextpdf.kernel.pdf.ReaderProperties()
-                    .setPassword(password.toByteArray())
-            )
-            val writer = PdfWriter(outputUri.path ?: throw IllegalStateException("Invalid output URI"))
-            
-            PdfDocument(reader, writer).use { pdfDoc ->
-                pdfDoc.close()
+            // Was previously `PdfWriter(outputUri.path ?: ...)` -- the exact
+            // content:// vs file:// bug already fixed elsewhere in this class via
+            // writePdfToUri (see its doc comment above); this call site was missed
+            // when that fix went in. Every real caller's outputUri comes from the
+            // SAF CreateDocument picker, i.e. always content://, so the old code
+            // would throw or write to the wrong place for every real use.
+            writePdfToUri(outputUri) { tempOutput ->
+                val reader = PdfReader(
+                    tempFile.absolutePath,
+                    com.itextpdf.kernel.pdf.ReaderProperties()
+                        .setPassword(password.toByteArray())
+                )
+                val writer = PdfWriter(tempOutput.absolutePath)
+                PdfDocument(reader, writer).use { pdfDoc -> pdfDoc.close() }
             }
 
             tempFile.delete()
