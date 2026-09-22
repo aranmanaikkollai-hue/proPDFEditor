@@ -14,6 +14,7 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
+import com.propdfeditor.core.util.toSafeUserMessage
 import javax.inject.Inject
 
 @HiltViewModel
@@ -33,7 +34,7 @@ class OcrViewModel @Inject constructor(
                     _uiState.value = OcrUiState.Success(record.extractedText)
                 }
                 .onFailure { e ->
-                    _uiState.value = OcrUiState.Error(e.message ?: "OCR failed")
+                    _uiState.value = OcrUiState.Error(e.toSafeUserMessage("This document could not be processed for OCR."))
                 }
         }
     }
