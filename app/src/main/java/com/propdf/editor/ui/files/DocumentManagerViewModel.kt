@@ -8,6 +8,7 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
+import com.propdfeditor.core.util.toSafeUserMessage
 import javax.inject.Inject
 
 data class DocumentManagerUiState(
@@ -35,7 +36,7 @@ class DocumentManagerViewModel @Inject constructor(
                 val docs = documentRepository.getAllDocuments()
                 _uiState.value = DocumentManagerUiState(documents = docs, isLoading = false)
             } catch (e: Exception) {
-                _uiState.value = DocumentManagerUiState(error = e.message, isLoading = false)
+                _uiState.value = DocumentManagerUiState(error = e.toSafeUserMessage("Couldn't load your documents."), isLoading = false)
             }
         }
     }
