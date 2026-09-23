@@ -15,6 +15,7 @@ import com.propdf.core.domain.usecase.OpenDocumentUseCase
 import com.propdf.core.domain.repository.PdfViewerRepository
 import com.propdf.core.domain.result.AppResult
 import com.propdf.core.saf.SafEngine
+import com.propdfeditor.core.util.toSafeUserMessage
 import com.propdf.viewer.model.SearchResult
 import com.propdf.viewer.model.ThumbnailPage
 import com.propdf.viewer.model.Tile
@@ -878,7 +879,7 @@ class PDFViewerViewModel @Inject constructor(
                 }
             } catch (e: Exception) {
                 if (e !is CancellationException) {
-                    _errorMessage.update { "Search failed: ${e.message}" }
+                    _errorMessage.update { e.toSafeUserMessage("Search couldn't be completed.") }
                 }
             } finally {
                 if (_searchQuery.value == query && currentDocumentId == docId) _isSearching.value = false
