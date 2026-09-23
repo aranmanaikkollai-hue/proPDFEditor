@@ -23,6 +23,7 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
 import kotlinx.coroutines.withContext
+import com.propdfeditor.core.util.toSafeUserMessage
 import java.io.File
 import java.io.FileOutputStream
 import javax.inject.Inject
@@ -178,7 +179,7 @@ class PdfViewerViewModel @Inject constructor(
                     _errorMessage.value = "Cannot open PDF: file is too large for available memory."
                     _isLoading.value = false
                 } catch (e: Exception) {
-                    _errorMessage.value = "Cannot open PDF: ${e.localizedMessage ?: e.message}"
+                    _errorMessage.value = e.toSafeUserMessage("Unable to open this PDF.")
                     _isLoading.value = false
                 }
             }
