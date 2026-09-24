@@ -1,5 +1,7 @@
 package com.propdfeditor.batch
 
+import com.propdfeditor.core.util.toSafeUserMessage
+
 import android.app.NotificationChannel
 import android.app.NotificationManager
 import android.content.Context
@@ -62,7 +64,7 @@ class BatchOperationsWorker @AssistedInject constructor(
             }
         } catch (e: Exception) {
             Result.failure(
-                workDataOf("error" to (e.message ?: "Unknown batch error"))
+                workDataOf("error" to e.toSafeUserMessage("This batch job could not be completed."))
             )
         }
     }
