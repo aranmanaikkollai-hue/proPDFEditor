@@ -1,5 +1,7 @@
 package com.propdf.editor.ui.tools.merge
 
+import com.propdfeditor.core.util.toSafeUserMessage
+
 import android.net.Uri
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
@@ -70,7 +72,7 @@ class CombineImagesViewModel @Inject constructor(
                     ) }
                 }
                 is AppResult.Error -> {
-                    _uiState.update { it.copy(isLoading = false, error = result.exception.message) }
+                    _uiState.update { it.copy(isLoading = false, error = result.exception.toSafeUserMessage()) }
                 }
                 else -> {}
             }
