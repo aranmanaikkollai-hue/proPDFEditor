@@ -1,5 +1,7 @@
 package com.propdf.editor.data.converter
 
+import com.propdfeditor.core.util.toSafeUserMessage
+
 import android.content.Context
 import android.net.Uri
 import com.itextpdf.kernel.font.PdfFontFactory
@@ -103,7 +105,7 @@ class TextConverter @Inject constructor(
             )
             
         } catch (e: Exception) {
-            ConversionResult(false, null, fileName, e.message ?: "Text to PDF failed")
+            ConversionResult(false, null, fileName, e.toSafeUserMessage("This text could not be converted to PDF."))
         }
     }
 }
