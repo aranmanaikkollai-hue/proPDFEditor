@@ -1,5 +1,7 @@
 package com.propdf.editor.worker
 
+import com.propdfeditor.core.util.toSafeUserMessage
+
 import android.content.Context
 import androidx.hilt.work.HiltWorker
 import androidx.work.CoroutineWorker
@@ -222,14 +224,14 @@ class PdfOperationWorker @AssistedInject constructor(
                 onFailure = { e ->
                     Result.failure(
                         Data.Builder()
-                            .putString(KEY_ERROR_MESSAGE, e.message ?: "Operation failed")
+                            .putString(KEY_ERROR_MESSAGE, e.toSafeUserMessage("This operation could not be completed."))
                             .build()
                     )
                 }
             )
         } catch (e: Exception) {
             Result.failure(
-                Data.Builder().putString(KEY_ERROR_MESSAGE, e.message ?: "Unknown error").build()
+                Data.Builder().putString(KEY_ERROR_MESSAGE, e.toSafeUserMessage("This operation could not be completed.")).build()
             )
         }
     }
