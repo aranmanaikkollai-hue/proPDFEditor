@@ -52,7 +52,10 @@ fun MergeScreen(
                 },
                 actions = {
                     if (files.size >= 2) {
-                        IconButton(onClick = { saveDocumentLauncher.launch("merged.pdf") }) {
+                        IconButton(
+                            onClick = { saveDocumentLauncher.launch("merged.pdf") },
+                            enabled = uiState !is MergeUiState.Merging
+                        ) {
                             Icon(Icons.Default.Save, contentDescription = "Merge")
                         }
                     }
@@ -62,7 +65,11 @@ fun MergeScreen(
         snackbarHost = { SnackbarHost(snackbarHostState) },
         floatingActionButton = {
             ExtendedFloatingActionButton(
-                onClick = { openDocumentLauncher.launch(arrayOf("application/pdf")) },
+                onClick = {
+                    if (uiState !is MergeUiState.Merging) {
+                        openDocumentLauncher.launch(arrayOf("application/pdf"))
+                    }
+                },
                 icon = { Icon(Icons.Default.Add, null) },
                 text = { Text("Add PDF") }
             )
@@ -102,6 +109,7 @@ fun MergeScreen(
                 if (files.size >= 2) {
                     Button(
                         onClick = { saveDocumentLauncher.launch("merged.pdf") },
+                        enabled = uiState !is MergeUiState.Merging,
                         modifier = Modifier
                             .fillMaxWidth()
                             .padding(16.dp)
@@ -109,6 +117,24 @@ fun MergeScreen(
                         Icon(Icons.Default.MergeType, null)
                         Spacer(modifier = Modifier.width(8.dp))
                         Text("Merge ${files.size} PDFs")
+                    }
+                }
+            }
+
+            // MergeUiState.Merging was already set by the ViewModel during the merge but this
+            // screen never read it, so a multi-file merge could look completely frozen (no
+            // spinner, no disabled button) and the same tap could fire a second concurrent merge.
+            if (uiState is MergeUiState.Merging) {
+                Box(
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .padding(32.dp),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                        CircularProgressIndicator()
+                        Spacer(modifier = Modifier.height(16.dp))
+                        Text("Merging...")
                     }
                 }
             }
