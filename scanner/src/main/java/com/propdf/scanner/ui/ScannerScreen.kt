@@ -33,6 +33,9 @@ import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.platform.LocalLifecycleOwner
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.selected
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.viewinterop.AndroidView
 import androidx.core.content.ContextCompat
@@ -344,7 +347,11 @@ fun ScannerScreen(
                             Surface(
                                 onClick = { viewModel.selectPage(page.meta.index) },
                                 shape = MaterialTheme.shapes.small,
-                                border = if (isSelected) BorderStroke(2.dp, MaterialTheme.colorScheme.primary) else null
+                                border = if (isSelected) BorderStroke(2.dp, MaterialTheme.colorScheme.primary) else null,
+                                modifier = Modifier.semantics {
+                                    contentDescription = "Page ${page.meta.index + 1}"
+                                    selected = isSelected
+                                }
                             ) {
                                 Image(
                                     bitmap = page.bitmap.asImageBitmap(),
