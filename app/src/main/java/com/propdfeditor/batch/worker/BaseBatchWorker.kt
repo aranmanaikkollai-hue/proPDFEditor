@@ -1,5 +1,7 @@
 package com.propdfeditor.batch.worker
 
+import com.propdfeditor.core.util.toSafeUserMessage
+
 import android.content.Context
 import androidx.work.CoroutineWorker
 import androidx.work.WorkerParameters
@@ -58,8 +60,8 @@ abstract class BaseBatchWorker(
             }
         } catch (e: Exception) {
             Timber.e(e, "Batch worker failed for job $jobId")
-            repository.updateStatus(jobId, BatchJobStatus.FAILED, e.message)
-            Result.failure(workDataOf(KEY_ERROR to (e.message ?: "Unknown error")))
+            repository.updateStatus(jobId, BatchJobStatus.FAILED, e.toSafeUserMessage("This batch job could not be completed."))
+            Result.failure(workDataOf(KEY_ERROR to e.toSafeUserMessage("This batch job could not be completed.")))
         }
     }
 
