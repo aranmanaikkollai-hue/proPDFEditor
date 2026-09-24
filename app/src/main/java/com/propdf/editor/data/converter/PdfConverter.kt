@@ -1,5 +1,7 @@
 package com.propdf.editor.data.converter
 
+import com.propdfeditor.core.util.toSafeUserMessage
+
 import android.content.Context
 import android.graphics.Bitmap
 import android.graphics.pdf.PdfRenderer
@@ -86,7 +88,7 @@ class PdfConverter @Inject constructor(
                 )
             }
         } catch (e: Exception) {
-            ConversionResult(false, null, baseFileName, e.message ?: "PDF to images failed")
+            ConversionResult(false, null, baseFileName, e.toSafeUserMessage("This PDF could not be converted to images."))
         }
     }
     
@@ -140,7 +142,7 @@ class PdfConverter @Inject constructor(
                 tempFile.delete()
             }
         } catch (e: Exception) {
-            ConversionResult(false, null, fileName, e.message ?: "PDF to text failed")
+            ConversionResult(false, null, fileName, e.toSafeUserMessage("This PDF could not be converted to text."))
         }
     }
     
