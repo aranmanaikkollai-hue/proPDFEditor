@@ -14,6 +14,7 @@ import com.propdf.editor.feature.forms.xfdf.XFDFSerializer
 import dagger.hilt.android.qualifiers.ApplicationContext
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.withContext
 import java.io.File
@@ -111,9 +112,12 @@ class PdfFormRepositoryImpl @Inject constructor(
             val inputFile = uriToFile(documentUri)
             val tempFile = File(cacheDir, "temp_save_${System.currentTimeMillis()}.pdf")
 
+            // getFormDataForDocument() is a live Room Flow that never completes on its own —
+            // .collect{} here would hang forever and engine.fillFields() below would never run
+            // (the bug that made Save silently do nothing). first() takes one snapshot instead.
             val values = mutableMapOf<String, String>()
-            formDataDao.getFormDataForDocument(documentUri.toString()).collect { dataList ->
-                dataList.forEach { values[it.fieldName] = it.fieldValue }
+            formDataDao.getFormDataForDocument(documentUri.toString()).first().forEach {
+                values[it.fieldName] = it.fieldValue
             }
 
             engine.fillFields(inputFile, tempFile, values)
