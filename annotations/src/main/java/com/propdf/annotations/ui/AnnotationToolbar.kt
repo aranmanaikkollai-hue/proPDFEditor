@@ -24,6 +24,8 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.semantics.selected
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.unit.dp
 import kotlinx.coroutines.flow.collectLatest
 import java.io.File
@@ -459,6 +461,7 @@ private fun ToolButton(
             .clip(RoundedCornerShape(8.dp))
             .background(if (selected) MaterialTheme.colorScheme.primaryContainer else Color.Transparent)
             .clickable(onClick = onClick)
+            .semantics { this.selected = selected }
             .padding(horizontal = 8.dp, vertical = 6.dp)
             .widthIn(min = 48.dp)
     ) {
@@ -491,6 +494,7 @@ private fun CompactToolButton(
             .clip(RoundedCornerShape(8.dp))
             .background(if (selected) MaterialTheme.colorScheme.primaryContainer else Color.Transparent)
             .clickable(onClick = onClick)
+            .semantics { this.selected = selected }
             .padding(6.dp)
             .size(32.dp),
         contentAlignment = Alignment.Center
