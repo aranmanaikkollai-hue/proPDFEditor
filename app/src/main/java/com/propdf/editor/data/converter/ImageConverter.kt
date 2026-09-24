@@ -1,5 +1,7 @@
 package com.propdf.editor.data.converter
 
+import com.propdfeditor.core.util.toSafeUserMessage
+
 import android.content.Context
 import android.graphics.Bitmap
 import android.graphics.BitmapFactory
@@ -128,7 +130,7 @@ class ImageConverter @Inject constructor(
             System.gc()
             ConversionResult(false, null, fileName, "Out of memory. Try with fewer images.")
         } catch (e: Exception) {
-            ConversionResult(false, null, fileName, e.message ?: "Images to PDF failed")
+            ConversionResult(false, null, fileName, e.toSafeUserMessage("These images could not be converted to PDF."))
         }
     }
     
@@ -209,7 +211,7 @@ class ImageConverter @Inject constructor(
             System.gc()
             ConversionResult(false, null, fileName, "Out of memory")
         } catch (e: Exception) {
-            ConversionResult(false, null, fileName, e.message ?: "Merge failed")
+            ConversionResult(false, null, fileName, e.toSafeUserMessage("These files could not be merged."))
         }
     }
     
@@ -261,7 +263,7 @@ class ImageConverter @Inject constructor(
             )
             
         } catch (e: Exception) {
-            ConversionResult(false, null, fileName, e.message ?: "Split failed")
+            ConversionResult(false, null, fileName, e.toSafeUserMessage("This document could not be split."))
         }
     }
     
