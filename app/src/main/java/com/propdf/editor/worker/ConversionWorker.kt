@@ -1,5 +1,7 @@
 package com.propdf.editor.worker
 
+import com.propdfeditor.core.util.toSafeUserMessage
+
 import android.content.Context
 import androidx.hilt.work.HiltWorker
 import androidx.work.CoroutineWorker
@@ -65,7 +67,7 @@ class ConversionWorker @AssistedInject constructor(
         } catch (e: Exception) {
             Result.failure(
                 Data.Builder()
-                    .putString("error", e.message ?: "Worker failed")
+                    .putString("error", e.toSafeUserMessage("This operation could not be completed."))
                     .build()
             )
         }
