@@ -1,5 +1,7 @@
 package com.propdf.editor.data.converter
 
+import com.propdfeditor.core.util.toSafeUserMessage
+
 import android.content.Context
 import android.net.Uri
 import com.itextpdf.kernel.font.PdfFontFactory
@@ -287,7 +289,7 @@ class MarkdownConverter @Inject constructor(
             )
             
         } catch (e: Exception) {
-            ConversionResult(false, null, fileName, e.message ?: "Markdown to PDF failed")
+            ConversionResult(false, null, fileName, e.toSafeUserMessage("This Markdown file could not be converted to PDF."))
         }
     }
     
