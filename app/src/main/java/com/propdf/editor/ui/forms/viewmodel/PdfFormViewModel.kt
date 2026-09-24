@@ -43,9 +43,15 @@ class PdfFormViewModel @Inject constructor(
         viewModelScope.launch {
             _uiState.value = FormUiState.Loading
             try {
-                // Load fields from database
-                formRepository.getFields(documentUri.toString()).collect { fields ->
-                    _uiState.value = FormUiState.Success(fields)
+                // getFields() is a live Room Flow that never completes on its own. Collecting it
+                // directly here (as this used to) would block forever, so the extraction and
+                // value-loading steps below would never run on first open. Subscribe to it in a
+                // child coroutine instead, so the UI still updates live but loadDocument() itself
+                // can proceed.
+                launch {
+                    formRepository.getFields(documentUri.toString()).collect { fields ->
+                        _uiState.value = FormUiState.Success(fields)
+                    }
                 }
 
                 // Also extract native PDF form fields if none in DB
