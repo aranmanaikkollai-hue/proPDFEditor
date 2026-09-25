@@ -105,6 +105,28 @@ fun OcrHubScreen(
                     Spacer(modifier = Modifier.width(8.dp))
                     Text("OCR from Image")
                 }
+
+                // Merge/Split/Compression/Security all show a descriptive status line while an
+                // operation is running ("Compressing...", "Merging...", etc.) -- this screen only
+                // had the small spinner already swapped in for the button's icon, with no text.
+                // Adding the same descriptive-text pattern for consistency; the existing inline
+                // button spinner is untouched.
+                if (uiState is OcrUiState.Processing) {
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(top = 8.dp),
+                        horizontalArrangement = Arrangement.Center,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        CircularProgressIndicator(
+                            modifier = Modifier.size(16.dp),
+                            strokeWidth = 2.dp
+                        )
+                        Spacer(modifier = Modifier.width(8.dp))
+                        Text("Extracting text...", style = MaterialTheme.typography.bodyMedium)
+                    }
+                }
             }
 
             if (uiState is OcrUiState.Success) {
