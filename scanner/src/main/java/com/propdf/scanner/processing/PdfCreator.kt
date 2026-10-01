@@ -3,95 +3,72 @@ package com.propdf.scanner.processing
 import android.content.Context
 import android.graphics.Bitmap
 import android.graphics.BitmapFactory
-import com.itextpdf.kernel.geom.PageSize as ItextPageSize
-import com.itextpdf.kernel.pdf.PdfDocument
-import com.itextpdf.kernel.pdf.PdfWriter
-import com.itextpdf.kernel.pdf.WriterProperties
-import com.itextpdf.layout.Document
-import com.itextpdf.layout.element.Image
-import com.itextpdf.io.image.ImageDataFactory
+import android.graphics.pdf.PdfDocument
 import com.propdf.scanner.model.ColorFilter
 import com.propdf.scanner.model.ExportConfig
 import com.propdf.scanner.model.PageSize
 import com.propdf.scanner.model.ScannedPage
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
-import java.io.ByteArrayOutputStream
 import java.io.File
 import java.io.FileOutputStream
 
+/** Creates new scan PDFs with the Android platform writer; no third-party PDF engine is needed. */
 class PdfCreator(private val context: Context) {
     private val imageEnhancer = ImageEnhancer()
 
-    suspend fun createPdf(pages: List<ScannedPage>, outputFile: File, config: ExportConfig): String = withContext(Dispatchers.IO) {
-        val writerProperties = WriterProperties().setFullCompressionMode(true).setCompressionLevel(9)
-        val pdfWriter = PdfWriter(FileOutputStream(outputFile), writerProperties)
-        val pdfDocument = PdfDocument(pdfWriter)
-        val document = Document(pdfDocument)
-
-        try {
-            pages.forEachIndexed { _, page ->
-                val imagePath = page.processedImagePath ?: page.originalImagePath
-                val bitmap = BitmapFactory.decodeFile(imagePath) ?: throw IllegalStateException("Failed to decode: $imagePath")
-                val processedBitmap = if (config.colorMode != ColorFilter.ORIGINAL) imageEnhancer.applyFilter(bitmap, config.colorMode) else bitmap
-
-                val pageSize = getPageSize(config.pageSize, processedBitmap)
-                pdfDocument.addNewPage(pageSize)
-
-                val imageData = bitmapToImageData(processedBitmap, config)
-                val image = Image(imageData)
-                image.setAutoScale(true)
-                document.add(image)
-
-                if (config.colorMode != ColorFilter.ORIGINAL) processedBitmap.recycle()
-                if (processedBitmap != bitmap) bitmap.recycle()
+    suspend fun createPdf(pages: List<ScannedPage>, outputFile: File, config: ExportConfig): String =
+        withContext(Dispatchers.IO) {
+            PdfDocument().use { document ->
+                pages.forEachIndexed { index, page ->
+                    val path = page.processedImagePath ?: page.originalImagePath
+                    val bitmap = BitmapFactory.decodeFile(path)
+                        ?: throw IllegalStateException("Failed to decode: $path")
+                    val processed = if (config.colorMode != ColorFilter.ORIGINAL) {
+                        imageEnhancer.applyFilter(bitmap, config.colorMode)
+                    } else bitmap
+                    try {
+                        val size = getPageSize(config.pageSize, processed)
+                        val pageInfo = PdfDocument.PageInfo.Builder(size.first, size.second, index + 1).create()
+                        val pdfPage = document.startPage(pageInfo)
+                        val scale = minOf(size.first.toFloat() / processed.width, size.second.toFloat() / processed.height)
+                        val width = (processed.width * scale).toInt()
+                        val height = (processed.height * scale).toInt()
+                        val left = (size.first - width) / 2
+                        val top = (size.second - height) / 2
+                        pdfPage.canvas.drawBitmap(processed, null, android.graphics.Rect(left, top, left + width, top + height), null)
+                        document.finishPage(pdfPage)
+                    } finally {
+                        if (processed !== bitmap) processed.recycle()
+                        bitmap.recycle()
+                    }
+                }
+                FileOutputStream(outputFile).use(document::writeTo)
             }
-        } finally {
-            document.close()
-            pdfDocument.close()
+            outputFile.absolutePath
         }
-        outputFile.absolutePath
-    }
 
     suspend fun exportImages(pages: List<ScannedPage>, outputDir: File, config: ExportConfig): List<String> = withContext(Dispatchers.IO) {
-        val exportedPaths = mutableListOf<String>()
-        pages.forEachIndexed { index, page ->
-            val imagePath = page.processedImagePath ?: page.originalImagePath
-            val bitmap = BitmapFactory.decodeFile(imagePath) ?: return@forEachIndexed
-            val processedBitmap = if (config.colorMode != ColorFilter.ORIGINAL) imageEnhancer.applyFilter(bitmap, config.colorMode) else bitmap
-
-            val format = when (config.format) {
-                com.propdf.scanner.model.ExportFormat.JPEG -> Bitmap.CompressFormat.JPEG
-                com.propdf.scanner.model.ExportFormat.PNG -> Bitmap.CompressFormat.PNG
-                else -> Bitmap.CompressFormat.JPEG
+        pages.mapIndexedNotNull { index, page ->
+            val bitmap = BitmapFactory.decodeFile(page.processedImagePath ?: page.originalImagePath) ?: return@mapIndexedNotNull null
+            val processed = if (config.colorMode != ColorFilter.ORIGINAL) imageEnhancer.applyFilter(bitmap, config.colorMode) else bitmap
+            try {
+                val format = if (config.format == com.propdf.scanner.model.ExportFormat.PNG) Bitmap.CompressFormat.PNG else Bitmap.CompressFormat.JPEG
+                val extension = if (format == Bitmap.CompressFormat.PNG) "png" else "jpg"
+                File(outputDir, "page_${index + 1}.$extension").also { output ->
+                    FileOutputStream(output).use { processed.compress(format, config.quality, it) }
+                }.absolutePath
+            } finally {
+                if (processed !== bitmap) processed.recycle()
+                bitmap.recycle()
             }
-            val extension = when (config.format) {
-                com.propdf.scanner.model.ExportFormat.JPEG -> "jpg"
-                com.propdf.scanner.model.ExportFormat.PNG -> "png"
-                else -> "jpg"
-            }
-
-            val outputFile = File(outputDir, "page_${index + 1}.$extension")
-            FileOutputStream(outputFile).use { out -> processedBitmap.compress(format, config.quality, out) }
-            exportedPaths.add(outputFile.absolutePath)
-
-            if (config.colorMode != ColorFilter.ORIGINAL) processedBitmap.recycle()
-            if (processedBitmap != bitmap) bitmap.recycle()
         }
-        exportedPaths
     }
 
-    private fun getPageSize(pageSize: PageSize, bitmap: Bitmap): ItextPageSize = when (pageSize) {
-        PageSize.A4 -> ItextPageSize.A4
-        PageSize.LETTER -> ItextPageSize.LETTER
-        PageSize.LEGAL -> ItextPageSize.LEGAL
-        PageSize.AUTO -> if (bitmap.width.toFloat() / bitmap.height > 1.0) ItextPageSize.A4.rotate() else ItextPageSize.A4
-    }
-
-    private fun bitmapToImageData(bitmap: Bitmap, config: ExportConfig): com.itextpdf.kernel.pdf.xobject.PdfImageXObject {
-        val stream = ByteArrayOutputStream()
-        val format = if (config.quality == 100) Bitmap.CompressFormat.PNG else Bitmap.CompressFormat.JPEG
-        bitmap.compress(format, config.quality, stream)
-        return com.itextpdf.kernel.pdf.xobject.PdfImageXObject(ImageDataFactory.create(stream.toByteArray()))
+    private fun getPageSize(pageSize: PageSize, bitmap: Bitmap): Pair<Int, Int> = when (pageSize) {
+        PageSize.A4 -> 595 to 842
+        PageSize.LETTER -> 612 to 792
+        PageSize.LEGAL -> 612 to 1008
+        PageSize.AUTO -> if (bitmap.width > bitmap.height) 842 to 595 else 595 to 842
     }
 }
