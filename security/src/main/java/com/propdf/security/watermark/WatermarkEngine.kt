@@ -23,10 +23,10 @@ class WatermarkEngine @Inject constructor(@ApplicationContext private val contex
         watermark(sourceUri, outputFile) { document, page ->
             val box = page.mediaBox
             PDPageContentStream(document, page, PDPageContentStream.AppendMode.APPEND, true, true).use { stream ->
-                stream.setNonStrokingColor(options.color)
+                stream.setNonStrokingColor(Color.red(options.color), Color.green(options.color), Color.blue(options.color))
                 stream.setFont(PDType1Font.HELVETICA, options.fontSize)
                 stream.setGraphicsStateParameters(com.tom_roush.pdfbox.pdmodel.graphics.state.PDExtendedGraphicsState().apply { nonStrokingAlphaConstant = options.opacity })
-                stream.saveGraphicsState(); stream.transform(com.tom_roush.pdfbox.util.Matrix.getRotateInstance(Math.toRadians(options.rotation.toDouble()).toFloat(), box.width / 2, box.height / 2))
+                stream.saveGraphicsState(); stream.transform(com.tom_roush.pdfbox.util.Matrix.getRotateInstance(Math.toRadians(options.rotation.toDouble()), box.width / 2, box.height / 2))
                 stream.beginText(); stream.newLineAtOffset(box.width / 2 - text.length * options.fontSize / 4, box.height / 2); stream.showText(text); stream.endText(); stream.restoreGraphicsState()
             }
         }
@@ -45,7 +45,7 @@ class WatermarkEngine @Inject constructor(@ApplicationContext private val contex
         watermark(sourceUri, outputFile) { document, page ->
             val box = page.mediaBox
             PDPageContentStream(document, page, PDPageContentStream.AppendMode.APPEND, true, true).use { stream ->
-                stream.setNonStrokingColor(options.color); stream.setFont(PDType1Font.HELVETICA, options.fontSize)
+                stream.setNonStrokingColor(Color.red(options.color), Color.green(options.color), Color.blue(options.color)); stream.setFont(PDType1Font.HELVETICA, options.fontSize)
                 stream.setGraphicsStateParameters(com.tom_roush.pdfbox.pdmodel.graphics.state.PDExtendedGraphicsState().apply { nonStrokingAlphaConstant = options.opacity })
                 var y = 50f; while (y < box.height - 50f) { var x = 50f; while (x < box.width - 50f) { stream.beginText(); stream.newLineAtOffset(x, y); stream.showText(text); stream.endText(); x += tileSpacingX }; y += tileSpacingY }
             }
