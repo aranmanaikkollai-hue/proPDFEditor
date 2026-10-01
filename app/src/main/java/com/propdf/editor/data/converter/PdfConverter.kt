@@ -7,13 +7,10 @@ import android.graphics.Bitmap
 import android.graphics.pdf.PdfRenderer
 import android.net.Uri
 import android.os.ParcelFileDescriptor
-import com.itextpdf.kernel.pdf.PdfDocument
-import com.itextpdf.kernel.pdf.PdfReader
-import com.itextpdf.kernel.pdf.canvas.parser.PdfTextExtractor
-import com.itextpdf.kernel.pdf.canvas.parser.listener.LocationTextExtractionStrategy
 import com.propdf.editor.domain.model.ConversionResult
 import com.propdf.editor.utils.FileUtils
 import com.tom_roush.pdfbox.pdmodel.PDDocument
+import com.tom_roush.pdfbox.text.PDFTextStripper
 import com.tom_roush.pdfbox.rendering.PDFRenderer
 import dagger.hilt.android.qualifiers.ApplicationContext
 import kotlinx.coroutines.Dispatchers
@@ -104,8 +101,7 @@ class PdfConverter @Inject constructor(
                 ?: return@withContext ConversionResult(false, null, fileName, "Cannot access PDF")
             
             try {
-                val reader = PdfReader(tempFile.absolutePath)
-                val pdfDoc = PdfDocument(reader)
+                val pdfDoc = PDDocument.load(tempFile)
                 val totalPages = pdfDoc.numberOfPages
                 val stringBuilder = StringBuilder()
                 
@@ -115,9 +111,10 @@ class PdfConverter @Inject constructor(
                         return@withContext ConversionResult(false, null, fileName, "Cancelled")
                     }
                     
-                    val page = pdfDoc.getPage(i)
-                    val strategy = LocationTextExtractionStrategy()
-                    val text = PdfTextExtractor.getTextFromPage(page, strategy)
+                    val text = PDFTextStripper().apply {
+                        startPage = i
+                        endPage = i
+                    }.getText(pdfDoc)
                     stringBuilder.appendLine("--- Page $i ---")
                     stringBuilder.appendLine(text)
                     stringBuilder.appendLine()

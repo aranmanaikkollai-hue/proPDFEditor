@@ -108,7 +108,9 @@ dependencies {
 
     implementation 'org.jetbrains.kotlinx:kotlinx-coroutines-android:1.7.3'
 
-    // iText7 for PDF encryption, redaction, watermark
+    // PDFBox Android is the sole PDF manipulation engine for security operations.
+    implementation 'com.tom-roush:pdfbox-android:2.0.27.0'
+    // TODO: remove these iText coordinates after the remaining legacy security paths are migrated.
     implementation 'com.itextpdf:kernel:7.2.5'
     implementation 'com.itextpdf:io:7.2.5'
     implementation 'com.itextpdf:layout:7.2.5'
