@@ -19,7 +19,8 @@ class PdfCreator(private val context: Context) {
 
     suspend fun createPdf(pages: List<ScannedPage>, outputFile: File, config: ExportConfig): String =
         withContext(Dispatchers.IO) {
-            PdfDocument().use { document ->
+            val document = PdfDocument()
+            try {
                 pages.forEachIndexed { index, page ->
                     val path = page.processedImagePath ?: page.originalImagePath
                     val bitmap = BitmapFactory.decodeFile(path)
@@ -44,6 +45,8 @@ class PdfCreator(private val context: Context) {
                     }
                 }
                 FileOutputStream(outputFile).use(document::writeTo)
+            } finally {
+                document.close()
             }
             outputFile.absolutePath
         }
