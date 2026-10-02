@@ -82,11 +82,6 @@ dependencies {
     // Serialization (required by PdfOperationWorker.kt's Json usage)
     implementation 'org.jetbrains.kotlinx:kotlinx-serialization-json:1.6.2'
 
-    implementation('com.itextpdf:itext7-core:7.2.5') {
-        exclude group: 'org.bouncycastle', module: 'bcprov-jdk15on'
-        exclude group: 'org.bouncycastle', module: 'bcpkix-jdk15on'
-    }
-
     // PdfBox-Android (required by PdfEditorViewModel.kt: com.tom_roush.pdfbox.*)
     implementation 'com.tom-roush:pdfbox-android:2.0.27.0'
 
