@@ -27,7 +27,7 @@ class FlattenFormWorker @AssistedInject constructor(
         val directory = File(applicationContext.cacheDir, "form_operations").apply { mkdirs() }
         val stagedInput = File(directory, "flatten_input_${id}.pdf")
         val stagedOutput = File(directory, "flatten_output_${id}.pdf")
-        try {
+        return try {
             stageInput(input, stagedInput)
             coroutineContext.ensureActive()
             when (val result = engine.flattenForm(stagedInput, stagedOutput)) {
