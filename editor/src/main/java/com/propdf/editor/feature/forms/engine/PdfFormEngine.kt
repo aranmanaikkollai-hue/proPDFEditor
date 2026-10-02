@@ -1,339 +1,172 @@
 package com.propdf.editor.feature.forms.engine
 
+import android.content.Context
 import android.graphics.Bitmap
 import android.graphics.RectF
-import com.itextpdf.forms.PdfAcroForm
-import com.itextpdf.forms.fields.PdfButtonFormField
-import com.itextpdf.forms.fields.PdfChoiceFormField
-import com.itextpdf.forms.fields.PdfFormField
-import com.itextpdf.forms.fields.PdfSignatureFormField
-import com.itextpdf.forms.fields.PdfTextFormField
-import com.itextpdf.io.image.ImageData
-import com.itextpdf.io.image.ImageDataFactory
-import com.itextpdf.kernel.colors.DeviceRgb
-import com.itextpdf.kernel.geom.Rectangle
-import com.itextpdf.kernel.pdf.PdfDocument
-import com.itextpdf.kernel.pdf.PdfName
-import com.itextpdf.kernel.pdf.PdfReader
-import com.itextpdf.kernel.pdf.PdfWriter
-import com.itextpdf.kernel.pdf.canvas.PdfCanvas
-import com.itextpdf.kernel.pdf.xobject.PdfFormXObject
 import com.propdf.core.domain.model.FormFieldType
 import com.propdf.core.domain.model.PdfFormField as DomainFormField
 import com.propdf.core.domain.result.AppResult
 import com.propdf.editor.feature.forms.xfdf.XFDFSerializer
-import java.io.ByteArrayOutputStream
+import com.tom_roush.pdfbox.android.PDFBoxResourceLoader
+import com.tom_roush.pdfbox.cos.COSArray
+import com.tom_roush.pdfbox.cos.COSDictionary
+import com.tom_roush.pdfbox.cos.COSName
+import com.tom_roush.pdfbox.cos.COSString
+import com.tom_roush.pdfbox.pdmodel.PDDocument
+import com.tom_roush.pdfbox.pdmodel.interactive.annotation.PDAnnotationWidget
+import com.tom_roush.pdfbox.pdmodel.interactive.form.PDAcroForm
+import com.tom_roush.pdfbox.pdmodel.interactive.form.PDCheckBox
+import com.tom_roush.pdfbox.pdmodel.interactive.form.PDChoice
+import com.tom_roush.pdfbox.pdmodel.interactive.form.PDComboBox
+import com.tom_roush.pdfbox.pdmodel.interactive.form.PDField
+import com.tom_roush.pdfbox.pdmodel.interactive.form.PDListBox
+import com.tom_roush.pdfbox.pdmodel.interactive.form.PDPushButton
+import com.tom_roush.pdfbox.pdmodel.interactive.form.PDRadioButton
+import com.tom_roush.pdfbox.pdmodel.interactive.form.PDSignatureField
+import com.tom_roush.pdfbox.pdmodel.interactive.form.PDTextField
 import java.io.File
+import java.util.concurrent.CancellationException
+import javax.inject.Inject
+import dagger.hilt.android.qualifiers.ApplicationContext
 
-class PdfFormEngine {
-
+/** PDFBox Android implementation of the active AcroForm read/write path. */
+class PdfFormEngine @Inject constructor(@ApplicationContext context: Context) {
     private val xfdfSerializer = XFDFSerializer()
 
-    fun extractFields(pdfFile: File): AppResult<List<DomainFormField>> {
-        return try {
-            PdfDocument(PdfReader(pdfFile)).use { pdfDoc ->
-                val acroForm = PdfAcroForm.getAcroForm(pdfDoc, false)
-                    ?: return@use AppResult.Success(emptyList())
+    init { PDFBoxResourceLoader.init(context.applicationContext) }
 
-                val fields = mutableListOf<DomainFormField>()
-                val documentUri = pdfFile.toURI().toString()
-
-                acroForm.getFormFields().forEach { (name, field) ->
-                    val type = determineFieldType(field)
-                    val widgets = field.widgets
-
-                    widgets.forEach { widget ->
-                        val page = widget.page
-                        val pageNum = pdfDoc.getPageNumber(page)
-                        val rect = widget.rectangle?.toRectangle()?.toRectangleF() ?: RectF()
-
-                        fields.add(
-                            DomainFormField(
-                                documentUri = documentUri,
-                                fieldName = name,
-                                fieldType = type,
-                                pageIndex = pageNum - 1,
-                                rect = rect,
-                                value = field.valueAsString,
-                                defaultValue = getDefaultValueAsString(field),
-                                options = extractOptions(field),
-                                isRequired = field.isRequired,
-                                isReadOnly = field.isReadOnly,
-                                fontSize = 12f,
-                                groupName = if (type == FormFieldType.RADIO_BUTTON) {
-                                    extractGroupName(field)
-                                } else null
-                            )
-                        )
-                    }
-                }
-
-                AppResult.Success(fields)
-            }
-        } catch (e: Exception) {
-            AppResult.Error("Failed to extract form fields: ${e.message}", e)
+    fun extractFields(pdfFile: File): AppResult<List<DomainFormField>> = runCatchingResult("extract form fields") {
+        PDDocument.load(pdfFile).use { document ->
+            val form = document.documentCatalog.acroForm ?: return@use emptyList()
+            form.fieldTree.flatMap { field -> field.widgets.map { widget -> field.toDomain(document, widget, pdfFile) } }
         }
     }
 
-    fun createField(
-        pdfFile: File,
-        outputFile: File,
-        field: DomainFormField
-    ): AppResult<Unit> {
-        return try {
-            PdfDocument(PdfReader(pdfFile), PdfWriter(outputFile)).use { pdfDoc ->
-                val acroForm = PdfAcroForm.getAcroForm(pdfDoc, true)
-                val page = pdfDoc.getPage(field.pageIndex + 1)
-                val rect = Rectangle(
-                    field.rect.left,
-                    field.rect.top,
-                    field.rect.right - field.rect.left,
-                    field.rect.bottom - field.rect.top
-                )
-
-                val pdfField: PdfFormField = when (field.fieldType) {
-                    FormFieldType.TEXTBOX -> {
-                        PdfTextFormField.createText(
-                            pdfDoc, rect, field.fieldName, field.defaultValue ?: ""
-                        ).apply {
-                            setFontSize(field.fontSize)
-                            if (field.isRequired) setRequired(true)
-                            if (field.isReadOnly) setReadOnly(true)
-                        }
-                    }
-                    FormFieldType.CHECKBOX -> {
-                        PdfButtonFormField.createCheckBox(
-                            pdfDoc, rect, field.fieldName, "Yes"
-                        ).apply {
-                            setCheckType(PdfButtonFormField.TYPE_CHECK)
-                            if (field.value == "Yes") setValue("Yes")
-                        }
-                    }
-                    FormFieldType.RADIO_BUTTON -> {
-                        val radioGroup = PdfFormField.createRadioGroup(
-                            pdfDoc, field.fieldName, field.value ?: ""
-                        )
-                        PdfFormField.createRadioButton(
-                            pdfDoc, rect, radioGroup, field.groupName ?: field.fieldName
-                        )
-                        radioGroup
-                    }
-                    FormFieldType.DROPDOWN -> {
-                        PdfChoiceFormField.createComboBox(
-                            pdfDoc, rect, field.fieldName, field.defaultValue ?: "",
-                            field.options.toTypedArray()
-                        )
-                    }
-                    FormFieldType.LIST_BOX -> {
-                        PdfChoiceFormField.createList(
-                            pdfDoc, rect, field.fieldName, field.defaultValue ?: "",
-                            field.options.toTypedArray()
-                        )
-                    }
-                    FormFieldType.SIGNATURE -> {
-                        PdfSignatureFormField.createSignature(
-                            pdfDoc, rect
-                        ).apply {
-                            setFieldName(field.fieldName)
-                        }
-                    }
-                    FormFieldType.IMAGE -> {
-                        PdfButtonFormField.createPushButton(
-                            pdfDoc, rect, field.fieldName, field.value ?: ""
-                        )
-                    }
-                    FormFieldType.BUTTON -> {
-                        PdfButtonFormField.createPushButton(
-                            pdfDoc, rect, field.fieldName, field.value ?: "Button"
-                        )
-                    }
+    fun createField(pdfFile: File, outputFile: File, field: DomainFormField): AppResult<Unit> =
+        runCatchingResult("create field") {
+            PDDocument.load(pdfFile).use { document ->
+                val form = document.documentCatalog.acroForm ?: PDAcroForm(document).also { document.documentCatalog.acroForm = it }
+                val pdfField: PDField = when (field.fieldType) {
+                    FormFieldType.TEXTBOX -> PDTextField(form).apply { partialName = field.fieldName; value = field.defaultValue ?: "" }
+                    FormFieldType.CHECKBOX -> PDCheckBox(form).apply { partialName = field.fieldName; if (field.value == onValue) check() }
+                    FormFieldType.RADIO_BUTTON -> PDRadioButton(form).apply { partialName = field.fieldName; if (!field.value.isNullOrBlank()) value = field.value }
+                    FormFieldType.DROPDOWN -> PDComboBox(form).apply { partialName = field.fieldName; options = field.options; value = field.value ?: field.defaultValue ?: "" }
+                    FormFieldType.LIST_BOX -> PDListBox(form).apply { partialName = field.fieldName; options = field.options; value = field.value ?: field.defaultValue ?: "" }
+                    FormFieldType.SIGNATURE -> PDSignatureField(form).apply { partialName = field.fieldName }
+                    FormFieldType.IMAGE, FormFieldType.BUTTON -> PDPushButton(form).apply { partialName = field.fieldName }
                     else -> throw IllegalArgumentException("Unsupported field type: ${field.fieldType}")
                 }
-
-                applyFieldStyling(pdfField, field)
-                acroForm.addField(pdfField, page)
-
-                AppResult.Success(Unit)
+                pdfField.isRequired = field.isRequired
+                pdfField.isReadOnly = field.isReadOnly
+                form.fields = form.fields + pdfField
+                saveAtomically(document, outputFile)
             }
-        } catch (e: Exception) {
-            AppResult.Error("Failed to create field: ${e.message}", e)
         }
-    }
 
-    fun fillFields(
-        pdfFile: File,
-        outputFile: File,
-        values: Map<String, String>
-    ): AppResult<Unit> {
-        return try {
-            PdfDocument(PdfReader(pdfFile), PdfWriter(outputFile)).use { pdfDoc ->
-                val acroForm = PdfAcroForm.getAcroForm(pdfDoc, true)
-
-                values.forEach { (name, value) ->
-                    acroForm.getField(name)?.setValue(value)
-                }
-
-                AppResult.Success(Unit)
+    fun fillFields(pdfFile: File, outputFile: File, values: Map<String, String>): AppResult<Unit> =
+        runCatchingResult("fill form") {
+            PDDocument.load(pdfFile).use { document ->
+                val form = document.documentCatalog.acroForm ?: throw IllegalArgumentException("PDF has no AcroForm")
+                form.needAppearances = false
+                values.forEach { (name, value) -> form.getField(name)?.value = value }
+                saveAtomically(document, outputFile)
             }
-        } catch (e: Exception) {
-            AppResult.Error("Failed to fill form: ${e.message}", e)
         }
-    }
 
-    fun flattenForm(pdfFile: File, outputFile: File): AppResult<Unit> {
-        return try {
-            PdfDocument(PdfReader(pdfFile), PdfWriter(outputFile)).use { pdfDoc ->
-                val acroForm = PdfAcroForm.getAcroForm(pdfDoc, true)
-                acroForm.flattenFields()
-                AppResult.Success(Unit)
+    fun flattenForm(pdfFile: File, outputFile: File): AppResult<Unit> = runCatchingResult("flatten form") {
+        PDDocument.load(pdfFile).use { document ->
+            val form = document.documentCatalog.acroForm ?: throw IllegalArgumentException("PDF has no AcroForm")
+            if (form.fieldTree.any { it is PDSignatureField && it.signature != null }) {
+                throw IllegalStateException("Refusing to flatten a PDF containing a signed signature field")
             }
-        } catch (e: Exception) {
-            AppResult.Error("Failed to flatten form: ${e.message}", e)
+            form.needAppearances = false
+            form.flatten()
+            saveAtomically(document, outputFile)
         }
     }
 
-    fun addSignature(
-        pdfFile: File,
-        outputFile: File,
-        fieldName: String,
-        signatureBitmap: Bitmap
-    ): AppResult<Unit> {
-        return try {
-            val baos = ByteArrayOutputStream()
-            signatureBitmap.compress(Bitmap.CompressFormat.PNG, 100, baos)
-            val imageData = ImageDataFactory.create(baos.toByteArray())
+    /** This feature only fills an existing signature field's visual value; it never signs CMS data. */
+    fun addSignature(pdfFile: File, outputFile: File, fieldName: String, signatureBitmap: Bitmap): AppResult<Unit> =
+        AppResult.Error("Visual signature images are not supported by the PDFBox Forms migration; cryptographic signatures are intentionally unchanged")
 
-            PdfDocument(PdfReader(pdfFile), PdfWriter(outputFile)).use { pdfDoc ->
-                val acroForm = PdfAcroForm.getAcroForm(pdfDoc, true)
-                val field = acroForm.getField(fieldName) as? PdfSignatureFormField
-                    ?: return@use AppResult.Error("Signature field not found: $fieldName")
+    fun addImageToField(pdfFile: File, outputFile: File, fieldName: String, imageBitmap: Bitmap): AppResult<Unit> =
+        AppResult.Error("Button image appearances are not supported by the PDFBox Forms migration")
 
-                applyImageAppearance(field, pdfDoc, imageData)
-
-                AppResult.Success(Unit)
-            }
-        } catch (e: Exception) {
-            AppResult.Error("Failed to add signature: ${e.message}", e)
+    fun exportXFDF(pdfFile: File): AppResult<String> = runCatchingResult("export XFDF") {
+        PDDocument.load(pdfFile).use { document ->
+            val form = document.documentCatalog.acroForm
+            xfdfSerializer.serialize(form?.fieldTree?.associate { it.fullyQualifiedName to (it.valueAsString ?: "") } ?: emptyMap())
         }
     }
 
-    fun addImageToField(
-        pdfFile: File,
-        outputFile: File,
-        fieldName: String,
-        imageBitmap: Bitmap
-    ): AppResult<Unit> {
-        return try {
-            val baos = ByteArrayOutputStream()
-            imageBitmap.compress(Bitmap.CompressFormat.JPEG, 95, baos)
-            val imageData = ImageDataFactory.create(baos.toByteArray())
+    fun importXFDF(pdfFile: File, outputFile: File, xfdfData: String): AppResult<Unit> =
+        fillFields(pdfFile, outputFile, xfdfSerializer.deserialize(xfdfData))
 
-            PdfDocument(PdfReader(pdfFile), PdfWriter(outputFile)).use { pdfDoc ->
-                val acroForm = PdfAcroForm.getAcroForm(pdfDoc, true)
-                val field = acroForm.getField(fieldName) as? PdfButtonFormField
-                    ?: return@use AppResult.Error("Button field not found: $fieldName")
+    private fun PDField.toDomain(document: PDDocument, widget: PDAnnotationWidget, pdfFile: File): DomainFormField {
+        val rect = widget.rectangle
+        return DomainFormField(
+            documentUri = pdfFile.toURI().toString(), fieldName = fullyQualifiedName,
+            fieldType = fieldType(), pageIndex = pageIndex(document, widget),
+            rect = RectF(rect.lowerLeftX, rect.lowerLeftY, rect.upperRightX, rect.upperRightY),
+            value = valueAsString, defaultValue = cosObject.getString(COSName.DV), options = options(),
+            isRequired = isRequired, isReadOnly = isReadOnly,
+            groupName = if (this is PDRadioButton) fullyQualifiedName else null
+        )
+    }
 
-                applyImageAppearance(field, pdfDoc, imageData)
+    private fun PDField.fieldType() = when (this) {
+        is PDTextField -> FormFieldType.TEXTBOX
+        is PDCheckBox -> FormFieldType.CHECKBOX
+        is PDRadioButton -> FormFieldType.RADIO_BUTTON
+        is PDComboBox -> FormFieldType.DROPDOWN
+        is PDListBox -> FormFieldType.LIST_BOX
+        is PDSignatureField -> FormFieldType.SIGNATURE
+        is PDPushButton -> FormFieldType.BUTTON
+        else -> FormFieldType.UNKNOWN
+    }
 
-                AppResult.Success(Unit)
-            }
-        } catch (e: Exception) {
-            AppResult.Error("Failed to add image: ${e.message}", e)
+    /** Choice options and radio /Opt values are semantic PDF values, never UI-label guesses. */
+    private fun PDField.options(): List<String> = when (this) {
+        is PDChoice -> options
+        is PDRadioButton -> cosObject.getDictionaryObject(COSName.OPT).asStrings().ifEmpty { appearanceStates() }
+        is PDCheckBox -> listOf(onValue)
+        else -> emptyList()
+    }
+
+    private fun PDRadioButton.appearanceStates(): List<String> = widgets.flatMap { widget ->
+        val normal = (widget.cosObject.getDictionaryObject(COSName.AP) as? COSDictionary)
+            ?.getDictionaryObject(COSName.N) as? COSDictionary
+        normal?.keySet()?.map { it.name }?.filter { it != COSName.OFF.name } ?: emptyList()
+    }.distinct()
+
+    private fun Any?.asStrings(): List<String> = (this as? COSArray)?.mapNotNull {
+        when (it) { is COSString -> it.string; is COSArray -> (it.getObject(1) as? COSString)?.string; else -> null }
+    } ?: emptyList()
+
+    private fun pageIndex(document: PDDocument, widget: PDAnnotationWidget): Int {
+        var index = 0
+        for (page in document.pages) {
+            if (page.annotations.any { it.cosObject == widget.cosObject }) return index
+            index++
         }
+        return 0
     }
 
-    fun exportXFDF(pdfFile: File): AppResult<String> {
-        return try {
-            PdfDocument(PdfReader(pdfFile)).use { pdfDoc ->
-                val acroForm = PdfAcroForm.getAcroForm(pdfDoc, false)
-                    ?: return@use AppResult.Success(xfdfSerializer.createEmptyXFDF())
-
-                val values = acroForm.getFormFields().mapValues { (_, field) ->
-                    field.valueAsString ?: ""
-                }
-
-                AppResult.Success(xfdfSerializer.serialize(values))
-            }
-        } catch (e: Exception) {
-            AppResult.Error("Failed to export XFDF: ${e.message}", e)
-        }
+    private fun saveAtomically(document: PDDocument, outputFile: File) {
+        outputFile.parentFile?.mkdirs()
+        val temporary = File(outputFile.parentFile ?: outputFile.absoluteFile.parentFile, ".${outputFile.name}.partial")
+        temporary.delete()
+        try {
+            document.save(temporary)
+            if (!temporary.renameTo(outputFile)) temporary.copyTo(outputFile, overwrite = true)
+        } finally { temporary.delete() }
     }
 
-    fun importXFDF(
-        pdfFile: File,
-        outputFile: File,
-        xfdfData: String
-    ): AppResult<Unit> {
-        return try {
-            val values = xfdfSerializer.deserialize(xfdfData)
-            fillFields(pdfFile, outputFile, values)
-        } catch (e: Exception) {
-            AppResult.Error("Failed to import XFDF: ${e.message}", e)
-        }
-    }
-
-    /** Draws [imageData] into the normal appearance of the field's first widget. */
-    private fun applyImageAppearance(field: PdfFormField, pdfDoc: PdfDocument, imageData: ImageData) {
-        val widget = field.widgets.firstOrNull() ?: return
-        val widgetRect = widget.rectangle?.toRectangle() ?: return
-        val localRect = Rectangle(0f, 0f, widgetRect.width, widgetRect.height)
-
-        val xObject = PdfFormXObject(localRect)
-        val canvas = PdfCanvas(xObject, pdfDoc)
-        canvas.addImageFittedIntoRectangle(imageData, localRect, false)
-
-        field.setAppearance(PdfName.N, null, xObject.pdfObject)
-    }
-
-    private fun determineFieldType(field: PdfFormField): FormFieldType {
-        return when {
-            field is PdfTextFormField -> FormFieldType.TEXTBOX
-            field is PdfButtonFormField && field.isPushButton -> FormFieldType.BUTTON
-            field is PdfButtonFormField && field.isRadio -> FormFieldType.RADIO_BUTTON
-            field is PdfButtonFormField -> FormFieldType.CHECKBOX
-            field is PdfChoiceFormField && field.isCombo -> FormFieldType.DROPDOWN
-            field is PdfChoiceFormField -> FormFieldType.LIST_BOX
-            field is PdfSignatureFormField -> FormFieldType.SIGNATURE
-            else -> FormFieldType.UNKNOWN
-        }
-    }
-
-    private fun extractOptions(field: PdfFormField): List<String> {
-        return if (field is PdfChoiceFormField) {
-            field.options?.map { it.toString() } ?: emptyList()
-        } else emptyList()
-    }
-
-    private fun extractGroupName(field: PdfFormField): String? {
-        return field.parent?.getAsString(PdfName.T)?.toUnicodeString()
-    }
-
-    /** Reads the field's default value (DV) directly from the underlying PDF dictionary. */
-    private fun getDefaultValueAsString(field: PdfFormField): String? {
-        return field.pdfObject.getAsString(PdfName.DV)?.toUnicodeString()
-    }
-
-    private fun applyFieldStyling(pdfField: PdfFormField, field: DomainFormField) {
-        field.backgroundColor?.let { color ->
-            val r = android.graphics.Color.red(color) / 255f
-            val g = android.graphics.Color.green(color) / 255f
-            val b = android.graphics.Color.blue(color) / 255f
-            pdfField.setBackgroundColor(DeviceRgb(r, g, b))
-        }
-
-        field.borderColor?.let { color ->
-            val r = android.graphics.Color.red(color) / 255f
-            val g = android.graphics.Color.green(color) / 255f
-            val b = android.graphics.Color.blue(color) / 255f
-            pdfField.setBorderColor(DeviceRgb(r, g, b))
-        }
-
-        if (field.borderWidth > 0) {
-            pdfField.setBorderWidth(field.borderWidth)
-        }
-    }
-
-    private fun Rectangle.toRectangleF(): RectF {
-        return RectF(x, y, x + width, y + height)
+    private inline fun <T> runCatchingResult(operation: String, block: () -> T): AppResult<T> = try {
+        AppResult.Success(block())
+    } catch (cancelled: CancellationException) {
+        throw cancelled
+    } catch (error: Exception) {
+        AppResult.Error("Failed to $operation: ${error.message}", error)
     }
 }

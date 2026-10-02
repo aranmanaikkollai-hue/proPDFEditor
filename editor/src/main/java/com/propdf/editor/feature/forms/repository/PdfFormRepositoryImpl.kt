@@ -13,10 +13,13 @@ import com.propdf.editor.feature.forms.engine.PdfFormEngine
 import com.propdf.editor.feature.forms.xfdf.XFDFSerializer
 import dagger.hilt.android.qualifiers.ApplicationContext
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.withContext
+import kotlinx.coroutines.ensureActive
+import kotlin.coroutines.coroutineContext
 import java.io.File
 import java.io.FileOutputStream
 import javax.inject.Inject
@@ -47,6 +50,8 @@ class PdfFormRepositoryImpl @Inject constructor(
         return try {
             val id = formFieldDao.insertField(field.toEntity())
             AppResult.Success(id)
+        } catch (e: CancellationException) {
+            throw e
         } catch (e: Exception) {
             AppResult.Error("Failed to add field: ${e.message}", e)
         }
@@ -56,6 +61,8 @@ class PdfFormRepositoryImpl @Inject constructor(
         return try {
             formFieldDao.updateField(field.toEntity())
             AppResult.Success(Unit)
+        } catch (e: CancellationException) {
+            throw e
         } catch (e: Exception) {
             AppResult.Error("Failed to update field: ${e.message}", e)
         }
@@ -67,6 +74,8 @@ class PdfFormRepositoryImpl @Inject constructor(
                 formFieldDao.getFieldById(fieldId) ?: return AppResult.Error("Field not found")
             )
             AppResult.Success(Unit)
+        } catch (e: CancellationException) {
+            throw e
         } catch (e: Exception) {
             AppResult.Error("Failed to delete field: ${e.message}", e)
         }
@@ -76,6 +85,8 @@ class PdfFormRepositoryImpl @Inject constructor(
         return try {
             formFieldDao.deleteAllForDocument(documentUri)
             AppResult.Success(Unit)
+        } catch (e: CancellationException) {
+            throw e
         } catch (e: Exception) {
             AppResult.Error("Failed to delete fields: ${e.message}", e)
         }
@@ -85,11 +96,13 @@ class PdfFormRepositoryImpl @Inject constructor(
         documentUri: Uri,
         fields: Map<String, String>
     ): AppResult<File> = withContext(Dispatchers.IO) {
-        try {
-            val inputFile = uriToFile(documentUri)
+        withStagedInput(documentUri) { inputFile -> try {
             val outputFile = File(cacheDir, "filled_${System.currentTimeMillis()}.pdf")
-
-            engine.fillFields(inputFile, outputFile, fields)
+            when (val result = engine.fillFields(inputFile, outputFile, fields)) {
+                is AppResult.Error -> return@withStagedInput result
+                else -> Unit
+            }
+            coroutineContext.ensureActive()
 
             fields.forEach { (name, value) ->
                 formDataDao.insertOrUpdate(
@@ -102,14 +115,15 @@ class PdfFormRepositoryImpl @Inject constructor(
             }
 
             AppResult.Success(outputFile)
+        } catch (e: CancellationException) {
+            throw e
         } catch (e: Exception) {
             AppResult.Error("Failed to fill form: ${e.message}", e)
-        }
+        } }
     }
 
     override suspend fun saveForm(documentUri: Uri, outputFile: File): AppResult<File> = withContext(Dispatchers.IO) {
-        try {
-            val inputFile = uriToFile(documentUri)
+        withStagedInput(documentUri) { inputFile -> try {
             val tempFile = File(cacheDir, "temp_save_${System.currentTimeMillis()}.pdf")
 
             // getFormDataForDocument() is a live Room Flow that never completes on its own —
@@ -120,30 +134,42 @@ class PdfFormRepositoryImpl @Inject constructor(
                 values[it.fieldName] = it.fieldValue
             }
 
-            engine.fillFields(inputFile, tempFile, values)
+            when (val result = engine.fillFields(inputFile, tempFile, values)) {
+                is AppResult.Error -> return@withStagedInput result
+                else -> Unit
+            }
+            coroutineContext.ensureActive()
             tempFile.copyTo(outputFile, overwrite = true)
             tempFile.delete()
 
             AppResult.Success(outputFile)
+        } catch (e: CancellationException) {
+            throw e
         } catch (e: Exception) {
             AppResult.Error("Failed to save form: ${e.message}", e)
-        }
+        } }
     }
 
     override suspend fun flattenForm(documentUri: Uri, outputFile: File): AppResult<File> = withContext(Dispatchers.IO) {
-        try {
-            val inputFile = uriToFile(documentUri)
-            engine.flattenForm(inputFile, outputFile)
-            AppResult.Success(outputFile)
+        withStagedInput(documentUri) { inputFile -> try {
+            when (val result = engine.flattenForm(inputFile, outputFile)) {
+                is AppResult.Success -> AppResult.Success(outputFile)
+                is AppResult.Error -> result
+                is AppResult.Loading -> AppResult.Error("Unexpected flatten result")
+            }
+        } catch (e: CancellationException) {
+            throw e
         } catch (e: Exception) {
             AppResult.Error("Failed to flatten form: ${e.message}", e)
-        }
+        } }
     }
 
     override suspend fun exportXFDF(documentUri: Uri): AppResult<String> = withContext(Dispatchers.IO) {
         try {
             val file = uriToFile(documentUri)
             engine.exportXFDF(file)
+        } catch (e: CancellationException) {
+            throw e
         } catch (e: Exception) {
             AppResult.Error("Failed to export XFDF: ${e.message}", e)
         }
@@ -167,6 +193,8 @@ class PdfFormRepositoryImpl @Inject constructor(
             }
 
             AppResult.Success(Unit)
+        } catch (e: CancellationException) {
+            throw e
         } catch (e: Exception) {
             AppResult.Error("Failed to import XFDF: ${e.message}", e)
         }
@@ -176,6 +204,8 @@ class PdfFormRepositoryImpl @Inject constructor(
         return try {
             val data = xfdfFile.readText()
             importXFDF(documentUri, data)
+        } catch (e: CancellationException) {
+            throw e
         } catch (e: Exception) {
             AppResult.Error("Failed to read XFDF file: ${e.message}", e)
         }
@@ -191,6 +221,8 @@ class PdfFormRepositoryImpl @Inject constructor(
             val inputFile = uriToFile(documentUri)
             engine.addSignature(inputFile, outputFile, fieldName, signatureBitmap)
             AppResult.Success(outputFile)
+        } catch (e: CancellationException) {
+            throw e
         } catch (e: Exception) {
             AppResult.Error("Failed to add signature: ${e.message}", e)
         }
@@ -206,6 +238,8 @@ class PdfFormRepositoryImpl @Inject constructor(
             val inputFile = uriToFile(documentUri)
             engine.addImageToField(inputFile, outputFile, fieldName, imageBitmap)
             AppResult.Success(outputFile)
+        } catch (e: CancellationException) {
+            throw e
         } catch (e: Exception) {
             AppResult.Error("Failed to add image: ${e.message}", e)
         }
@@ -215,6 +249,8 @@ class PdfFormRepositoryImpl @Inject constructor(
         try {
             val file = uriToFile(documentUri)
             engine.extractFields(file)
+        } catch (e: CancellationException) {
+            throw e
         } catch (e: Exception) {
             AppResult.Error("Failed to extract fields: ${e.message}", e)
         }
@@ -235,6 +271,8 @@ class PdfFormRepositoryImpl @Inject constructor(
                 is AppResult.Error -> extractResult
                 is AppResult.Loading -> AppResult.Success(emptyMap())
             }
+        } catch (e: CancellationException) {
+            throw e
         } catch (e: Exception) {
             AppResult.Error("Failed to get field values: ${e.message}", e)
         }
@@ -242,17 +280,27 @@ class PdfFormRepositoryImpl @Inject constructor(
 
     private fun uriToFile(uri: Uri): File {
         return when (uri.scheme) {
-            "file" -> File(uri.path!!)
-            else -> {
+            "file" -> requireNotNull(uri.path) { "File URI has no path" }.let(::File)
+            "content" -> {
                 val tempFile = File(cacheDir, "temp_${System.currentTimeMillis()}.pdf")
-                context.contentResolver.openInputStream(uri)?.use { input ->
+                (context.contentResolver.openInputStream(uri) ?: error("Cannot open input URI: $uri")).use { input ->
                     FileOutputStream(tempFile).use { output ->
                         input.copyTo(output)
                     }
                 }
                 tempFile
             }
+            else -> throw IllegalArgumentException("Unsupported document URI scheme: ${uri.scheme}")
         }
+    }
+
+    private suspend inline fun <T> withStagedInput(
+        uri: Uri,
+        block: (File) -> AppResult<T>
+    ): AppResult<T> {
+        val input = uriToFile(uri)
+        val staged = uri.scheme == "content"
+        return try { block(input) } finally { if (staged) input.delete() }
     }
 
     private fun FormFieldEntity.toDomainModel(): PdfFormField {
