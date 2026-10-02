@@ -50,8 +50,8 @@ class PdfFormEngine @Inject constructor(@ApplicationContext context: Context) {
                     FormFieldType.TEXTBOX -> PDTextField(form).apply { partialName = field.fieldName; value = field.defaultValue ?: "" }
                     FormFieldType.CHECKBOX -> PDCheckBox(form).apply { partialName = field.fieldName; if (field.value == onValue) check() }
                     FormFieldType.RADIO_BUTTON -> PDRadioButton(form).apply { partialName = field.fieldName; if (!field.value.isNullOrBlank()) value = field.value }
-                    FormFieldType.DROPDOWN -> PDComboBox(form).apply { partialName = field.fieldName; options = field.options; value = field.value ?: field.defaultValue ?: "" }
-                    FormFieldType.LIST_BOX -> PDListBox(form).apply { partialName = field.fieldName; options = field.options; value = field.value ?: field.defaultValue ?: "" }
+                    FormFieldType.DROPDOWN -> PDComboBox(form).apply { partialName = field.fieldName; options = field.options; setValue(field.value ?: field.defaultValue ?: "") }
+                    FormFieldType.LIST_BOX -> PDListBox(form).apply { partialName = field.fieldName; options = field.options; setValue(field.value ?: field.defaultValue ?: "") }
                     FormFieldType.SIGNATURE -> PDSignatureField(form).apply { partialName = field.fieldName }
                     FormFieldType.IMAGE, FormFieldType.BUTTON -> PDPushButton(form).apply { partialName = field.fieldName }
                     else -> throw IllegalArgumentException("Unsupported field type: ${field.fieldType}")
@@ -68,7 +68,7 @@ class PdfFormEngine @Inject constructor(@ApplicationContext context: Context) {
             PDDocument.load(pdfFile).use { document ->
                 val form = document.documentCatalog.acroForm ?: throw IllegalArgumentException("PDF has no AcroForm")
                 form.needAppearances = false
-                values.forEach { (name, value) -> form.getField(name)?.value = value }
+                values.forEach { (name, value) -> form.getField(name)?.setValue(value) }
                 saveAtomically(document, outputFile)
             }
         }
