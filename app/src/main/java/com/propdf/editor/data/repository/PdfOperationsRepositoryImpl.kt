@@ -28,6 +28,9 @@ import com.propdf.core.domain.result.AppException
 import com.propdf.core.domain.result.AppResult
 import com.propdf.core.domain.result.PdfProcessingError
 import com.propdf.core.domain.result.toAppException
+import com.propdf.security.encryption.PdfBoxPasswordEngine
+import com.propdf.security.encryption.PdfPermissions
+import com.propdf.security.encryption.PdfSecurityException
 import com.propdfeditor.batch.util.PdfOperationException
 import com.propdfeditor.core.util.toSafeUserMessage
 import dagger.hilt.android.qualifiers.ApplicationContext
@@ -42,7 +45,7 @@ internal const val USER_SAFE_PREFIX = "[user-safe] "
 
 /** Maps a failure to an [AppResult.Error]; app-authored PdfOperationException text stays user-visible. */
 internal fun Throwable.toOpError(): AppResult.Error =
-    if (this is PdfOperationException) {
+    if (this is PdfOperationException || this is PdfSecurityException) {
         AppResult.Error(AppException.Unknown(USER_SAFE_PREFIX + (message ?: "The operation could not be completed.")))
     } else {
         AppResult.Error(toAppException())
@@ -62,8 +65,7 @@ fun AppException.pageEditorMessage(): String {
  * Page Editor / PDF operations repository.
  *
  * Engine: PDFBox Android 2.0.27.0 through [PdfBoxPageEngine] (no iText in this file).
- * iText code that is NOT part of the Page Editor path (compress, encrypt, decrypt, annotation
- * export) lives in [LegacyITextPdfOperations] and is delegated to unchanged.
+ * iText code that is NOT part of the Page Editor path (compress, annotation export) lives in [LegacyITextPdfOperations] and is delegated to unchanged.
  *
  * SAF: every Uri may be file:// or content://. content:// sources are copied into a private
  * cache file (ContentResolver) and that copy is always deleted afterwards. Results are written
@@ -246,16 +248,32 @@ class PdfOperationsRepositoryImpl @Inject constructor(
         engine.headerFooter(inputFile, outputFile, config)
     }
 
-    // ===================== NOT Page Editor: iText, delegated unchanged =====================
+    // ===================== NOT Page Editor: compress / annotation export still iText, delegated unchanged =====================
 
     override suspend fun compress(inputFile: File, outputFile: File, config: CompressConfig): AppResult<File> =
         legacy.compress(inputFile, outputFile, config)
 
-    override suspend fun encrypt(inputFile: File, outputFile: File, config: SecurityConfig): AppResult<File> =
-        legacy.encrypt(inputFile, outputFile, config)
+    // Password security: PDFBox via :security's PdfBoxPasswordEngine (no iText, no bypass).
+    private val passwordEngine by lazy { PdfBoxPasswordEngine(context) }
 
-    override suspend fun decrypt(inputFile: File, outputFile: File, password: String): AppResult<File> =
-        legacy.decrypt(inputFile, outputFile, password)
+    override suspend fun encrypt(inputFile: File, outputFile: File, config: SecurityConfig): AppResult<File> = io {
+        var allow = PdfPermissions.ALLOW_SCREENREADERS
+        if (config.allowPrinting) allow = allow or PdfPermissions.ALLOW_PRINTING
+        if (config.allowCopying) allow = allow or PdfPermissions.ALLOW_COPY
+        passwordEngine.encrypt(
+            inputFile, outputFile,
+            PdfBoxPasswordEngine.EncryptionRequest(
+                userPassword = config.userPassword,
+                ownerPassword = config.ownerPassword,
+                permissions = allow,
+                algorithm = PdfBoxPasswordEngine.Algorithm.AES_256
+            )
+        )
+    }
+
+    override suspend fun decrypt(inputFile: File, outputFile: File, password: String): AppResult<File> = io {
+        passwordEngine.decrypt(inputFile, outputFile, password)
+    }
 
     override suspend fun saveAnnotations(
         inputFile: File,
