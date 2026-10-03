@@ -1,35 +1,34 @@
 package com.propdf.security.encryption
 
-import com.itextpdf.kernel.pdf.EncryptionConstants
-import com.itextpdf.kernel.pdf.PdfDocument
-import com.itextpdf.kernel.pdf.PdfReader
-import com.itextpdf.kernel.pdf.PdfWriter
-import com.itextpdf.kernel.pdf.WriterProperties
+import android.content.Context
 import java.io.File
 
-class EncryptionManager {
+/**
+ * Small synchronous-style facade over [PdfBoxPasswordEngine] for callers that hold plain Files.
+ *
+ * Replaces the former iText implementation. Notably, `decrypt` previously ignored its password and
+ * opened the file with iText's unethical-reading override, i.e. it removed protection from any PDF
+ * without credentials. That behaviour is gone: [decrypt] now needs a password PDFBox accepts, with
+ * owner rights, exactly like [PdfBoxPasswordEngine.decrypt].
+ */
+class EncryptionManager(context: Context) {
 
-    fun encrypt(inputFile: File, outputFile: File, password: String) {
-        val reader = PdfReader(inputFile.absolutePath)
-        val writer = PdfWriter(
-            outputFile.absolutePath,
-            WriterProperties().setStandardEncryption(
-                password.toByteArray(),
-                password.toByteArray(),
-                EncryptionConstants.ALLOW_PRINTING,
-                EncryptionConstants.ENCRYPTION_AES_256
+    private val engine = PdfBoxPasswordEngine(context)
+
+    /** AES-256, same password for opening and owning, printing allowed (as before). */
+    suspend fun encrypt(inputFile: File, outputFile: File, password: String) {
+        engine.encrypt(
+            inputFile, outputFile,
+            PdfBoxPasswordEngine.EncryptionRequest(
+                userPassword = password,
+                ownerPassword = password,
+                permissions = PdfPermissions.ALLOW_PRINTING,
+                algorithm = PdfBoxPasswordEngine.Algorithm.AES_256
             )
         )
-        val pdfDoc = PdfDocument(reader, writer)
-        pdfDoc.close()
     }
 
-    fun decrypt(inputFile: File, outputFile: File, _password: String) {
-        val reader = PdfReader(inputFile.absolutePath).apply {
-            setUnethicalReading(true)
-        }
-        val writer = PdfWriter(outputFile.absolutePath)
-        val pdfDoc = PdfDocument(reader, writer)
-        pdfDoc.close()
+    suspend fun decrypt(inputFile: File, outputFile: File, password: String) {
+        engine.decrypt(inputFile, outputFile, password)
     }
 }
