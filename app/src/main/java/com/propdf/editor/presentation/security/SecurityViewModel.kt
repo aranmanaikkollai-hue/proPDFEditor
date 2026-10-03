@@ -1,5 +1,6 @@
 package com.propdf.editor.presentation.security
 
+import com.propdf.editor.data.repository.pageEditorMessage
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.propdf.core.domain.model.PdfDocument
@@ -54,7 +55,7 @@ class SecurityViewModel @Inject constructor(
             )
             when (val result = pdfOperationsRepository.encrypt(inputFile, outputFile, config)) {
                 is AppResult.Success -> _uiState.value = SecurityUiState.Success(result.data.absolutePath)
-                is AppResult.Error -> _uiState.value = SecurityUiState.Error(result.message)
+                is AppResult.Error -> _uiState.value = SecurityUiState.Error(result.exception.pageEditorMessage())
                 else -> Unit
             }
         }
@@ -65,7 +66,7 @@ class SecurityViewModel @Inject constructor(
             _uiState.value = SecurityUiState.Loading
             when (val result = pdfOperationsRepository.decrypt(inputFile, outputFile, password)) {
                 is AppResult.Success -> _uiState.value = SecurityUiState.Success(result.data.absolutePath)
-                is AppResult.Error -> _uiState.value = SecurityUiState.Error(result.message)
+                is AppResult.Error -> _uiState.value = SecurityUiState.Error(result.exception.pageEditorMessage())
                 else -> Unit
             }
         }
