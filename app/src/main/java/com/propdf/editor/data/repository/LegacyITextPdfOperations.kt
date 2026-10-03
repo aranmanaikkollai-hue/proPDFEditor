@@ -33,7 +33,7 @@ import java.io.IOException
  * What is left here is NOT part of the Page Editor path and is intentionally unchanged,
  * to be migrated in its own phase:
  *   - compress / compressPdf / optimize (Compress tool)
- *   - encrypt / decrypt / encryptPdf / removePdfPassword (Security phase)
+ * (encrypt / decrypt / removePdfPassword moved to PDFBox in Phase 3)
  *   - saveAnnotations (annotation export)
  * Code is moved verbatim; do not extend. Delete this class when the iText dependency is removed.
  */
@@ -66,43 +66,6 @@ internal class LegacyITextPdfOperations(
             outputFile
         }.toAppResult()
     }
-
-    // ===================== ENCRYPT =====================
-    suspend fun encrypt(
-        inputFile: File,
-        outputFile: File,
-        config: SecurityConfig
-    ): AppResult<File> = withContext(ioDispatcher) {
-        runCatching {
-            var perms = EncryptionConstants.ALLOW_SCREENREADERS
-            if (config.allowPrinting) perms = perms or EncryptionConstants.ALLOW_PRINTING
-            if (config.allowCopying) perms = perms or EncryptionConstants.ALLOW_COPY
-            val doc = com.itextpdf.kernel.pdf.PdfDocument(
-                PdfReader(inputFile.absolutePath),
-                PdfWriter(outputFile.absolutePath, WriterProperties().setStandardEncryption(
-                    config.userPassword?.toByteArray(),
-                    config.ownerPassword.toByteArray(),
-                    perms,
-                    EncryptionConstants.ENCRYPTION_AES_256
-                ))
-            )
-            try { } finally { doc.close() }
-            outputFile
-        }.toAppResult()
-    }
-
-    // ===================== DECRYPT =====================
-    suspend fun decrypt(inputFile: File, outputFile: File, password: String): AppResult<File> =
-        withContext(ioDispatcher) {
-            runCatching {
-                val doc = com.itextpdf.kernel.pdf.PdfDocument(
-                    PdfReader(inputFile.absolutePath, ReaderProperties().setPassword(password.toByteArray())),
-                    PdfWriter(outputFile.absolutePath)
-                )
-                try { } finally { doc.close() }
-                outputFile
-            }.toAppResult()
-        }
 
     // ===================== SAVE ANNOTATIONS =====================
     suspend fun saveAnnotations(
@@ -257,49 +220,6 @@ internal class LegacyITextPdfOperations(
             doc.save(output)
         }
     }
-
-    // --------- Encrypt ---------------------------------------------------------------------------------------------------------------------------------------------------------
-    suspend fun encryptPdf(file: File, output: File, userPassword: String, ownerPassword: String): Result<File> = withContext(ThreadPoolManager.BackgroundDispatcher) {
-        runCatching {
-            val reader = PdfReader(file)
-            val writerProps = WriterProperties().setStandardEncryption(
-                userPassword.toByteArray(),
-                ownerPassword.toByteArray(),
-                EncryptionConstants.ALLOW_PRINTING or EncryptionConstants.ALLOW_COPY,
-                EncryptionConstants.ENCRYPTION_AES_256
-            )
-            val writer = PdfWriter(output.absolutePath, writerProps)
-            val src = com.itextpdf.kernel.pdf.PdfDocument(reader)
-            val dest = com.itextpdf.kernel.pdf.PdfDocument(writer)
-            src.copyPagesTo(1, src.numberOfPages, dest)
-            dest.close()
-            src.close()
-            writer.close()
-            reader.close()
-            output
-        }
-    }
-
-    // --------- Decrypt ---------------------------------------------------------------------------------------------------------------------------------------------------------
-    suspend fun removePdfPassword(file: File, output: File, password: String): Result<File> = withContext(ThreadPoolManager.BackgroundDispatcher) {
-        runCatching {
-            val readerProps = ReaderProperties()
-            if (password.isNotEmpty()) {
-                readerProps.setPassword(password.toByteArray())
-            }
-            val reader = PdfReader(file.absolutePath, readerProps).setUnethicalReading(true)
-            val writer = PdfWriter(output)
-            val src = com.itextpdf.kernel.pdf.PdfDocument(reader)
-            val dest = com.itextpdf.kernel.pdf.PdfDocument(writer)
-            src.copyPagesTo(1, src.numberOfPages, dest)
-            dest.close()
-            src.close()
-            writer.close()
-            reader.close()
-            output
-        }
-    }
-
 
     private fun renderTextBitmap(text: String, color: Int, sizePx: Float): Bitmap {
         val paint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
