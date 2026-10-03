@@ -5,6 +5,8 @@ import android.net.Uri
 import com.propdf.core.domain.model.HeaderFooterConfig
 import com.propdf.core.domain.model.PageNumberConfig
 import com.propdf.core.domain.model.WatermarkConfig
+import com.propdf.security.encryption.PdfBoxPasswordEngine
+import com.propdf.security.encryption.PdfPermissions
 import com.propdf.editor.core.dispatch.ThreadPoolManager
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.withContext
@@ -14,8 +16,8 @@ import java.io.File
  * File-based PDF operations used by [com.propdf.editor.worker.PdfOperationWorker]'s batch path.
  *
  * Engine: PDFBox Android 2.0.27.0 via [PdfBoxPageEngine]. This class contains no iText.
- * Compress / encrypt / remove-password are NOT Page Editor operations; they delegate unchanged to
- * [LegacyITextPdfOperations] until their own migration phases.
+ * Compress is NOT a Page Editor operation and still delegates unchanged to [LegacyITextPdfOperations].
+ * Encrypt / remove-password run on PDFBox via :security's PdfBoxPasswordEngine.
  *
  * Every operation runs on the background dispatcher, returns Result, never converts coroutine
  * cancellation into a failure, and never leaves a partial output file (see [PdfBoxPageEngine]).
@@ -49,11 +51,28 @@ class PdfOperationsManager(private val context: Context) {
     suspend fun compressPdf(file: File, output: File, level: Int = 6): Result<File> =
         legacy.compressPdf(file, output, level)
 
-    suspend fun encryptPdf(file: File, output: File, userPassword: String, ownerPassword: String): Result<File> =
-        legacy.encryptPdf(file, output, userPassword, ownerPassword)
+    private val passwordEngine by lazy { PdfBoxPasswordEngine(context) }
 
-    suspend fun removePdfPassword(file: File, output: File, password: String): Result<File> =
-        legacy.removePdfPassword(file, output, password)
+    /** AES-256; printing and copying allowed (as before). */
+    suspend fun encryptPdf(file: File, output: File, userPassword: String, ownerPassword: String): Result<File> = op {
+        passwordEngine.encrypt(
+            file, output,
+            PdfBoxPasswordEngine.EncryptionRequest(
+                userPassword = userPassword,
+                ownerPassword = ownerPassword,
+                permissions = PdfPermissions.ALLOW_PRINTING or PdfPermissions.ALLOW_COPY,
+                algorithm = PdfBoxPasswordEngine.Algorithm.AES_256
+            )
+        )
+    }
+
+    /**
+     * Removes password protection. The password must be correct and carry owner rights; the former
+     * iText version opened any PDF without credentials (unethical reading) and no longer exists.
+     */
+    suspend fun removePdfPassword(file: File, output: File, password: String): Result<File> = op {
+        passwordEngine.decrypt(file, output, password)
+    }
 
     suspend fun addTextWatermark(file: File, output: File, text: String, opacity: Float = 0.3f): Result<File> = op {
         engine.watermark(
