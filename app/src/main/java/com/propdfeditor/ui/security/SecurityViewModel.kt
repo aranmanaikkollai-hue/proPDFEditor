@@ -13,6 +13,7 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
+import com.propdf.security.encryption.securityUserMessage
 import com.propdfeditor.core.util.toSafeUserMessage
 import javax.inject.Inject
 
@@ -22,8 +23,8 @@ import javax.inject.Inject
  * This previously just set a fake success message ("Password protection applied" /
  * "AES encryption applied" / "Metadata removed") without touching the document at
  * all -- none of the three buttons did any actual work. It now calls the real
- * iText-backed engines in the :security module (EncryptDocumentUseCase,
- * SanitizeDocumentUseCase), which already existed and were fully implemented but
+ * engines in the :security module (EncryptDocumentUseCase / DecryptDocumentUseCase on PDFBox,
+ * SanitizeDocumentUseCase still iText), which already existed and were fully implemented but
  * only reachable from the old Fragment/Activity UI (EncryptionFragment,
  * SanitizationFragment). No new PDF engine was written here -- this only wires the
  * Compose screen to the engines that were already there.
@@ -117,7 +118,7 @@ class SecurityViewModel @Inject constructor(
                     Log.e("SecurityViewModel", "Security operation failed", e)
                     _uiState.value = _uiState.value.copy(
                         isProcessing = false,
-                        message = e.toSafeUserMessage()
+                        message = e.securityUserMessage() ?: e.toSafeUserMessage()
                     )
                 }
             )
