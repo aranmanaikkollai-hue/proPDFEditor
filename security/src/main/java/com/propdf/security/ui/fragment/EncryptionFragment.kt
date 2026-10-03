@@ -17,6 +17,7 @@ import androidx.lifecycle.repeatOnLifecycle
 import com.google.android.material.snackbar.Snackbar
 import com.propdf.security.R
 import com.propdf.security.data.entity.EncryptionType
+import com.propdf.security.encryption.PdfPermissions
 import com.propdf.security.databinding.FragmentEncryptionBinding
 import com.propdf.security.ui.viewmodel.SecurityViewModel
 import dagger.hilt.android.AndroidEntryPoint
@@ -120,19 +121,19 @@ class EncryptionFragment : Fragment() {
     private fun calculatePermissions(): Int {
         var permissions = 0
         if (binding.cbPrint.isChecked) permissions = permissions or 
-            com.itextpdf.kernel.pdf.EncryptionConstants.ALLOW_PRINTING
+            PdfPermissions.ALLOW_PRINTING
         if (binding.cbModify.isChecked) permissions = permissions or 
-            com.itextpdf.kernel.pdf.EncryptionConstants.ALLOW_MODIFY_CONTENTS
+            PdfPermissions.ALLOW_MODIFY_CONTENTS
         if (binding.cbCopy.isChecked) permissions = permissions or 
-            com.itextpdf.kernel.pdf.EncryptionConstants.ALLOW_COPY
+            PdfPermissions.ALLOW_COPY
         if (binding.cbAnnotate.isChecked) permissions = permissions or 
-            com.itextpdf.kernel.pdf.EncryptionConstants.ALLOW_MODIFY_ANNOTATIONS
+            PdfPermissions.ALLOW_MODIFY_ANNOTATIONS
         if (binding.cbFillForms.isChecked) permissions = permissions or 
-            com.itextpdf.kernel.pdf.EncryptionConstants.ALLOW_FILL_IN
+            PdfPermissions.ALLOW_FILL_IN
         if (binding.cbAssembly.isChecked) permissions = permissions or 
-            com.itextpdf.kernel.pdf.EncryptionConstants.ALLOW_ASSEMBLY
+            PdfPermissions.ALLOW_ASSEMBLY
         if (binding.cbDegradedPrint.isChecked) permissions = permissions or 
-            com.itextpdf.kernel.pdf.EncryptionConstants.ALLOW_DEGRADED_PRINTING
+            PdfPermissions.ALLOW_DEGRADED_PRINTING
         return permissions
     }
 
