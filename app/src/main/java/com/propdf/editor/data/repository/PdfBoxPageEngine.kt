@@ -202,6 +202,11 @@ internal class PdfBoxPageEngine(private val context: Context) {
         }
     }
 
+    /** PDDocumentCatalog has no setPages(); point /Pages at a fresh, empty page tree instead. */
+    private fun resetPageTree(doc: PDDocument) {
+        doc.documentCatalog.cosObject.setItem(COSName.PAGES, PDPageTree().cosObject)
+    }
+
     /** Reorder/duplicate without dropping anything: edit the same document, keep forms/outlines. */
     private suspend fun rebuildInPlace(doc: PDDocument, order: List<Int>) {
         val n = doc.numberOfPages
@@ -221,8 +226,7 @@ internal class PdfBoxPageEngine(private val context: Context) {
                 ordered.add(doc.importPage(original))
             }
         }
-        val tree = PDPageTree()
-        doc.documentCatalog.pages = tree
+        resetPageTree(doc)
         for (p in ordered) doc.addPage(p)
     }
 
@@ -346,7 +350,7 @@ internal class PdfBoxPageEngine(private val context: Context) {
                 originals.forEach { materializeInherited(it) }
                 val imported = chosen.map { checkActive(); doc.importPage(ins.getPage(it - 1)) }
                 val ordered = PageOrderPlanner.insertAt(originals, position, imported)
-                doc.documentCatalog.pages = PDPageTree()
+                resetPageTree(doc)
                 ordered.forEach { doc.addPage(it) }
                 checkOutput(doc, n + chosen.size)
                 publish(output) { tmp -> saveTo(doc, tmp) }
@@ -362,7 +366,7 @@ internal class PdfBoxPageEngine(private val context: Context) {
             originals.forEach { materializeInherited(it) }
             val blank = PDPage(PDRectangle(width.coerceAtLeast(1f), height.coerceAtLeast(1f)))
             val ordered = PageOrderPlanner.insertAt(originals, position, listOf(blank))
-            doc.documentCatalog.pages = PDPageTree()
+            resetPageTree(doc)
             ordered.forEach { doc.addPage(it) }
             checkOutput(doc, n + 1)
             publish(output) { tmp -> saveTo(doc, tmp) }
@@ -375,7 +379,7 @@ internal class PdfBoxPageEngine(private val context: Context) {
             originals.forEach { materializeInherited(it) }
             val page = imagePage(doc, config.imageUri, config)
             val ordered = PageOrderPlanner.insertAt(originals, position, listOf(page))
-            doc.documentCatalog.pages = PDPageTree()
+            resetPageTree(doc)
             ordered.forEach { doc.addPage(it) }
             checkOutput(doc, n + 1)
             publish(output) { tmp -> saveTo(doc, tmp) }
