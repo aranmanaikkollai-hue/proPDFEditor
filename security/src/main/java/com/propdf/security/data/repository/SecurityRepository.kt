@@ -17,6 +17,11 @@ import com.propdf.security.data.dao.RedactionDao
 import com.propdf.security.data.dao.SecureDocumentDao
 import com.propdf.security.data.dao.SecurityOperationDao
 import com.propdf.security.data.entity.*
+import com.propdf.security.encryption.PdfBoxPasswordEngine
+import com.propdf.security.encryption.PdfPermissions
+import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.currentCoroutineContext
+import kotlinx.coroutines.ensureActive
 import dagger.hilt.android.qualifiers.ApplicationContext
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.Flow
@@ -71,6 +76,50 @@ class SecurityRepository @Inject constructor(
         } finally {
             tempOutput.delete()
         }
+    }
+
+    // ==================== PASSWORD SECURITY (PDFBox) ====================
+
+    private val passwordEngine by lazy { PdfBoxPasswordEngine(context) }
+
+    /**
+     * Copies [sourceUri] (file:// or content://) into the private cache file [target] through the
+     * ContentResolver. The caller owns and deletes [target]. Never touches `Uri.path`.
+     */
+    private fun stageSource(sourceUri: Uri, target: File) {
+        val input = context.contentResolver.openInputStream(sourceUri)
+            ?: throw FileNotFoundException("Source is no longer available")
+        input.use { src -> target.outputStream().use { dst -> src.copyTo(dst) } }
+        if (target.length() == 0L) throw FileNotFoundException("Source is empty")
+    }
+
+    /**
+     * Streams the finished, verified cache file [produced] to [outputUri]. Nothing is written to
+     * the destination before this point, so a failed operation leaves it untouched. If the copy
+     * itself fails half-way the destination is truncated so no partial PDF is left behind.
+     */
+    private fun publishToUri(outputUri: Uri, produced: File) {
+        var opened = false
+        try {
+            val out = context.contentResolver.openOutputStream(outputUri, "wt")
+                ?: throw IOException("Could not open the output location")
+            opened = true
+            out.use { o -> produced.inputStream().use { it.copyTo(o) } }
+        } catch (t: Throwable) {
+            if (opened) {
+                try { context.contentResolver.openOutputStream(outputUri, "wt")?.close() } catch (_: Exception) { }
+            }
+            throw t
+        }
+    }
+
+    private fun algorithmFor(type: EncryptionType): PdfBoxPasswordEngine.Algorithm = when (type) {
+        EncryptionType.AES_256 -> PdfBoxPasswordEngine.Algorithm.AES_256
+        EncryptionType.AES_128 -> PdfBoxPasswordEngine.Algorithm.AES_128
+        EncryptionType.STANDARD_128 -> PdfBoxPasswordEngine.Algorithm.RC4_128
+        EncryptionType.STANDARD_40 -> PdfBoxPasswordEngine.Algorithm.RC4_40
+        // Same fallback the iText code had for any other value.
+        else -> PdfBoxPasswordEngine.Algorithm.RC4_128
     }
 
     // ==================== OPERATIONS ====================
@@ -184,35 +233,23 @@ class SecurityRepository @Inject constructor(
         encryptionAlgorithm: EncryptionType,
         outputUri: Uri
     ): Result<Uri> = withContext(Dispatchers.IO) {
+        val staged = File.createTempFile("pdf_protect", ".pdf", context.cacheDir)
+        val produced = File.createTempFile("pdf_protect_out", ".pdf", context.cacheDir)
         try {
-            val tempFile = File.createTempFile("pdf_protect", ".pdf", context.cacheDir)
-            
-            context.contentResolver.openInputStream(sourceUri)?.use { input ->
-                FileOutputStream(tempFile).use { output ->
-                    input.copyTo(output)
-                }
-            }
-
-            writePdfToUri(outputUri) { tempOutput ->
-                val reader = PdfReader(tempFile.absolutePath)
-                val writer = PdfWriter(
-                    tempOutput.absolutePath,
-                    WriterProperties().setStandardEncryption(
-                        userPassword?.toByteArray(),
-                        ownerPassword?.toByteArray(),
-                        permissions,
-                        when (encryptionAlgorithm) {
-                            EncryptionType.AES_256 -> EncryptionConstants.ENCRYPTION_AES_256
-                            EncryptionType.AES_128 -> EncryptionConstants.ENCRYPTION_AES_128
-                            EncryptionType.STANDARD_128 -> EncryptionConstants.STANDARD_ENCRYPTION_128
-                            else -> EncryptionConstants.STANDARD_ENCRYPTION_128
-                        }
-                    )
+            stageSource(sourceUri, staged)
+            passwordEngine.encrypt(
+                staged, produced,
+                PdfBoxPasswordEngine.EncryptionRequest(
+                    userPassword = userPassword,
+                    ownerPassword = ownerPassword,
+                    permissions = permissions,
+                    algorithm = algorithmFor(encryptionAlgorithm)
                 )
-                PdfDocument(reader, writer).use { pdfDoc -> pdfDoc.close() }
-            }
+            )
+            currentCoroutineContext().ensureActive()
+            publishToUri(outputUri, produced)
 
-            // Update secure document record
+            // Update secure document record (flags only; passwords are never stored)
             secureDocumentDao.insert(
                 SecureDocumentEntity(
                     uri = outputUri.toString(),
@@ -222,49 +259,44 @@ class SecurityRepository @Inject constructor(
                     permissions = permissions
                 )
             )
-
-            tempFile.delete()
             Result.success(outputUri)
+        } catch (e: CancellationException) {
+            throw e
         } catch (e: Exception) {
             Result.failure(e)
+        } finally {
+            staged.delete()
+            produced.delete()
         }
     }
 
     // ==================== PERMISSIONS ====================
 
+    /**
+     * Encrypts an unprotected PDF with only an owner password (anyone can open it; only the owner
+     * can lift the restrictions). [newPermissions] is an ALLOW-mask from [PdfPermissions].
+     */
     suspend fun setPermissions(
         sourceUri: Uri,
         ownerPassword: String,
         newPermissions: Int,
         outputUri: Uri
     ): Result<Uri> = withContext(Dispatchers.IO) {
+        val staged = File.createTempFile("pdf_perm", ".pdf", context.cacheDir)
+        val produced = File.createTempFile("pdf_perm_out", ".pdf", context.cacheDir)
         try {
-            val tempFile = File.createTempFile("pdf_perm", ".pdf", context.cacheDir)
-            
-            context.contentResolver.openInputStream(sourceUri)?.use { input ->
-                FileOutputStream(tempFile).use { output ->
-                    input.copyTo(output)
-                }
-            }
-
-            writePdfToUri(outputUri) { tempOutput ->
-                val reader = PdfReader(tempFile.absolutePath)
-                val writer = PdfWriter(
-                    tempOutput.absolutePath,
-                    WriterProperties().setStandardEncryption(
-                        null,
-                        ownerPassword.toByteArray(),
-                        newPermissions,
-                        EncryptionConstants.ENCRYPTION_AES_256
-                    )
-                )
-                PdfDocument(reader, writer).use { pdfDoc -> pdfDoc.close() }
-            }
-
-            tempFile.delete()
+            stageSource(sourceUri, staged)
+            passwordEngine.setPermissions(staged, produced, ownerPassword, newPermissions)
+            currentCoroutineContext().ensureActive()
+            publishToUri(outputUri, produced)
             Result.success(outputUri)
+        } catch (e: CancellationException) {
+            throw e
         } catch (e: Exception) {
             Result.failure(e)
+        } finally {
+            staged.delete()
+            produced.delete()
         }
     }
 
@@ -603,71 +635,60 @@ class SecurityRepository @Inject constructor(
         secureDocumentDao.getAllSecureDocuments()
         // Add these methods to SecurityRepository
 
+    /**
+     * Removes password protection. [password] must be accepted by the PDF and must carry owner
+     * rights; there is no bypass (see [PdfBoxPasswordEngine.decrypt]).
+     */
     suspend fun decryptPdf(
         sourceUri: Uri,
         password: String,
         outputUri: Uri
     ): Result<Uri> = withContext(Dispatchers.IO) {
+        val staged = File.createTempFile("pdf_decrypt", ".pdf", context.cacheDir)
+        val produced = File.createTempFile("pdf_decrypt_out", ".pdf", context.cacheDir)
         try {
-            val tempFile = File.createTempFile("pdf_decrypt", ".pdf", context.cacheDir)
-
-            context.contentResolver.openInputStream(sourceUri)?.use { input ->
-                FileOutputStream(tempFile).use { output ->
-                    input.copyTo(output)
-                }
-            }
-
-            // Was previously `PdfWriter(outputUri.path ?: ...)` -- the exact
-            // content:// vs file:// bug already fixed elsewhere in this class via
-            // writePdfToUri (see its doc comment above); this call site was missed
-            // when that fix went in. Every real caller's outputUri comes from the
-            // SAF CreateDocument picker, i.e. always content://, so the old code
-            // would throw or write to the wrong place for every real use.
-            writePdfToUri(outputUri) { tempOutput ->
-                val reader = PdfReader(
-                    tempFile.absolutePath,
-                    com.itextpdf.kernel.pdf.ReaderProperties()
-                        .setPassword(password.toByteArray())
-                )
-                val writer = PdfWriter(tempOutput.absolutePath)
-                PdfDocument(reader, writer).use { pdfDoc -> pdfDoc.close() }
-            }
-
-            tempFile.delete()
+            stageSource(sourceUri, staged)
+            passwordEngine.decrypt(staged, produced, password)
+            currentCoroutineContext().ensureActive()
+            publishToUri(outputUri, produced)
             Result.success(outputUri)
+        } catch (e: CancellationException) {
+            throw e
         } catch (e: Exception) {
             Result.failure(e)
+        } finally {
+            staged.delete()
+            produced.delete()
         }
     }
 
-    suspend fun getDocumentInfo(uri: Uri): Result<DocumentInfo> = withContext(Dispatchers.IO) {
+    /**
+     * Reads protection details without modifying anything. A PDF that needs a password fails with
+     * a typed password error unless [password] is supplied.
+     */
+    suspend fun getDocumentInfo(uri: Uri, password: String? = null): Result<DocumentInfo> = withContext(Dispatchers.IO) {
+        val staged = File.createTempFile("pdf_info", ".pdf", context.cacheDir)
         try {
-            val tempFile = File.createTempFile("pdf_info", ".pdf", context.cacheDir)
-            
-            context.contentResolver.openInputStream(uri)?.use { input ->
-                FileOutputStream(tempFile).use { output ->
-                    input.copyTo(output)
-                }
-            }
-
-            PdfDocument(PdfReader(tempFile.absolutePath)).use { pdfDoc ->
-                val info = DocumentInfo(
-                    isEncrypted = pdfDoc.reader.isEncrypted,
-                    numberOfPages = pdfDoc.numberOfPages,
-                    hasOwnerPassword = pdfDoc.reader.isOpenedWithFullPermission(),
-                    permissions = if (pdfDoc.reader.isEncrypted) {
-                        pdfDoc.reader.permissions.toInt()
-                    } else -1,
-                    title = pdfDoc.documentInfo.title,
-                    author = pdfDoc.documentInfo.author,
-                    creator = pdfDoc.documentInfo.creator,
-                    producer = pdfDoc.documentInfo.producer
+            stageSource(uri, staged)
+            val info = passwordEngine.inspect(staged, password)
+            Result.success(
+                DocumentInfo(
+                    isEncrypted = info.isEncrypted,
+                    numberOfPages = info.pageCount,
+                    hasOwnerPassword = info.openedWithOwnerRights,
+                    permissions = info.permissionBits,
+                    title = info.title,
+                    author = info.author,
+                    creator = info.creator,
+                    producer = info.producer
                 )
-                tempFile.delete()
-                Result.success(info)
-            }
+            )
+        } catch (e: CancellationException) {
+            throw e
         } catch (e: Exception) {
             Result.failure(e)
+        } finally {
+            staged.delete()
         }
     }
 
