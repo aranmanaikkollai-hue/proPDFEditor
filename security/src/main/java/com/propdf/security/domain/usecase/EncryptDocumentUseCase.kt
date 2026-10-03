@@ -2,9 +2,9 @@
 package com.propdf.security.domain.usecase
 
 import android.net.Uri
-import com.itextpdf.kernel.pdf.EncryptionConstants
 import com.propdf.security.data.entity.EncryptionType
 import com.propdf.security.data.repository.SecurityRepository
+import com.propdf.security.encryption.PdfPermissions
 import javax.inject.Inject
 
 class EncryptDocumentUseCase @Inject constructor(
@@ -32,13 +32,13 @@ class EncryptDocumentUseCase @Inject constructor(
          * active Compose path.
          */
         const val FULL_PERMISSIONS =
-            EncryptionConstants.ALLOW_PRINTING or
-                EncryptionConstants.ALLOW_MODIFY_CONTENTS or
-                EncryptionConstants.ALLOW_COPY or
-                EncryptionConstants.ALLOW_MODIFY_ANNOTATIONS or
-                EncryptionConstants.ALLOW_FILL_IN or
-                EncryptionConstants.ALLOW_SCREENREADERS or
-                EncryptionConstants.ALLOW_ASSEMBLY or
-                EncryptionConstants.ALLOW_DEGRADED_PRINTING
+            PdfPermissions.ALLOW_PRINTING or
+                PdfPermissions.ALLOW_MODIFY_CONTENTS or
+                PdfPermissions.ALLOW_COPY or
+                PdfPermissions.ALLOW_MODIFY_ANNOTATIONS or
+                PdfPermissions.ALLOW_FILL_IN or
+                PdfPermissions.ALLOW_SCREENREADERS or
+                PdfPermissions.ALLOW_ASSEMBLY or
+                PdfPermissions.ALLOW_DEGRADED_PRINTING
     }
 }
