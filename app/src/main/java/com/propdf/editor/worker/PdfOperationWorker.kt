@@ -1,5 +1,6 @@
 package com.propdf.editor.worker
 
+import com.propdf.security.encryption.securityUserMessage
 import com.propdfeditor.core.util.toSafeUserMessage
 
 import android.content.Context
@@ -287,7 +288,7 @@ class PdfOperationWorker @AssistedInject constructor(
                 onFailure = { e ->
                     Result.failure(
                         Data.Builder()
-                            .putString(KEY_ERROR_MESSAGE, e.toSafeUserMessage("This operation could not be completed."))
+                            .putString(KEY_ERROR_MESSAGE, (e.securityUserMessage() ?: e.toSafeUserMessage("This operation could not be completed.")))
                             .build()
                     )
                 }
@@ -296,7 +297,7 @@ class PdfOperationWorker @AssistedInject constructor(
             throw e
         } catch (e: Exception) {
             Result.failure(
-                Data.Builder().putString(KEY_ERROR_MESSAGE, e.toSafeUserMessage("This operation could not be completed.")).build()
+                Data.Builder().putString(KEY_ERROR_MESSAGE, (e.securityUserMessage() ?: e.toSafeUserMessage("This operation could not be completed."))).build()
             )
         }
     }
