@@ -13,7 +13,7 @@ import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.lifecycleScope
 import androidx.lifecycle.repeatOnLifecycle
 import com.google.android.material.snackbar.Snackbar
-import com.itextpdf.kernel.pdf.EncryptionConstants
+import com.propdf.security.encryption.PdfPermissions
 import com.propdf.security.R
 import com.propdf.security.databinding.FragmentPermissionsBinding
 import com.propdf.security.ui.viewmodel.SecurityViewModel
@@ -99,13 +99,13 @@ class PermissionsFragment : Fragment() {
 
     private fun calculatePermissions(): Int {
         var permissions = 0
-        if (binding.cbPrint.isChecked) permissions = permissions or EncryptionConstants.ALLOW_PRINTING
-        if (binding.cbModify.isChecked) permissions = permissions or EncryptionConstants.ALLOW_MODIFY_CONTENTS
-        if (binding.cbCopy.isChecked) permissions = permissions or EncryptionConstants.ALLOW_COPY
-        if (binding.cbAnnotate.isChecked) permissions = permissions or EncryptionConstants.ALLOW_MODIFY_ANNOTATIONS
-        if (binding.cbFillForms.isChecked) permissions = permissions or EncryptionConstants.ALLOW_FILL_IN
-        if (binding.cbAssembly.isChecked) permissions = permissions or EncryptionConstants.ALLOW_ASSEMBLY
-        if (binding.cbDegradedPrint.isChecked) permissions = permissions or EncryptionConstants.ALLOW_DEGRADED_PRINTING
+        if (binding.cbPrint.isChecked) permissions = permissions or PdfPermissions.ALLOW_PRINTING
+        if (binding.cbModify.isChecked) permissions = permissions or PdfPermissions.ALLOW_MODIFY_CONTENTS
+        if (binding.cbCopy.isChecked) permissions = permissions or PdfPermissions.ALLOW_COPY
+        if (binding.cbAnnotate.isChecked) permissions = permissions or PdfPermissions.ALLOW_MODIFY_ANNOTATIONS
+        if (binding.cbFillForms.isChecked) permissions = permissions or PdfPermissions.ALLOW_FILL_IN
+        if (binding.cbAssembly.isChecked) permissions = permissions or PdfPermissions.ALLOW_ASSEMBLY
+        if (binding.cbDegradedPrint.isChecked) permissions = permissions or PdfPermissions.ALLOW_DEGRADED_PRINTING
         return permissions
     }
 
