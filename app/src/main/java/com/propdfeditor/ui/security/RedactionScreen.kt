@@ -187,11 +187,11 @@ fun RedactionScreen(
             title = { Text("Before you save") },
             text = {
                 Text(
-                    "Redaction currently covers the marked areas with a black box in the " +
-                        "saved PDF. It does not yet remove the underlying text or images from " +
-                        "the file, so the original content could still be recovered by someone " +
-                        "editing the PDF directly. Don't rely on this to permanently erase " +
-                        "sensitive information."
+                    "Every page with a marked area is rebuilt as a flat image, so the hidden text, " +
+                        "images and layers on that page are removed from the file and cannot be " +
+                        "recovered. Those pages will no longer have selectable text, links or form " +
+                        "fields, and may look slightly less sharp. Pages without marks are unchanged, " +
+                        "and your original file is not modified. Keep the original if you may need it."
                 )
             },
             confirmButton = {
@@ -199,7 +199,7 @@ fun RedactionScreen(
                     showRedactionWarning = false
                     saveLauncher.launch("redacted_document.pdf")
                 }) {
-                    Text("Save Anyway")
+                    Text("Redact and save")
                 }
             },
             dismissButton = {
