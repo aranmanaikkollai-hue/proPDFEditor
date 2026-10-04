@@ -40,6 +40,28 @@ sealed class PdfSecurityException(message: String, cause: Throwable? = null) : E
     /** The freshly written file did not pass the reopen check, so it was discarded. [detail] is for logs only. */
     class VerificationFailed(val detail: String) :
         PdfSecurityException("The protected file could not be verified, so it was not saved.")
+
+    // ---- Secure redaction (PdfBoxRedactionEngine) ----
+
+    /** No areas were marked, so there is nothing to redact. */
+    class RedactionNoRegions :
+        PdfSecurityException("Mark at least one area to redact before saving.")
+
+    /** The source PDF is password protected; redaction refuses it rather than write an unprotected copy. */
+    class RedactionProtectedSource :
+        PdfSecurityException("This PDF is password protected. Remove the password first, then redact it.")
+
+    /** Redaction rebuilds pages, which would break a digital signature. */
+    class RedactionSignedDocument :
+        PdfSecurityException("This PDF is digitally signed. Redacting it would break the signature, so nothing was changed.")
+
+    /** A marked area is outside the document or has no usable size. */
+    class RedactionInvalidRegion :
+        PdfSecurityException("One of the marked areas is not valid. Adjust the marked areas and try again.")
+
+    /** The redacted file did not pass the post-write checks, so it was discarded. [detail] is for logs only. */
+    class RedactionVerificationFailed(val detail: String) :
+        PdfSecurityException("The redacted file could not be verified, so it was not saved.")
 }
 
 /** User-facing text for a security failure, or null when [this] is not one of ours. */
