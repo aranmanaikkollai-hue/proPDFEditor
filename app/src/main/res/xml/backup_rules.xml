@@ -1,0 +1,9 @@
+<?xml version="1.0" encoding="utf-8"?>
+<full-backup-content>
+    <!-- Signing keys (PKCS#12 files imported by the user) must never leave the device through backup. -->
+    <exclude domain="file" path="keystores/" />
+    <!--
+    <include domain="sharedpref" path="."/>
+    <exclude domain="sharedpref" path="device.xml"/>
+    -->
+</full-backup-content>

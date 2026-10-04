@@ -1,0 +1,10 @@
+<?xml version="1.0" encoding="utf-8"?>
+<data-extraction-rules>
+    <cloud-backup>
+        <!-- Signing keys (PKCS#12 files imported by the user) must never be backed up. -->
+        <exclude domain="file" path="keystores/" />
+    </cloud-backup>
+    <device-transfer>
+        <exclude domain="file" path="keystores/" />
+    </device-transfer>
+</data-extraction-rules>
