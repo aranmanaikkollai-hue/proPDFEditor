@@ -19,6 +19,7 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
+import com.propdf.security.encryption.securityUserMessage
 import com.propdfeditor.core.util.toSafeUserMessage
 import javax.inject.Inject
 
@@ -27,7 +28,7 @@ import javax.inject.Inject
  *
  * Both halves of this feature already existed and were fully real:
  * - SecurityRepository.addRedaction/getPendingRedactions/applyRedactions (:security module,
- *   Room-backed, iText-backed) -- previously only reachable from the old Fragment UI
+ *   Room-backed; applyRedactions now runs the secure PDFBox engine) -- previously only reachable from the old Fragment UI
  *   (RedactionFragment/RedactionAdapter), not from the Compose Security Hub.
  * - RedactionOverlayView (:security) -- a working drag-to-mark-rectangle Android View with
  *   its own touch handling -- previously not embedded in any screen at all.
@@ -36,7 +37,7 @@ import javax.inject.Inject
  * platform's android.graphics.pdf.PdfRenderer, already used elsewhere in the app) and
  * converting between the overlay view's on-screen pixel coordinates and the PDF's own
  * point-based, bottom-left-origin coordinate space that SecurityRepository.applyRedactions
- * actually draws with.
+ * actually uses (display space of the rendered page).
  */
 @HiltViewModel
 class RedactionViewModel @Inject constructor(
@@ -159,10 +160,10 @@ class RedactionViewModel @Inject constructor(
             }
             _uiState.value = result.fold(
                 onSuccess = {
-                    _uiState.value.copy(isApplying = false, completedUri = outputUri.toString(), message = "Redactions applied")
+                    _uiState.value.copy(isApplying = false, completedUri = outputUri.toString(), message = "Redactions applied. Pages with marked areas were rebuilt as images.")
                 },
                 onFailure = { e ->
-                    _uiState.value.copy(isApplying = false, message = e.toSafeUserMessage("This operation could not be completed."))
+                    _uiState.value.copy(isApplying = false, message = e.securityUserMessage() ?: e.toSafeUserMessage("This operation could not be completed."))
                 }
             )
         }
