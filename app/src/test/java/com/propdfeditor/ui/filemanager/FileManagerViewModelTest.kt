@@ -52,6 +52,7 @@ class FileManagerViewModelTest {
         coEvery { getRecentFiles(any()) } returns flowOf(files)
 
         viewModel = FileManagerViewModel(getRecentFiles, openDocument, recentFileRepository, mockk(relaxed = true))
+        viewModel.loadRecentFiles()   // the ViewModel has no init block; the screen triggers the first load
         testDispatcher.scheduler.advanceUntilIdle()
 
         val state = viewModel.uiState.value
