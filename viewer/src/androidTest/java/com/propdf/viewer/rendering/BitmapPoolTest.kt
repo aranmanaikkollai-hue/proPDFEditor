@@ -2,6 +2,7 @@ package com.propdf.viewer.rendering
 
 import android.graphics.Bitmap
 import androidx.test.ext.junit.runners.AndroidJUnit4
+import kotlinx.coroutines.launch
 import kotlinx.coroutines.runBlocking
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
