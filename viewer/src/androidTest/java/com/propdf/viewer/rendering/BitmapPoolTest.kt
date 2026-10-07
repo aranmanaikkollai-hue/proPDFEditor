@@ -27,12 +27,12 @@ class BitmapPoolTest {
     }
 
     @After
-    fun tearDown() = runBlocking {
+    fun tearDown() = runBlocking<Unit> {
         bitmapPool.clear()
     }
 
     @Test
-    fun testAcquireAndRelease() = runBlocking {
+    fun testAcquireAndRelease() = runBlocking<Unit> {
         val bitmap = bitmapPool.acquire(256, 256)
         assertNotNull(bitmap)
         assertEquals(256, bitmap.width)
@@ -45,7 +45,7 @@ class BitmapPoolTest {
     }
 
     @Test
-    fun testBitmapReuse() = runBlocking {
+    fun testBitmapReuse() = runBlocking<Unit> {
         val bitmap1 = bitmapPool.acquire(256, 256)
         bitmapPool.release(bitmap1)
 
@@ -54,7 +54,7 @@ class BitmapPoolTest {
     }
 
     @Test
-    fun testPoolTrimming() = runBlocking {
+    fun testPoolTrimming() = runBlocking<Unit> {
         val bitmaps = mutableListOf<Bitmap>()
         repeat(100) {
             bitmaps.add(bitmapPool.acquire(512, 512))
@@ -67,7 +67,7 @@ class BitmapPoolTest {
     }
 
     @Test
-    fun testConcurrentAccess() = runBlocking {
+    fun testConcurrentAccess() = runBlocking<Unit> {
         val mutex = Mutex()
         val acquired = mutableListOf<Bitmap>()
 
@@ -86,12 +86,12 @@ class BitmapPoolTest {
     }
 
     @Test(expected = IllegalArgumentException::class)
-    fun testInvalidDimensions() = runBlocking {
+    fun testInvalidDimensions() = runBlocking<Unit> {
         bitmapPool.acquire(0, 256)
     }
 
     @Test
-    fun testEmergencyTrim() = runBlocking {
+    fun testEmergencyTrim() = runBlocking<Unit> {
         val largeBitmaps = (1..10).map {
             bitmapPool.acquire(2048, 2048)
         }
