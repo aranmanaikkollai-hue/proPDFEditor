@@ -54,7 +54,8 @@ class RecentFileRepositoryImplTest {
                 name = "Pinned",
                 size = 100,
                 lastOpened = 1,
-                isPinned = true
+                isPinned = true,
+                thumbnailUri = null
             )
         )
         coEvery { recentFileDao.getPinned() } returns pinned
