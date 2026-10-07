@@ -5,7 +5,7 @@ import android.graphics.RectF
 import android.util.Log
 import com.propdf.viewer.model.SearchResult
 import com.propdf.core.data.database.SearchDatabase
-import com.propdf.core.data.entity.SearchIndexEntity
+import com.propdf.core.data.entity.SearchIndexContent
 import com.propdf.core.data.entity.RecentSearchEntity
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.Flow
@@ -36,13 +36,15 @@ class SearchIndex(
 
         pageTexts.entries.chunked(BATCH_SIZE).forEach { batch ->
             val entities = batch.map { (pageIndex, text) ->
-                SearchIndexEntity(
+                SearchIndexContent(
                     documentId = documentId,
                     pageIndex = pageIndex,
                     pageText = text
                 )
             }
-            searchDao.insertIndexBatch(entities)
+            // Write to the content table only; Room's generated triggers keep the FTS4 table in sync.
+            // (Inserting straight into the FTS table with rowid=0 violated a constraint on every index run.)
+            searchDao.insertContentBatch(entities)
         }
         Log.i(TAG, "Indexing complete for $documentId")
     }
@@ -103,7 +105,7 @@ class SearchIndex(
     }
 
     suspend fun indexOcrText(documentId: String, pageIndex: Int, ocrText: String) = withContext(Dispatchers.IO) {
-        searchDao.insertIndexBatch(listOf(SearchIndexEntity(
+        searchDao.insertContentBatch(listOf(SearchIndexContent(
             documentId = documentId,
             pageIndex = pageIndex,
             pageText = ocrText
