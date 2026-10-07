@@ -82,7 +82,10 @@ class HomeViewModelTest {
 
         val state = viewModel.uiState.value
         assertTrue(state is HomeUiState.Error)
-        assertEquals("Network error", (state as HomeUiState.Error).message)
+        // Raw exception text must never reach the UI; the shared safe message is shown instead.
+        val message = (state as HomeUiState.Error).message
+        assertEquals("Couldn't load your documents.", message)
+        assertTrue(!message.contains("Network error"))
     }
 
     @Test
@@ -99,13 +102,16 @@ class HomeViewModelTest {
     }
 
     @Test
-    fun `pin file delegates to repository`() = runTest {
+    fun `pin event is a harmless no-op today`() = runTest {
         coEvery { getDashboardData() } returns Result.success(DashboardData())
 
         viewModel = HomeViewModel(getDashboardData)
+        testDispatcher.scheduler.advanceUntilIdle()   // let the initial load finish first
         viewModel.onEvent(HomeEvent.PinFile("content://test.pdf"))
+        testDispatcher.scheduler.advanceUntilIdle()
 
-        // Should not crash; actual repository call is async no-op in current impl
+        // PinFile is currently a no-op in HomeViewModel (no repository call): this only proves it does not crash
+        // or disturb the state. It does NOT verify pinning.
         assertTrue(viewModel.uiState.value is HomeUiState.Empty)
     }
 }
