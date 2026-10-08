@@ -292,7 +292,7 @@ class PdfBoxRedactionInstrumentedTest {
     }
 
     private fun out(name: String) = File(dir, name)
-    private fun tmpLeftovers() = (dir.listFiles().orEmpty() + context.cacheDir.listFiles().orEmpty())
+    private fun tmpLeftovers() = (dir.listFiles()?.toList().orEmpty() + context.cacheDir.listFiles()?.toList().orEmpty())
         .filter { (it.name.startsWith(".") && it.name.endsWith(".tmp")) || it.name.startsWith("pdf_redact_") }
 
     private fun assertNoSecrets(file: File, secrets: List<String> = ALL_SECRETS) {
