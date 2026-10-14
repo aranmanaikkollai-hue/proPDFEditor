@@ -707,6 +707,7 @@ class PdfBoxCompressionRepository @Inject constructor(
             }
             else -> throw IllegalArgumentException("Unsupported output URI: $outputUri")
         }
+        Unit // 'when' above is a statement; its branches (incl. 'if' without 'else') are not used as a value
     }
 
     private suspend fun getOutputSize(uri: String): Long = withContext(dispatchers.io) {
