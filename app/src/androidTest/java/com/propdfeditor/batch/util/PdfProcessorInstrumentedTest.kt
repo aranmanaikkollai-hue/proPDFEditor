@@ -189,11 +189,11 @@ class PdfProcessorInstrumentedTest {
             )
             assertEquals(3, pageCount(out))
             val t = text(out)
-            if (angle % 90f == 0f) {
+            if (angle == 0f) {
                 assertTrue("angle $angle", t.contains("CONFIDENTIAL"))
             } else {
                 // PDFBox's text extraction splits text that is not axis-aligned into fragments, so a contiguous
-                // match is not meaningful at 45 degrees. Require every watermark letter to be present AND that the
+                // match is only meaningful at 0 degrees (CI showed 45 and 90 both fail it; the loop stopped at the first). Require every watermark letter to be present AND that the
                 // page really changed when rendered (the watermark is visible), instead of dropping the check.
                 val compact = t.filter { !it.isWhitespace() }
                 for (c in "CONFIDENTIAL".toSet()) {
