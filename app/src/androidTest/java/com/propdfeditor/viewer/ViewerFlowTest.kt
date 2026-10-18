@@ -27,9 +27,27 @@ class ViewerFlowTest {
     private fun isEmptyDashboard(): Boolean =
         composeTestRule.onAllNodesWithText("Explore Tools").fetchSemanticsNodes().isNotEmpty()
 
+    /**
+     * waitForIdle() only waits for Compose, not for the dashboard's asynchronous data load or the
+     * button's enter animation. Poll until the "Open PDF" button is actually displayed so the
+     * branch below is decided on the settled screen (previously a slow emulator run failed here
+     * with "The component is not displayed!").
+     */
+    private fun waitForOpenPdfButton() {
+        composeTestRule.waitForIdle()
+        composeTestRule.waitUntil(timeoutMillis = 15_000) {
+            try {
+                composeTestRule.onAllNodesWithText("Open PDF").onFirst().assertIsDisplayed()
+                true
+            } catch (e: AssertionError) {
+                false
+            }
+        }
+    }
+
     @Test
     fun homeScreen_showsQuickActions_orTheEmptyStateActions() {
-        composeTestRule.waitForIdle()
+        waitForOpenPdfButton()
         // Always present: the "Open PDF" button (FAB, and in the empty state the primary button too).
         composeTestRule.onAllNodesWithText("Open PDF").onFirst().assertIsDisplayed()
         if (hasQuickActions()) {
