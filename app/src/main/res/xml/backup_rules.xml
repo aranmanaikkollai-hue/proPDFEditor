@@ -1,0 +1,15 @@
+<?xml version="1.0" encoding="utf-8"?>
+<full-backup-content>
+    <!-- Signing keys (PKCS#12 files imported by the user) must never leave the device through backup. -->
+    <exclude domain="file" path="keystores/" />
+    <!-- Batch job queue (Room): holds job configuration, including protected password envelopes
+         and, for rows written by older versions, possibly plaintext passwords. Never back it up. -->
+    <exclude domain="database" path="batch_jobs.db" />
+    <exclude domain="database" path="batch_jobs.db-wal" />
+    <exclude domain="database" path="batch_jobs.db-shm" />
+    <exclude domain="database" path="batch_jobs.db-journal" />
+    <!--
+    <include domain="sharedpref" path="."/>
+    <exclude domain="sharedpref" path="device.xml"/>
+    -->
+</full-backup-content>
