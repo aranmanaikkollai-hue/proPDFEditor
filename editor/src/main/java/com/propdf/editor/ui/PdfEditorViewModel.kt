@@ -322,7 +322,7 @@ class PdfEditorViewModel @Inject constructor(
         }
     }
 
-    private suspend fun overwriteCurrentDocument(resultUri: Uri, actionLabel: String, expectedPages: Int?) {
+    private suspend fun overwriteCurrentDocument(resultUri: Uri, actionLabel: String, expectedPages: Int? = null) {
         val target = currentUri ?: return
         val outcome = withContext(Dispatchers.IO) {
             // The open document must be closed before its file is rewritten.
