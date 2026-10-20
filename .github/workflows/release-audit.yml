@@ -1,0 +1,83 @@
+name: Release build and dependency audit (manual)
+
+# Produces the evidence the audits could not generate offline:
+#   - an unsigned release APK (R8 + resource shrinking as configured in app/build.gradle)
+#   - lint results
+#   - the resolved release runtime dependency graph of :app and :core
+#   - dependency insight for iText, PDFBox-Android and Bouncy Castle
+#   - the list of iText class descriptors present in the release dex files (informational)
+#   - DEPENDENCY_LICENSES.csv built from the POMs of the resolved artifacts
+# Manual trigger only; it does not change any build file and does not touch android.yml or
+# android-tests.yml. UNTESTED: written without the ability to run it; the first run may need adjustment.
+on:
+  workflow_dispatch:
+
+jobs:
+  release-audit:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-java@v4
+        with:
+          java-version: '17'
+          distribution: 'temurin'
+          cache: gradle
+
+      - run: chmod +x gradlew
+
+      - name: Record versions
+        run: |
+          mkdir -p reports
+          { java -version 2>&1; ./gradlew --version --no-daemon; python3 --version; } | tee reports/tool-versions.txt
+
+      - name: Assemble release APK (unsigned)
+        run: ./gradlew :app:assembleRelease --no-daemon --stacktrace
+
+      - name: Lint (reported, does not block the dependency evidence)
+        continue-on-error: true
+        run: ./gradlew :app:lintRelease --no-daemon --stacktrace
+
+      - name: Resolved release runtime dependency graphs
+        run: |
+          ./gradlew :app:dependencies  --configuration releaseRuntimeClasspath --no-daemon > reports/deps-app-release.txt
+          ./gradlew :core:dependencies --configuration releaseRuntimeClasspath --no-daemon > reports/deps-core-release.txt
+
+      - name: Dependency insight (iText, PDFBox-Android, Bouncy Castle)
+        run: |
+          for dep in com.itextpdf com.tom-roush org.bouncycastle; do
+            for mod in app core; do
+              ./gradlew ":$mod:dependencyInsight" --dependency "$dep" --configuration releaseRuntimeClasspath --no-daemon \
+                > "reports/insight-$mod-$dep.txt" || true
+            done
+          done
+
+      - name: iText class descriptors in the release dex files
+        run: |
+          APK=$(ls app/build/outputs/apk/release/*.apk | head -1)
+          echo "APK: $APK" | tee reports/itext-classes-in-release-dex.txt
+          for dex in $(unzip -Z1 "$APK" | grep -E '^classes[0-9]*\.dex$'); do unzip -p "$APK" "$dex"; done \
+            | grep -a -o 'Lcom/itextpdf/[A-Za-z0-9_/$]*' | sort -u > reports/itext-class-list.txt || true
+          echo "distinct iText class descriptors: $(wc -l < reports/itext-class-list.txt)" | tee -a reports/itext-classes-in-release-dex.txt
+
+      - name: Dependency licence inventory (self-test, then generate)
+        run: |
+          # The folder is named tools/license in the patch; tolerate the British spelling too.
+          LICDIR=$(ls -d tools/license tools/licence 2>/dev/null | head -1)
+          echo "licence tools folder: $LICDIR"
+          python3 "$LICDIR/test_generate_dependency_licenses.py"
+          python3 "$LICDIR/generate_dependency_licenses.py" \
+            --deps reports/deps-app-release.txt reports/deps-core-release.txt \
+            --cache "$HOME/.gradle/caches/modules-2/files-2.1" \
+            --out reports/DEPENDENCY_LICENSES.csv
+
+      - name: Upload evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: release-audit
+          path: |
+            reports/
+            app/build/outputs/apk/release/
+            app/build/outputs/mapping/release/
+            app/build/reports/lint-results-release.*
