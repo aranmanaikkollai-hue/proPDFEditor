@@ -158,7 +158,7 @@ class EditorCompressInstrumentedTest {
     private fun fileOf(uri: Uri): File = File(uri.path!!)
 
     @Test
-    fun compressPdf_success_preservesPagesAndText_andNeverTouchesTheSource() = runBlocking {
+    fun compressPdf_success_preservesPagesAndText_andNeverTouchesTheSource() = runBlocking<Unit> {
         val src = mixedPdf("src.pdf")
         val before = src.readBytes()
         val result = repo.compressPdf(Uri.fromFile(src), CompressConfig(level = 7, imageQuality = 40))
@@ -176,7 +176,7 @@ class EditorCompressInstrumentedTest {
     }
 
     @Test
-    fun optimizePdf_success_producesReadableDocumentWithSamePages() = runBlocking {
+    fun optimizePdf_success_producesReadableDocumentWithSamePages() = runBlocking<Unit> {
         val src = mixedPdf("opt.pdf")
         for (aggressive in listOf(false, true)) {
             val result = repo.optimizePdf(Uri.fromFile(src), aggressive)
@@ -188,7 +188,7 @@ class EditorCompressInstrumentedTest {
     }
 
     @Test
-    fun compressPdf_signedPdf_isRefused_noOutputLeftBehind_sourceUntouched() = runBlocking {
+    fun compressPdf_signedPdf_isRefused_noOutputLeftBehind_sourceUntouched() = runBlocking<Unit> {
         val src = signedPdf("signed.pdf")
         val before = src.readBytes()
         val result = repo.compressPdf(Uri.fromFile(src), CompressConfig())
@@ -200,7 +200,7 @@ class EditorCompressInstrumentedTest {
     }
 
     @Test
-    fun compressPdf_corruptInput_fails_noOutputLeftBehind_sourceUntouched() = runBlocking {
+    fun compressPdf_corruptInput_fails_noOutputLeftBehind_sourceUntouched() = runBlocking<Unit> {
         val src = File(dir, "corrupt.pdf").apply { writeText("%PDF-1.7 this is not a real pdf") }
         val before = src.readBytes()
         val result = repo.compressPdf(Uri.fromFile(src), CompressConfig())
@@ -210,7 +210,7 @@ class EditorCompressInstrumentedTest {
     }
 
     @Test
-    fun compressPdf_encryptedInput_failsSafely_sourceUntouched() = runBlocking {
+    fun compressPdf_encryptedInput_failsSafely_sourceUntouched() = runBlocking<Unit> {
         val src = encryptedPdf("encrypted.pdf")
         val before = src.readBytes()
         val result = repo.compressPdf(Uri.fromFile(src), CompressConfig())
@@ -220,14 +220,14 @@ class EditorCompressInstrumentedTest {
     }
 
     @Test
-    fun compressPdf_missingSource_failsWithoutOutput() = runBlocking {
+    fun compressPdf_missingSource_failsWithoutOutput() = runBlocking<Unit> {
         val result = repo.compressPdf(Uri.fromFile(File(dir, "does-not-exist.pdf")), CompressConfig())
         assertTrue(result is AppResult.Error)
         assertTrue(outputsInCache().isEmpty())
     }
 
     @Test
-    fun compressPdf_flattenFormsOption_isRejectedNotIgnored() = runBlocking {
+    fun compressPdf_flattenFormsOption_isRejectedNotIgnored() = runBlocking<Unit> {
         val src = mixedPdf("flatten.pdf")
         val result = repo.compressPdf(Uri.fromFile(src), CompressConfig(flattenForms = true))
         assertTrue(result is AppResult.Error)
