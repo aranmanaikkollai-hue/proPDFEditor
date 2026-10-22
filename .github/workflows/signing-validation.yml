@@ -1,0 +1,73 @@
+name: Signing spike - independent validation (manual)
+
+# Runs ONLY the PDFBox + Bouncy Castle signing spike tests on an emulator, exports the signed files, and
+# validates them with qpdf, Poppler pdfsig and pyHanko (versions recorded in the report).
+#
+# Status words are honest: a validator that cannot run is reported NOT RUN, never PASS. The spike
+# certificates are self-signed, so "not trusted" is the expected trust result; integrity, coverage and
+# trust are separate rows. UNTESTED workflow: written without the ability to run it; the first run may
+# need adjustment. Does not touch android.yml, android-tests.yml or release-audit.yml.
+on:
+  workflow_dispatch:
+
+jobs:
+  signing-spike:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-java@v4
+        with:
+          java-version: '17'
+          distribution: 'temurin'
+          cache: gradle
+
+      - run: chmod +x gradlew
+
+      - name: Install validators (qpdf and Poppler from apt; pyHanko pinned from PyPI)
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y poppler-utils qpdf
+          mkdir -p reports
+          # If this pin cannot be installed the validator reports pyHanko as NOT RUN (it is not skipped silently).
+          pip install "pyhanko==0.25.1" 2>&1 | tail -3 || true
+          { qpdf --version | head -1; pdfsig -v 2>&1 | head -1; pip freeze | grep -i -E "pyhanko|certvalidator|asn1crypto|cryptography" || true; } | tee reports/validator-versions.txt
+
+      - name: Enable KVM
+        run: |
+          echo 'KERNEL=="kvm", GROUP="kvm", MODE="0666", OPTIONS+="static_node=kvm"' | sudo tee /etc/udev/rules.d/99-kvm4all.rules
+          sudo udevadm control --reload-rules
+          sudo udevadm trigger --name-match=kvm
+
+      - name: Spike tests on emulator, then pull the exported files
+        uses: reactivecircus/android-emulator-runner@v2
+        with:
+          api-level: 34
+          arch: x86_64
+          target: google_apis
+          profile: Nexus 6
+          disable-animations: true
+          script: |
+            ./gradlew :core:connectedDebugAndroidTest -Pandroid.testInstrumentationRunnerArguments.class=com.propdfeditor.core.pdf.signature.PdfBoxCmsSignerInstrumentedTest --no-daemon --stacktrace || true
+            bash tools/validation/pull_spike_artifacts.sh spike-out
+
+      - name: Test verdict (any failed test fails the job)
+        run: |
+          if grep -rl "<failure\|<error" core/build/outputs/androidTest-results 2>/dev/null; then
+            echo "Spike instrumented tests FAILED"; exit 1
+          fi
+          grep -rho 'tests="[0-9]*"' core/build/outputs/androidTest-results 2>/dev/null | head -3 || echo "no test results found"
+
+      - name: Independent validation (qpdf, pdfsig, pyHanko)
+        run: python3 tools/validation/validate_signing_spike.py spike-out --report reports/signing-validation.md
+
+      - name: Upload evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: signing-validation
+          path: |
+            reports/
+            spike-out/
+            core/build/outputs/androidTest-results/
+            core/build/reports/androidTests/
