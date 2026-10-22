@@ -67,8 +67,7 @@ fun AppException.pageEditorMessage(): String {
 /**
  * Page Editor / PDF operations repository.
  *
- * Engine: PDFBox Android 2.0.27.0 through [PdfBoxPageEngine] (no iText in this file).
- * iText code that is NOT part of the Page Editor path (compress, annotation export) lives in [LegacyITextPdfOperations] and is delegated to unchanged.
+ * Engine: PDFBox Android 2.0.27.0 through [PdfBoxPageEngine] and [PdfProcessor] (no iText).
  *
  * SAF: every Uri may be file:// or content://. content:// sources are copied into a private
  * cache file (ContentResolver) and that copy is always deleted afterwards. Results are written
@@ -83,7 +82,6 @@ class PdfOperationsRepositoryImpl @Inject constructor(
 ) : PdfOperationsRepository {
 
     private val engine by lazy { PdfBoxPageEngine(context) }
-    private val legacy by lazy { LegacyITextPdfOperations(context, dispatchers, logger) }
 
     // ===================== plumbing =====================
 
@@ -252,10 +250,21 @@ class PdfOperationsRepositoryImpl @Inject constructor(
         engine.headerFooter(inputFile, outputFile, config)
     }
 
-    // ===================== NOT Page Editor: compress / annotation export still iText, delegated unchanged =====================
+    // ===================== compress (File-based) =====================
 
-    override suspend fun compress(inputFile: File, outputFile: File, config: CompressConfig): AppResult<File> =
-        legacy.compress(inputFile, outputFile, config)
+    /** File-based compress through the PDFBox repository (signed PDFs refused, output validated). */
+    override suspend fun compress(inputFile: File, outputFile: File, config: CompressConfig): AppResult<File> {
+        if (config.flattenForms) return AppResult.Error(PageEditorCompression.FLATTEN_FORMS_UNSUPPORTED)
+        return io {
+            pdfProcessor.compressPdf(
+                context,
+                Uri.fromFile(inputFile),
+                Uri.fromFile(outputFile),
+                PageEditorCompression.compressionConfigFor(config)
+            )
+            outputFile
+        }
+    }
 
     // Password security: PDFBox via :security's PdfBoxPasswordEngine (no iText, no bypass).
     private val passwordEngine by lazy { PdfBoxPasswordEngine(context) }
@@ -278,13 +287,6 @@ class PdfOperationsRepositoryImpl @Inject constructor(
     override suspend fun decrypt(inputFile: File, outputFile: File, password: String): AppResult<File> = io {
         passwordEngine.decrypt(inputFile, outputFile, password)
     }
-
-    override suspend fun saveAnnotations(
-        inputFile: File,
-        outputFile: File,
-        pageAnnotations: Map<Int, Pair<List<AnnotationStroke>, Float>>,
-        pageTextAnnotations: Map<Int, Pair<List<AnnotationText>, Float>>
-    ): AppResult<File> = legacy.saveAnnotations(inputFile, outputFile, pageAnnotations, pageTextAnnotations)
 
     /**
      * URI-based compress used by the PDF Editor screen. Runs through the PDFBox compression
