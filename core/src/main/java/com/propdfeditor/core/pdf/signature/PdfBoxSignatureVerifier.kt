@@ -40,6 +40,10 @@ import java.util.Date
  * `<hex>` string is reported as "could not be read", never as valid.
  *
  * The signed bytes are streamed from the file (no full-document copy in memory).
+ *
+ * Integrity and certificate validity are kept apart: integrity is checked with the signer's public key
+ * (digest and signature only); whether the certificate was valid at the claimed signing time is reported
+ * in [SignatureVerificationResult.signerCertificateValidAtSigningTime].
  */
 object PdfBoxSignatureVerifier {
 
@@ -98,13 +102,18 @@ object PdfBoxSignatureVerifier {
             val integrity = try {
                 signers.all { signer ->
                     val signerCert = certificateFor(cms, signer) ?: return unreadable(whole)
-                    signer.verify(JcaSimpleSignerInfoVerifierBuilder().setProvider(provider).build(signerCert))
+                    // Built from the PUBLIC KEY, not the certificate: with a certificate Bouncy Castle also rejects a
+                    // signature whose certificate was expired at signing time, which would mix certificate
+                    // validity into integrity. Validity at signing time is reported separately below.
+                    signer.verify(JcaSimpleSignerInfoVerifierBuilder().setProvider(provider).build(signerCert.publicKey))
                 }
             } catch (e: CMSException) {
                 false // a changed document makes Bouncy Castle throw (digest mismatch)
             }
 
-            val signDate = signingTime(first) ?: field.dictionaryDate
+            // Same source as the iText engine: the dictionary /M date first, the CMS signing-time attribute
+            // only if /M is absent. Both are claims by the signer; neither is a trusted time without a timestamp.
+            val signDate = field.dictionaryDate ?: signingTime(first)
             val validAtSigning: Boolean? = if (signDate != null) {
                 try { cert.checkValidity(signDate); true } catch (e: Exception) { false }
             } else {
