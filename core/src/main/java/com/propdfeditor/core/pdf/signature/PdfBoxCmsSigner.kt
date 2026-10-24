@@ -9,7 +9,6 @@ import com.tom_roush.pdfbox.pdmodel.PDResources
 import com.tom_roush.pdfbox.pdmodel.common.PDRectangle
 import com.tom_roush.pdfbox.pdmodel.font.PDType1Font
 import com.tom_roush.pdfbox.pdmodel.graphics.image.LosslessFactory
-import com.tom_roush.pdfbox.pdmodel.interactive.annotation.PDAnnotation
 import com.tom_roush.pdfbox.pdmodel.interactive.annotation.PDAppearanceDictionary
 import com.tom_roush.pdfbox.pdmodel.interactive.annotation.PDAppearanceStream
 import com.tom_roush.pdfbox.pdmodel.interactive.digitalsignature.PDSignature
@@ -168,7 +167,7 @@ object PdfBoxCmsSigner {
         location: String?
     ) {
         widget.rectangle = PDRectangle(v.x, v.y, v.width, v.height)
-        widget.annotationFlags = PDAnnotation.FLAG_PRINT
+        widget.setPrinted(true) // the signature is part of the printed page
 
         // The form is drawn upright in DISPLAY orientation; /Matrix rotates it into the (possibly rotated) page.
         val rotation = Math.floorMod((v.rotation / 90) * 90, 360)
