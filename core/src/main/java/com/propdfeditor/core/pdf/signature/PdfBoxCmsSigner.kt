@@ -237,7 +237,7 @@ object PdfBoxCmsSigner {
     }
 
     private fun markForIncrementalUpdate(page: PDPage) {
-        page.cosObject.getDictionaryObject(COSName.ANNOTS)?.isNeedToBeUpdated = true
+        (page.cosObject.getDictionaryObject(COSName.ANNOTS) as? COSArray)?.isNeedToBeUpdated = true
         var node: COSDictionary? = page.cosObject
         while (node != null) {
             node.isNeedToBeUpdated = true
