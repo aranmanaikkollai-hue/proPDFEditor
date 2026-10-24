@@ -2,8 +2,10 @@ package com.propdfeditor.core.pdf.signature
 
 import android.graphics.Bitmap
 import com.tom_roush.pdfbox.cos.COSArray
+import com.tom_roush.pdfbox.cos.COSDictionary
 import com.tom_roush.pdfbox.cos.COSName
 import com.tom_roush.pdfbox.pdmodel.PDDocument
+import com.tom_roush.pdfbox.pdmodel.PDPage
 import com.tom_roush.pdfbox.pdmodel.PDPageContentStream
 import com.tom_roush.pdfbox.pdmodel.PDResources
 import com.tom_roush.pdfbox.pdmodel.common.PDRectangle
@@ -142,7 +144,9 @@ object PdfBoxCmsSigner {
                         ?: throw IllegalStateException("The new signature field was not created.")
                     fieldName?.let { field.partialName = it }
                     if (visible != null) {
-                        applyVisibleAppearance(doc, field.widgets.first(), visible, chain[0], signDate, reason, location)
+                        val widget = field.widgets.first()
+                        applyVisibleAppearance(doc, widget, visible, chain[0], signDate, reason, location)
+                        placeOnPage(doc, widget, visible.pageIndex)
                     }
                     part.outputStream().use { doc.saveIncremental(it) }
                 }
@@ -207,6 +211,38 @@ object PdfBoxCmsSigner {
         val appearance = PDAppearanceDictionary()
         appearance.setNormalAppearance(form)
         widget.appearance = appearance
+    }
+
+    /**
+     * PDFBox puts a new signature widget on the FIRST page (`SignatureOptions.setPage` only applies together
+     * with a ready-made visual-signature template). Move it to the requested page, and mark every changed
+     * object (the page, its `/Annots` array and the page-tree ancestors) for the incremental update, otherwise
+     * the change would silently be left out of the saved file.
+     */
+    private fun placeOnPage(doc: PDDocument, widget: com.tom_roush.pdfbox.pdmodel.interactive.annotation.PDAnnotationWidget, pageIndex: Int) {
+        val target = doc.getPage(pageIndex)
+        if (target.annotations.any { it.cosObject === widget.cosObject }) return // already there
+
+        val first = doc.getPage(0)
+        val firstList = first.annotations
+        if (firstList.removeAll { it.cosObject === widget.cosObject }) {
+            first.annotations = firstList
+            markForIncrementalUpdate(first)
+        }
+        val targetList = target.annotations
+        targetList.add(widget)
+        target.annotations = targetList
+        widget.page = target
+        markForIncrementalUpdate(target)
+    }
+
+    private fun markForIncrementalUpdate(page: PDPage) {
+        page.cosObject.getDictionaryObject(COSName.ANNOTS)?.isNeedToBeUpdated = true
+        var node: COSDictionary? = page.cosObject
+        while (node != null) {
+            node.isNeedToBeUpdated = true
+            node = node.getDictionaryObject(COSName.PARENT) as? COSDictionary
+        }
     }
 
     private fun rotationMatrix(rotation: Int): COSArray? {
