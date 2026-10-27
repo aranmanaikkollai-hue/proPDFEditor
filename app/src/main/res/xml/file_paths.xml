@@ -1,0 +1,23 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  FileProvider roots. Deliberately narrow: nothing here exposes a whole app directory.
+
+  Everything shared with another app (or handed to another activity such as the OCR crop screen) is first
+  COPIED into cache/shared/ by com.propdf.core.share.ShareStaging, which is the only supported way to get
+  a content URI. Files elsewhere in the app's private storage (files/keystores/, cache/viewer_unlocked/,
+  databases, annotations, ...) and the shared-storage root cannot be turned into a content URI by this
+  provider; FileProvider.getUriForFile throws IllegalArgumentException for them.
+-->
+<paths>
+    <!-- Staging area for anything that is shared. Per-use random sub-directories. -->
+    <cache-path name="shared" path="shared/" />
+
+    <!-- Scanner output; these folders only ever hold scanned page images (ScannerProcessingRepositoryImpl). -->
+    <files-path name="scanner_original" path="scanner/original/" />
+    <files-path name="scanner_processed" path="scanner/processed/" />
+    <files-path name="scanner_thumbnails" path="scanner/thumbnails/" />
+
+    <!-- Output folders of the (currently unreachable) conversion workspace, see FileUtils. -->
+    <cache-path name="conversions_cache" path="conversions/" />
+    <external-files-path name="conversions_external" path="Documents/conversions/" />
+</paths>
