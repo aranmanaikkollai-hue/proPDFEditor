@@ -1,0 +1,14 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  Narrow, documented lint exceptions. Nothing is disabled globally.
+
+  EnsureInitializerMetadata: two androidx.startup Initializer classes are deliberately NOT registered in the
+  manifest (decision recorded in docs/REMAINING_WORK.md: leave as is). Lint reports them at file level, so they
+  are ignored by path. Any other Initializer without manifest metadata is still an error.
+-->
+<lint>
+    <issue id="EnsureInitializerMetadata">
+        <ignore path="src/main/java/com/propdf/editor/data/worker/WorkManagerInitializer.kt" />
+        <ignore path="src/main/java/com/propdfeditor/startup/WorkManagerInitializer.kt" />
+    </issue>
+</lint>
