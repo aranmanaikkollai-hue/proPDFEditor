@@ -43,11 +43,12 @@ class RecycleBinViewModel @Inject constructor(
 
     fun permanentDelete(id: Long) {
         viewModelScope.launch {
-            permanentDelete(id)
+            // Explicit .invoke: a bare permanentDelete(id) resolves to THIS function (infinite relaunch, never deletes).
+            permanentDelete.invoke(id)
         }
     }
 
-        fun emptyBin() {
+    fun emptyBin() {
         viewModelScope.launch {
             _uiState.update { it.copy(isLoading = true) }
             // Explicit 0 = empty everything. The old default (30) only emptied the whole bin because of an Int overflow.
