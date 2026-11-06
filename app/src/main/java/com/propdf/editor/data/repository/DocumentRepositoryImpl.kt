@@ -119,8 +119,9 @@ class DocumentRepositoryImpl @Inject constructor(
     }
 
     override suspend fun permanentlyDelete(id: Long) {
-        val doc = pdfDocumentDao.getById(id) ?: return
-        try {
+        if (pdfDocumentDao.getById(id) == null) return
+        pdfDocumentDao.deletePermanently(id)
+    }
             val file = File(doc.filePath)
             if (file.exists()) file.delete()
         } catch (e: Exception) {
@@ -244,10 +245,13 @@ class DocumentRepositoryImpl @Inject constructor(
         }
     }
 
-    override suspend fun cleanOldRecycleBinItems(days: Int) {
-        val cutoff = System.currentTimeMillis() - (days * 24 * 60 * 60 * 1000)
+        override suspend fun cleanOldRecycleBinItems(days: Int) {
+        // days == 0 is the explicit "empty the whole bin" request.
+        if (days == 0) { emptyRecycleBin(); return }
+        // Long arithmetic (see RecycleBinPolicy) and rows without deletedAt are never purged by age.
+        val cutoff = RecycleBinPolicy.cutoffMillis(System.currentTimeMillis(), days)
         val oldItems = pdfDocumentDao.getRecycleBinDocuments().first()
-            .filter { (it.deletedAt ?: 0) < cutoff }
+            .filter { RecycleBinPolicy.isEligibleForAgeCleanup(it.deletedAt, cutoff) }
         oldItems.forEach {
             permanentlyDelete(it.id)
         }
