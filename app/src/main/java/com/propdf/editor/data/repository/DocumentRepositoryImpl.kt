@@ -118,15 +118,13 @@ class DocumentRepositoryImpl @Inject constructor(
         logActivity(id, ActivityAction.RESTORED)
     }
 
+    /**
+     * ROWS ONLY (owner decision, Nov 2026): removes the database record and NEVER deletes a file. filePath may point
+     * at a user's original PDF, and file ownership/provenance is not yet established. Used by per-item permanent
+     * delete, Empty Bin, age-based cleanup and batchDelete, so all of them preserve the original document.
+     */
     override suspend fun permanentlyDelete(id: Long) {
         if (pdfDocumentDao.getById(id) == null) return
-        pdfDocumentDao.deletePermanently(id)
-    }
-            val file = File(doc.filePath)
-            if (file.exists()) file.delete()
-        } catch (e: Exception) {
-            // Log but continue
-        }
         pdfDocumentDao.deletePermanently(id)
     }
 
@@ -245,7 +243,7 @@ class DocumentRepositoryImpl @Inject constructor(
         }
     }
 
-        override suspend fun cleanOldRecycleBinItems(days: Int) {
+    override suspend fun cleanOldRecycleBinItems(days: Int) {
         // days == 0 is the explicit "empty the whole bin" request.
         if (days == 0) { emptyRecycleBin(); return }
         // Long arithmetic (see RecycleBinPolicy) and rows without deletedAt are never purged by age.
