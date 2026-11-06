@@ -47,10 +47,11 @@ class RecycleBinViewModel @Inject constructor(
         }
     }
 
-    fun emptyBin() {
+        fun emptyBin() {
         viewModelScope.launch {
             _uiState.update { it.copy(isLoading = true) }
-            emptyRecycleBin()
+            // Explicit 0 = empty everything. The old default (30) only emptied the whole bin because of an Int overflow.
+            emptyRecycleBin(olderThanDays = 0)
             _uiState.update { it.copy(isLoading = false) }
         }
     }
