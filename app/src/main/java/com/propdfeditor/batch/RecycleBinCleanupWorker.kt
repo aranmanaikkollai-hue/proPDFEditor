@@ -9,23 +9,19 @@ import androidx.work.PeriodicWorkRequestBuilder
 import androidx.work.WorkManager
 import androidx.work.WorkerParameters
 import com.propdf.editor.data.local.SettingsDataStore
-import com.propdf.editor.data.local.dao.PdfDocumentDao
+import com.propdf.core.data.local.dao.PdfDocumentDao
+import com.propdf.editor.data.repository.RecycleBinPolicy
 import dagger.assisted.Assisted
 import dagger.assisted.AssistedInject
 import kotlinx.coroutines.flow.first
 import java.util.concurrent.TimeUnit
 
 /**
- * Permanently deletes files that have been sitting in the recycle bin longer than the
- * user's "Auto-delete from recycle bin" setting (Settings screen, [SettingsDataStore.autoDeleteDays],
- * 1-90 days).
+ * Purges recycle-bin DATABASE ROWS that have been in the bin longer than the user's "Auto-delete from recycle bin"
+ * setting ([SettingsDataStore.autoDeleteDays], clamped to 1-90 days). Original files are never touched.
  *
- * NOTE: this previously deleted from `RecycleBinDao`/`recycle_bin`, a separate Room entity/table
- * that nothing in the app ever inserts into -- so this worker ran daily and cleaned up nothing,
- * while the *real* recycle bin (soft-deleted rows in `pdf_documents`, isDeleted/deletedAt, as
- * used by RecycleBinViewModel / the actual Recycle Bin screen) was never auto-purged at all,
- * regardless of what the user set the slider to. Repointed at the real table via the DAO method
- * that already existed for this (`permanentDeleteOld`) but was never called from anywhere.
+ * RETARGETED: this now purges the :core bin table (see docs/RECYCLE_BIN_DATA_FLOW.md); the `:app` database's
+ * pdf_documents is never soft-deleted into by any active path, so the previous query could not match real bin items.
  */
 @HiltWorker
 class RecycleBinCleanupWorker @AssistedInject constructor(
@@ -37,9 +33,11 @@ class RecycleBinCleanupWorker @AssistedInject constructor(
 
     override suspend fun doWork(): Result {
         return try {
-            val autoDeleteDays = settingsDataStore.autoDeleteDays.first()
-            val cutoff = System.currentTimeMillis() - TimeUnit.DAYS.toMillis(autoDeleteDays.toLong())
-            pdfDocumentDao.permanentDeleteOld(cutoff)
+            val autoDeleteDays = RecycleBinPolicy.clampAutoDeleteDays(settingsDataStore.autoDeleteDays.first())
+            val cutoff = RecycleBinPolicy.cutoffMillis(System.currentTimeMillis(), autoDeleteDays)
+            // Authoritative bin = :core ProPDFDatabase.pdf_documents (the table the bin screen, delete and restore use).
+            // Row purge only: original files are never touched, and rows without deleted_at never match (SQL NULL).
+            pdfDocumentDao.deleteOldRecycleBinItems(cutoff)
             Result.success()
         } catch (e: Exception) {
             Result.retry()
@@ -50,10 +48,9 @@ class RecycleBinCleanupWorker @AssistedInject constructor(
         private const val UNIQUE_WORK_NAME = "recycle_bin_cleanup"
 
         /**
-         * Schedules the same unique periodic work that [com.propdfeditor.batch.BatchOperationsManager
-         * .scheduleRecycleBinCleanup] enqueues from BootReceiver -- added here too so cleanup is
-         * also scheduled on ordinary app startup, not only after a device reboot. Same unique work
-         * name + KEEP policy, so this is a no-op if the boot-time schedule already ran.
+         * Same unique periodic work that BatchOperationsManager.scheduleRecycleBinCleanup() enqueues from the
+         * registered BootReceiver (same unique name + KEEP policy). In the current source this function is only
+         * called from the legacy, UNREGISTERED WorkManagerInitializer, so the only live schedule is the boot one.
          */
         fun schedulePeriodic(context: Context) {
             val request = PeriodicWorkRequestBuilder<RecycleBinCleanupWorker>(1, TimeUnit.DAYS)
