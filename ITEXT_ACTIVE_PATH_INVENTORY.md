@@ -1,3 +1,5 @@
+> **HISTORICAL SNAPSHOT - SUPERSEDED.** This file describes an earlier source tree (the previous audit used archive `proPDFEditor-main__6__1.zip`, fingerprint `6d8bfe0f...04e7`; some files predate even that) and is kept as evidence, unedited below this banner. Statements here about iText in production code, run results and database state may no longer be true. Current status: see `docs/ARCHITECTURE_CURRENT_STATE.md`.
+
 # iText active-path inventory
 
 Audit date: 2026-10-01.  This inventory was produced with `rg -n -i
