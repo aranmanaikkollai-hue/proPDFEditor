@@ -1,0 +1,138 @@
+{
+  "formatVersion": 1,
+  "database": {
+    "version": 2,
+    "identityHash": "d44d21ff83543195e037dd5ceb6a3a5b",
+    "entities": [
+      {
+        "tableName": "recent_files",
+        "createSql": "CREATE TABLE IF NOT EXISTS `${TABLE_NAME}` (`uri` TEXT NOT NULL, `display_name` TEXT NOT NULL, `file_size_bytes` INTEGER NOT NULL, `last_opened_at` INTEGER NOT NULL, `page_count` INTEGER NOT NULL, `is_favourite` INTEGER NOT NULL, `category` TEXT NOT NULL, PRIMARY KEY(`uri`))",
+        "fields": [
+          {
+            "fieldPath": "uri",
+            "columnName": "uri",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "displayName",
+            "columnName": "display_name",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "fileSizeBytes",
+            "columnName": "file_size_bytes",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "lastOpenedAt",
+            "columnName": "last_opened_at",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "pageCount",
+            "columnName": "page_count",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "isFavourite",
+            "columnName": "is_favourite",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "category",
+            "columnName": "category",
+            "affinity": "TEXT",
+            "notNull": true
+          }
+        ],
+        "primaryKey": {
+          "autoGenerate": false,
+          "columnNames": [
+            "uri"
+          ]
+        },
+        "indices": [],
+        "foreignKeys": []
+      },
+      {
+        "tableName": "compression_history",
+        "createSql": "CREATE TABLE IF NOT EXISTS `${TABLE_NAME}` (`id` INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL, `sourceUri` TEXT NOT NULL, `outputUri` TEXT NOT NULL, `originalSizeBytes` INTEGER NOT NULL, `compressedSizeBytes` INTEGER NOT NULL, `compressionRatio` REAL NOT NULL, `config` TEXT NOT NULL, `timestamp` INTEGER NOT NULL, `fileName` TEXT NOT NULL)",
+        "fields": [
+          {
+            "fieldPath": "id",
+            "columnName": "id",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "sourceUri",
+            "columnName": "sourceUri",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "outputUri",
+            "columnName": "outputUri",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "originalSizeBytes",
+            "columnName": "originalSizeBytes",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "compressedSizeBytes",
+            "columnName": "compressedSizeBytes",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "compressionRatio",
+            "columnName": "compressionRatio",
+            "affinity": "REAL",
+            "notNull": true
+          },
+          {
+            "fieldPath": "config",
+            "columnName": "config",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "timestamp",
+            "columnName": "timestamp",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "fileName",
+            "columnName": "fileName",
+            "affinity": "TEXT",
+            "notNull": true
+          }
+        ],
+        "primaryKey": {
+          "autoGenerate": true,
+          "columnNames": [
+            "id"
+          ]
+        },
+        "indices": [],
+        "foreignKeys": []
+      }
+    ],
+    "views": [],
+    "setupQueries": [
+      "CREATE TABLE IF NOT EXISTS room_master_table (id INTEGER PRIMARY KEY,identity_hash TEXT)",
+      "INSERT OR REPLACE INTO room_master_table (id,identity_hash) VALUES(42, 'd44d21ff83543195e037dd5ceb6a3a5b')"
+    ]
+  }
+}
