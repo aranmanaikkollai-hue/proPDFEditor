@@ -1,0 +1,190 @@
+{
+  "formatVersion": 1,
+  "database": {
+    "version": 1,
+    "identityHash": "7cc9d606b0c551d46915595f57630771",
+    "entities": [
+      {
+        "tableName": "scanned_documents",
+        "createSql": "CREATE TABLE IF NOT EXISTS `${TABLE_NAME}` (`id` TEXT NOT NULL, `name` TEXT NOT NULL, `scanMode` TEXT NOT NULL, `createdAt` INTEGER NOT NULL, `updatedAt` INTEGER NOT NULL, PRIMARY KEY(`id`))",
+        "fields": [
+          {
+            "fieldPath": "id",
+            "columnName": "id",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "name",
+            "columnName": "name",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "scanMode",
+            "columnName": "scanMode",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "createdAt",
+            "columnName": "createdAt",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "updatedAt",
+            "columnName": "updatedAt",
+            "affinity": "INTEGER",
+            "notNull": true
+          }
+        ],
+        "primaryKey": {
+          "autoGenerate": false,
+          "columnNames": [
+            "id"
+          ]
+        },
+        "indices": [],
+        "foreignKeys": []
+      },
+      {
+        "tableName": "scanned_pages",
+        "createSql": "CREATE TABLE IF NOT EXISTS `${TABLE_NAME}` (`id` TEXT NOT NULL, `documentId` TEXT NOT NULL, `originalImagePath` TEXT NOT NULL, `processedImagePath` TEXT, `edgeTopLeftX` REAL NOT NULL, `edgeTopLeftY` REAL NOT NULL, `edgeTopRightX` REAL NOT NULL, `edgeTopRightY` REAL NOT NULL, `edgeBottomRightX` REAL NOT NULL, `edgeBottomRightY` REAL NOT NULL, `edgeBottomLeftX` REAL NOT NULL, `edgeBottomLeftY` REAL NOT NULL, `colorFilter` TEXT NOT NULL, `rotation` INTEGER NOT NULL, `timestamp` INTEGER NOT NULL, `pageNumber` INTEGER NOT NULL, PRIMARY KEY(`id`), FOREIGN KEY(`documentId`) REFERENCES `scanned_documents`(`id`) ON UPDATE NO ACTION ON DELETE CASCADE )",
+        "fields": [
+          {
+            "fieldPath": "id",
+            "columnName": "id",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "documentId",
+            "columnName": "documentId",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "originalImagePath",
+            "columnName": "originalImagePath",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "processedImagePath",
+            "columnName": "processedImagePath",
+            "affinity": "TEXT",
+            "notNull": false
+          },
+          {
+            "fieldPath": "edgeTopLeftX",
+            "columnName": "edgeTopLeftX",
+            "affinity": "REAL",
+            "notNull": true
+          },
+          {
+            "fieldPath": "edgeTopLeftY",
+            "columnName": "edgeTopLeftY",
+            "affinity": "REAL",
+            "notNull": true
+          },
+          {
+            "fieldPath": "edgeTopRightX",
+            "columnName": "edgeTopRightX",
+            "affinity": "REAL",
+            "notNull": true
+          },
+          {
+            "fieldPath": "edgeTopRightY",
+            "columnName": "edgeTopRightY",
+            "affinity": "REAL",
+            "notNull": true
+          },
+          {
+            "fieldPath": "edgeBottomRightX",
+            "columnName": "edgeBottomRightX",
+            "affinity": "REAL",
+            "notNull": true
+          },
+          {
+            "fieldPath": "edgeBottomRightY",
+            "columnName": "edgeBottomRightY",
+            "affinity": "REAL",
+            "notNull": true
+          },
+          {
+            "fieldPath": "edgeBottomLeftX",
+            "columnName": "edgeBottomLeftX",
+            "affinity": "REAL",
+            "notNull": true
+          },
+          {
+            "fieldPath": "edgeBottomLeftY",
+            "columnName": "edgeBottomLeftY",
+            "affinity": "REAL",
+            "notNull": true
+          },
+          {
+            "fieldPath": "colorFilter",
+            "columnName": "colorFilter",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "rotation",
+            "columnName": "rotation",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "timestamp",
+            "columnName": "timestamp",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "pageNumber",
+            "columnName": "pageNumber",
+            "affinity": "INTEGER",
+            "notNull": true
+          }
+        ],
+        "primaryKey": {
+          "autoGenerate": false,
+          "columnNames": [
+            "id"
+          ]
+        },
+        "indices": [
+          {
+            "name": "index_scanned_pages_documentId",
+            "unique": false,
+            "columnNames": [
+              "documentId"
+            ],
+            "orders": [],
+            "createSql": "CREATE INDEX IF NOT EXISTS `index_scanned_pages_documentId` ON `${TABLE_NAME}` (`documentId`)"
+          }
+        ],
+        "foreignKeys": [
+          {
+            "table": "scanned_documents",
+            "onDelete": "CASCADE",
+            "onUpdate": "NO ACTION",
+            "columns": [
+              "documentId"
+            ],
+            "referencedColumns": [
+              "id"
+            ]
+          }
+        ]
+      }
+    ],
+    "views": [],
+    "setupQueries": [
+      "CREATE TABLE IF NOT EXISTS room_master_table (id INTEGER PRIMARY KEY,identity_hash TEXT)",
+      "INSERT OR REPLACE INTO room_master_table (id,identity_hash) VALUES(42, '7cc9d606b0c551d46915595f57630771')"
+    ]
+  }
+}
