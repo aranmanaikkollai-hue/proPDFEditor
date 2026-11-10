@@ -1,0 +1,218 @@
+{
+  "formatVersion": 1,
+  "database": {
+    "version": 1,
+    "identityHash": "ff1938eafde3d1581af17fbaccb87696",
+    "entities": [
+      {
+        "tableName": "security_operations",
+        "createSql": "CREATE TABLE IF NOT EXISTS `${TABLE_NAME}` (`id` INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL, `documentUri` TEXT NOT NULL, `operationType` TEXT NOT NULL, `status` TEXT NOT NULL, `createdAt` INTEGER NOT NULL, `completedAt` INTEGER, `errorMessage` TEXT, `outputUri` TEXT, `metadata` TEXT)",
+        "fields": [
+          {
+            "fieldPath": "id",
+            "columnName": "id",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "documentUri",
+            "columnName": "documentUri",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "operationType",
+            "columnName": "operationType",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "status",
+            "columnName": "status",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "createdAt",
+            "columnName": "createdAt",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "completedAt",
+            "columnName": "completedAt",
+            "affinity": "INTEGER",
+            "notNull": false
+          },
+          {
+            "fieldPath": "errorMessage",
+            "columnName": "errorMessage",
+            "affinity": "TEXT",
+            "notNull": false
+          },
+          {
+            "fieldPath": "outputUri",
+            "columnName": "outputUri",
+            "affinity": "TEXT",
+            "notNull": false
+          },
+          {
+            "fieldPath": "metadata",
+            "columnName": "metadata",
+            "affinity": "TEXT",
+            "notNull": false
+          }
+        ],
+        "primaryKey": {
+          "autoGenerate": true,
+          "columnNames": [
+            "id"
+          ]
+        },
+        "indices": [],
+        "foreignKeys": []
+      },
+      {
+        "tableName": "redactions",
+        "createSql": "CREATE TABLE IF NOT EXISTS `${TABLE_NAME}` (`id` INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL, `documentUri` TEXT NOT NULL, `pageNumber` INTEGER NOT NULL, `rect` TEXT NOT NULL, `color` INTEGER NOT NULL, `overlayText` TEXT, `createdAt` INTEGER NOT NULL, `isApplied` INTEGER NOT NULL)",
+        "fields": [
+          {
+            "fieldPath": "id",
+            "columnName": "id",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "documentUri",
+            "columnName": "documentUri",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "pageNumber",
+            "columnName": "pageNumber",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "rect",
+            "columnName": "rect",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "color",
+            "columnName": "color",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "overlayText",
+            "columnName": "overlayText",
+            "affinity": "TEXT",
+            "notNull": false
+          },
+          {
+            "fieldPath": "createdAt",
+            "columnName": "createdAt",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "isApplied",
+            "columnName": "isApplied",
+            "affinity": "INTEGER",
+            "notNull": true
+          }
+        ],
+        "primaryKey": {
+          "autoGenerate": true,
+          "columnNames": [
+            "id"
+          ]
+        },
+        "indices": [],
+        "foreignKeys": []
+      },
+      {
+        "tableName": "secure_documents",
+        "createSql": "CREATE TABLE IF NOT EXISTS `${TABLE_NAME}` (`uri` TEXT NOT NULL, `encryptionType` TEXT NOT NULL, `hasOwnerPassword` INTEGER NOT NULL, `hasUserPassword` INTEGER NOT NULL, `permissions` INTEGER NOT NULL, `createdAt` INTEGER NOT NULL, `lastAccessed` INTEGER NOT NULL, `isSanitized` INTEGER NOT NULL, `isRedacted` INTEGER NOT NULL, `checksum` TEXT, PRIMARY KEY(`uri`))",
+        "fields": [
+          {
+            "fieldPath": "uri",
+            "columnName": "uri",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "encryptionType",
+            "columnName": "encryptionType",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "hasOwnerPassword",
+            "columnName": "hasOwnerPassword",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "hasUserPassword",
+            "columnName": "hasUserPassword",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "permissions",
+            "columnName": "permissions",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "createdAt",
+            "columnName": "createdAt",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "lastAccessed",
+            "columnName": "lastAccessed",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "isSanitized",
+            "columnName": "isSanitized",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "isRedacted",
+            "columnName": "isRedacted",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "checksum",
+            "columnName": "checksum",
+            "affinity": "TEXT",
+            "notNull": false
+          }
+        ],
+        "primaryKey": {
+          "autoGenerate": false,
+          "columnNames": [
+            "uri"
+          ]
+        },
+        "indices": [],
+        "foreignKeys": []
+      }
+    ],
+    "views": [],
+    "setupQueries": [
+      "CREATE TABLE IF NOT EXISTS room_master_table (id INTEGER PRIMARY KEY,identity_hash TEXT)",
+      "INSERT OR REPLACE INTO room_master_table (id,identity_hash) VALUES(42, 'ff1938eafde3d1581af17fbaccb87696')"
+    ]
+  }
+}
