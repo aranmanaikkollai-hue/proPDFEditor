@@ -81,6 +81,9 @@ fun IntegratedPDFViewerScreen(
     val layoutWidth by viewerViewModel.layoutWidth.collectAsState()
     val documentHeight by viewerViewModel.documentHeight.collectAsState()
     val documentScrollY by viewerViewModel.documentScrollY.collectAsState()
+    val documentScrollX by viewerViewModel.documentScrollX.collectAsState()
+    val layoutMode by viewerViewModel.layoutMode.collectAsState()
+    val preferredLayoutMode by viewerViewModel.preferredLayoutMode.collectAsState()
     val pageBitmaps by viewerViewModel.pageBitmaps.collectAsState()
     val renderedTiles by viewerViewModel.renderedTiles.collectAsState()
     val bookmarkedPages by viewerViewModel.bookmarkedPages.collectAsState()
@@ -163,6 +166,11 @@ fun IntegratedPDFViewerScreen(
     }
 
     // Initialize annotations when in annotation mode
+    // Annotation coordinates assume a single column, so the layout is held at VERTICAL while annotating.
+    LaunchedEffect(annotationMode) {
+        viewerViewModel.setAnnotationLayoutLock(annotationMode)
+    }
+
     LaunchedEffect(annotationMode, viewerState) {
         if (annotationMode && viewerState is PDFViewerViewModel.ViewerState.Ready) {
             annotationViewModel.initializeDocument(
@@ -283,9 +291,11 @@ fun IntegratedPDFViewerScreen(
                         currentPageIndex = currentPage,
                         zoomLevel = zoomLevel,
                         onZoomChange = { viewerViewModel.updateZoom(it) },
-                        onScrollChange = { scrollY, viewportHeightPts ->
+                        layoutMode = layoutMode,
+                        documentScrollX = documentScrollX,
+                        onViewportScroll = { scrollX, scrollY, viewportWidthPts, viewportHeightPts ->
                             viewportPts = viewportHeightPts
-                            viewerViewModel.updateDocumentScroll(scrollY, viewportHeightPts)
+                            viewerViewModel.updateViewportScroll(scrollX, scrollY, viewportWidthPts, viewportHeightPts)
                         },
                         flingCancelToken = flingCancelToken,
                         isRendering = pageRenderState is PDFViewerViewModel.PageRenderState.Rendering,
@@ -322,7 +332,7 @@ fun IntegratedPDFViewerScreen(
             }
 
             // Side page scrubber with page-number pill (drag to jump fast)
-            if (viewerState is PDFViewerViewModel.ViewerState.Ready && !annotationMode) {
+            if (viewerState is PDFViewerViewModel.ViewerState.Ready && !annotationMode && layoutMode != PageLayoutMode.HORIZONTAL) {
                 PageFastScroller(
                     currentPage = currentPage,
                     totalPages = totalPages,
@@ -422,6 +432,30 @@ fun IntegratedPDFViewerScreen(
                     }
                 )
                 ListItem(
+                    headlineContent = { Text(stringResource(R.string.reader_page_layout)) },
+                    leadingContent = { Icon(Icons.Default.ViewAgenda, null) },
+                    supportingContent = {
+                        Column {
+                            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                                PageLayoutMode.values().forEach { mode ->
+                                    FilterChip(
+                                        selected = preferredLayoutMode == mode,
+                                        enabled = !annotationMode,
+                                        onClick = { viewerViewModel.setLayoutMode(mode) },
+                                        label = { Text(stringResource(pageLayoutLabel(mode))) }
+                                    )
+                                }
+                            }
+                            if (annotationMode) {
+                                Text(
+                                    stringResource(R.string.reader_layout_annotating),
+                                    style = MaterialTheme.typography.bodySmall
+                                )
+                            }
+                        }
+                    }
+                )
+                ListItem(
                     headlineContent = { Text("Edit PDF") },
                     leadingContent = { Icon(Icons.Default.Edit, null) },
                     modifier = Modifier.clickable {
@@ -491,6 +525,12 @@ fun IntegratedPDFViewerScreen(
 }
 
 private val SIDEBAR_WIDTH = 200.dp
+
+private fun pageLayoutLabel(mode: PageLayoutMode): Int = when (mode) {
+    PageLayoutMode.VERTICAL -> R.string.reader_layout_vertical
+    PageLayoutMode.TWO_PAGE -> R.string.reader_layout_two_page
+    PageLayoutMode.HORIZONTAL -> R.string.reader_layout_horizontal
+}
 
 private fun readerModeLabel(mode: ReaderColorMode): Int = when (mode) {
     ReaderColorMode.NORMAL -> R.string.reader_mode_normal
