@@ -40,10 +40,18 @@ they rely on the device checklist. `PDFViewerViewModel` has no unit tests for th
 * Bookmarks have no titles. * Annotation mode: nothing needed in 2a; the switch-to-vertical rule applies in 2b.
 * Two-page cover rule: undecided, needed for 2b.
 
+## CI evidence (run on commit 642cab1f465d0105de76ee80c88bcb47109cafc8, 1370 files)
+* Builds succeeded; release lint gate PASS, 0 errors, 833 warnings (830 before this phase; the 3 extra are not identified).
+* Merged release manifest still has no `INTERNET`.
+* Unit tests: viewer 19 (6 existing + 13 new), app 147, core 25 - 0 failures.
+* Instrumented (API 34 emulator): app 232 (3 skipped, as before), core 62, viewer 22 - 0 failures; all 6 `BookmarkDaoInstrumentedTest` tests passed.
+* `ClickableViewAccessibility` is still reported 6 times. I could not tell from the logs whether the Phase 1 follow-up edit was in this tree; the Phase 2b workflow change prints the locations.
+* Not covered by any log: Compose UI behaviour (bookmark button, dialogs, chips, colour filter, docked sidebar) and device checklist rows 31-43.
+
 ## Matrix
 | Known Working | Known Failing | Untested |
 |---|---|---|
-| Phase 1 results from the CI logs you sent (they do not cover this code) | Nothing known | Everything in this phase: compilation, the 13 new automated tests, Hilt injection of `BookmarkDao` and `ViewerPreferences` into `PDFViewerViewModel`, all UI behaviour, checklist rows 31-43 |
+| Build and lint gate pass; 13 new unit tests and 6 new Room DAO tests pass; no regressions in the existing 147 + 25 + 19 unit and 232 + 62 + 22 instrumented tests | Nothing known | All on-screen behaviour of 2a; checklist rows 31-43 |
 
 ## Files
 Changed: `viewer/src/main/java/com/propdf/viewer/ui/PDFViewerViewModel.kt`, `.../ui/PDFViewerScreen.kt`,
