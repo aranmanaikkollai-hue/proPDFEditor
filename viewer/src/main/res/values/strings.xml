@@ -1,0 +1,58 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">ProPDF Editor</string>
+
+    <!-- Navigation -->
+    <string name="previous_page">Previous Page</string>
+    <string name="next_page">Next Page</string>
+    <string name="thumbnails">Thumbnails</string>
+    <string name="more_options">More Options</string>
+
+    <!-- FAB -->
+    <string name="add_tab">Add Tab</string>
+    <string name="night_mode">Night Mode</string>
+
+    <!-- Bottom Sheet -->
+    <string name="zoom_mode">Zoom</string>
+    <string name="fit_width">Fit Width</string>
+    <string name="fit_page">Fit Page</string>
+    <string name="rotate">Rotate</string>
+    <string name="scroll_mode">Scroll</string>
+    <string name="continuous">Continuous</string>
+    <string name="horizontal">Horizontal</string>
+    <string name="theme">Theme</string>
+    <string name="theme_cycle">Cycle</string>
+    <string name="close_tab">Close tab</string>
+
+    <!-- Menu -->
+    <string name="search">Search</string>
+    <string name="bookmark">Bookmark</string>
+    <string name="share">Share</string>
+
+    <!-- Missing strings referenced by activity_premium_viewer.xml -->
+    <string name="error">Error</string>
+    <string name="zoom_in">Zoom In</string>
+    <string name="zoom_out">Zoom Out</string>
+
+    <!-- Accessibility (Phase 1) -->
+    <string name="a11y_page_scrubber">Page scrubber</string>
+
+    <!-- Reader (Phase 2a) -->
+    <string name="reader_add_bookmark">Add bookmark</string>
+    <string name="reader_remove_bookmark">Remove bookmark</string>
+    <string name="reader_bookmarks">Bookmarks</string>
+    <string name="reader_bookmarks_count">Bookmarks (%1$d)</string>
+    <string name="reader_bookmarks_empty">No bookmarks yet. Use the bookmark button to mark a page.</string>
+    <string name="reader_bookmark_page">Page %1$d</string>
+    <string name="reader_delete_bookmark">Delete bookmark for page %1$d</string>
+    <string name="reader_go_to_page">Go to page</string>
+    <string name="reader_page_range">Enter a page from 1 to %1$d</string>
+    <string name="reader_page_invalid">Not a valid page</string>
+    <string name="reader_go">Go</string>
+    <string name="reader_cancel">Cancel</string>
+    <string name="reader_close">Close</string>
+    <string name="reader_reading_mode">Reading mode</string>
+    <string name="reader_mode_normal">Normal</string>
+    <string name="reader_mode_night">Night</string>
+    <string name="reader_mode_sepia">Sepia</string>
+</resources>
