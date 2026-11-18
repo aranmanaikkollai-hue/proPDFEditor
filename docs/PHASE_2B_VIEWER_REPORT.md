@@ -28,7 +28,7 @@ Only the geometry is covered by automated tests; the gestures rely on the device
   `ContentDescription`, `LabelFor` and `TrustAllX509TrustManager` lint findings.
 
 ## Tests added (not run)
-`viewer/src/test/java/com/propdf/viewer/ui/PageLayoutEngineTest.kt`: 17 tests (original-formula equivalence, cover and
+`viewer/src/test/java/com/propdf/viewer/ui/PageLayoutEngineTest.kt`: 18 tests (original-formula equivalence, cover and
 no-cover pairing, unequal row heights, mixed sizes, horizontal scaling, empty and zero-size input, nearest page in each
 mode, scroll targets and end clamping, mode-name fallback). Expected numbers were re-derived by hand. Device checklist rows 44-60 added.
 
@@ -41,10 +41,15 @@ mode, scroll targets and end clamping, mode-name fallback). Expected numbers wer
 * Annotation coordinates still assume the single column and are untouched.
 * Left-to-right only; no right-to-left reading order.
 
+## CI evidence (run on a tree of 1373 files = Phase 2a tree + the 3 new 2b files)
+* Builds succeeded; release lint gate PASS, 0 errors.
+* Unit tests: viewer 37 (19 before + 18 new `PageLayoutEngineTest`), app 147, core 25 - 0 failures. Instrumented: app 232, core 62, viewer 22 - 0 failures (3 skipped in app, as before).
+* This proves the layout geometry code and that everything compiles. It does not exercise `PDFCanvas`, the gestures or the view-model wiring; checklist rows 44-60 are still the only check on those.
+
 ## Matrix
 | Known Working | Known Failing | Untested |
 |---|---|---|
-| 2a CI results (see its report); nothing from 2b | Nothing known | Compilation; the 17 engine tests; all canvas, gesture and layout behaviour; checklist rows 44-60 |
+| Build, lint gate, 18 new layout-geometry tests, no regressions in 147 + 25 + 37 unit and 232 + 62 + 22 instrumented tests | Nothing known | Canvas drawing, pinch, fling, mode switching, annotation lock, scrubber hiding; checklist rows 44-60 |
 
 ## Files
 Changed: `viewer/.../ui/PDFViewerViewModel.kt`, `.../ui/PDFViewerScreen.kt`, `.../ui/IntegratedPDFViewerScreen.kt`,

@@ -1,6 +1,6 @@
 # PHASE 1 - RELIABILITY REPORT
 
-**BUILD NOT RUN - needs CI.** Nothing in this report was compiled, linted or executed. Source tree analysed:
+**Status: first CI run reviewed (see "CI evidence"); the follow-up edit listed there is BUILD NOT RUN - needs CI.** Source tree analysed:
 `proPDFEditor-main__8_.zip`, sha256 `1a0896d2e77e2fb03857fb2134fc3492fdc5581f2815d313dd48441c974f5169` (no `.git`).
 Only the repo zip was supplied: no CI logs, test reports, signing-validation zip or Room schema zip. The 843-warning
 breakdown comes from `docs/RELEASE_LINT_FINDINGS.md` (an older commit) and may be stale.
@@ -72,10 +72,28 @@ deliberately.
 * `docs/RELEASE_LINT_FINDINGS.md` describes an older lint run; send a fresh `lintRelease` result to confirm the
   `ClickableViewAccessibility` (12) and `ContentDescription` (7) counts go to zero.
 
+## CI evidence (run on commit aecbc4848d1def362833974b6dd1c265b6630b8b, source_tree_sha256 2569158576...fa6, 1363 files)
+The run contains the Phase 1 patch (its new INTERNET step and new Room tests appear in the logs); I cannot prove the tree is byte-identical to the patch.
+* Release assembly and `lintRelease`: BUILD SUCCESSFUL; lint gate PASS, 0 Error/Fatal, 830 warnings (was 843).
+* `ContentDescription` no longer appears in the warning list (was 7). `ClickableViewAccessibility` 12 -> 6.
+* Merged release manifest: no `INTERNET`; permissions listed include `ACCESS_NETWORK_STATE`, `CAMERA`, `WAKE_LOCK`, `POST_NOTIFICATIONS`, `RECEIVE_BOOT_COMPLETED`, `USE_BIOMETRIC`, storage read/write.
+* iText scan: 0 entries. Committed Room schemas match generated ones (13 files).
+* Unit tests: app 147, core 25, viewer 6, scanner 0 - 0 failures.
+* Instrumented (API 34 emulator): app 226 (3 skipped), core 62, viewer 22 - 0 failures. All 6 new Room tests passed, including the 13-database schema check and both "without family" migration cases. Signing validation: 18/18 passed.
+* Not shown by the logs: which 6 `ClickableViewAccessibility` sites remain (no lint XML supplied). Inspection of the tree found four sites that still did not call `performClick()`: `ViewerGestureDetector.onTouch`, and `onTouchEvent` in `AnnotationCanvasView`, `PdfSignatureOverlayView`, `FormFieldOverlayView`. A follow-up edit adds the call on ACTION_UP in each; it is not yet built. Two more warnings may remain; please send `app/build/reports/lint-results-release.xml` after the next run.
+* Caveat on the migration tests: they pass, but the old schemas are still reconstructed, so they show the migrations work on those reconstructed databases, not on a captured real v2/v3 file.
+* `TrustAllX509TrustManager` x39 appears in lint, but no `X509TrustManager` exists in the repo's Kotlin or Java source, so it likely comes from a dependency; unverified.
+
+## Lint findings resolved from the Phase 2b CI log (the log now prints lint locations)
+* The 39 `TrustAllX509TrustManager` warnings all come from one dependency jar, `bcpkix-jdk15to18-1.72` (BouncyCastle), not from repo code. Not changed.
+* The 6 remaining `ClickableViewAccessibility` warnings were at the `onTouchEvent`/`onTouch` declarations of `AnnotationCanvasView` (line 70), `FormFieldOverlayView` (360), `PdfSignatureOverlayView` (149) and `ViewerGestureDetector` (125) - exactly the sites of the Phase 1 follow-up edit, so that edit probably was not in the tested tree - plus `OcrCropActivity` (39) and `UnifiedGestureCoordinator.detach()` (416). The last two are different rules: `setOnTouchListener` on a custom view that does not override `performClick` (fixed by adding the override to `OcrCropOverlay`), and `setOnTouchListener(null)` (suppressed on `detach()` with a comment, since removing a listener cannot hide anything from accessibility services).
+* The 1 `LabelFor` warning (`fragment_typed_signature.xml`, the font dropdown) now has a content description.
+* All of this is delivered as full files in `phase1c_lint_followup.zip`. Not built.
+
 ## Matrix
 | Known Working | Known Failing | Untested |
 |---|---|---|
-| Nothing verified by a build or test log in this phase. | Nothing known: no logs were supplied for this tree. | Compilation of every changed file; lint counts; all new Room tests (they may expose problems, especially the reconstructed old schemas and in-memory opening of all 13 databases); manifest merge result; TalkBack behaviour; all 30 device-checklist rows. |
+| Release build and lint gate pass; INTERNET absent from merged release manifest; 6 new Room tests pass; 147 + 25 + 6 unit tests and 226 + 62 + 22 instrumented tests pass (3 skipped); signing 18/18 | Nothing failing in the supplied logs | The follow-up `performClick` edit; the 6 remaining `ClickableViewAccessibility` sites (unlocated); TalkBack behaviour; all 30 device-checklist rows; real v2/v3 database upgrade |
 
 ## Files
 Changed: `.github/workflows/release-audit.yml`, `app/build.gradle`, `app/src/main/AndroidManifest.xml`,
