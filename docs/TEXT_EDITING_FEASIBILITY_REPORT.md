@@ -211,3 +211,19 @@ still draw, operator counts, spacing operators, text render modes, clipping, tex
 
 ## 11. Files
 New: `docs/TEXT_EDITING_FEASIBILITY_REPORT.md`, `tools/feasibility/analyze_text_editability.py`. Changed/moved/deleted: none.
+
+## 12. Decisions received (Nov 18) and one correction
+
+1. Scope: **A + B** (add text/images; move/resize/delete images, including images already in the PDF). In-place text editing is **not** started.
+2. Fonts: device fonts **and** one bundled open-source font (Liberation Sans Regular and Bold, SIL OFL 1.1).
+3. Signed documents: **allowed**, with a warning that the signature becomes invalid.
+4. Coordinates: adopt Page Display Space; migration order left to me.
+5. Module: new `:pdfedit`.
+6. Corpus: analyzer output; you can supply real PDFs. A manual workflow now runs the analyzer on `tools/feasibility/corpus/*.pdf`.
+
+**Correction to section 5.** I wrote that the display-to-user conversion was possibly inconsistent across the repo. Reading further:
+app `PdfPageGeometry`, annotations `AnnotationPageGeometry` and core `VisualSignatureGeometry` use the **same** four matrices (and the new
+`PageGeometry` in `:pdfedit` reproduces them, with a unit test). The MediaBox-only paths (`AnnotationFlattener`, the older block in
+`PdfAnnotationExporter`) are the only suspect ones, and I have not checked whether they are reachable. Implementation of decisions 1-5 is described in
+`docs/PHASE_3B_PDFEDIT_ENGINE_REPORT.md`.
+
