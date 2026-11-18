@@ -1,0 +1,34 @@
+name: PDF text-editability analyzer (manual)
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  analyze:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Install pikepdf
+        run: pip install pikepdf
+      - name: Analyze every PDF in tools/feasibility/corpus
+        run: |
+          mkdir -p reports
+          shopt -s nullglob
+          FILES=(tools/feasibility/corpus/*.pdf)
+          if [ ${#FILES[@]} -eq 0 ]; then
+            echo "No PDFs found in tools/feasibility/corpus/ - add some, commit, and run again."
+            exit 1
+          fi
+          python3 tools/feasibility/analyze_text_editability.py "${FILES[@]}" --summary --json reports/editability.json | tee reports/editability.txt
+      - name: Upload report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: editability-report
+          path: reports/
