@@ -50,6 +50,3 @@ especially at the PDFBox-Android calls listed under "Least certain". Nothing her
 ## Files
 New module `pdfedit/` (build.gradle, consumer-rules.pro, 11 Kotlin files in 4 packages, 6 test files, 2 TTFs + licence); `app/src/androidTest/.../PdfEditEngineInstrumentedTest.kt`; `.github/workflows/feasibility-analyzer.yml`; `tools/feasibility/corpus/README.md`.
 Changed: `settings.gradle`, `app/build.gradle` (androidTest dependency), `app/src/main/res/layout/fragment_typed_signature.xml`, `tools/feasibility/analyze_text_editability.py`, `docs/TEXT_EDITING_FEASIBILITY_REPORT.md`. Moves/deletions: none.
-
-## Update (build file name)
-The `:pdfedit` Gradle file is now `pdfedit/pdfedit.gradle` (set in `settings.gradle` with `project(':pdfedit').buildFileName`), because a file named `build.gradle` in the new folder did not arrive in the repository in two CI runs.
