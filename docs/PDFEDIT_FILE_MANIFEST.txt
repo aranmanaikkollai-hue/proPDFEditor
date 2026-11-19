@@ -1,0 +1,26 @@
+Expected files for the :pdfedit module and its tests (bytes, path). A size of 0 means the file lost its content.
+   1004  .github/workflows/feasibility-analyzer.yml
+  17700  app/src/androidTest/java/com/propdfeditor/pdfedit/PdfEditEngineInstrumentedTest.kt
+    680  pdfedit/build.gradle
+     75  pdfedit/consumer-rules.pro
+ 414568  pdfedit/src/main/assets/fonts/LiberationSans-Bold.ttf
+   5025  pdfedit/src/main/assets/fonts/LiberationSans-OFL-1.1.txt
+ 410820  pdfedit/src/main/assets/fonts/LiberationSans-Regular.ttf
+   4367  pdfedit/src/main/java/com/propdf/pdfedit/content/ContentModel.kt
+   1330  pdfedit/src/main/java/com/propdf/pdfedit/content/TextSanitizer.kt
+   1291  pdfedit/src/main/java/com/propdf/pdfedit/engine/AtomicFilePublisher.kt
+    538  pdfedit/src/main/java/com/propdf/pdfedit/engine/BundledFonts.kt
+   2409  pdfedit/src/main/java/com/propdf/pdfedit/engine/EditReport.kt
+   1353  pdfedit/src/main/java/com/propdf/pdfedit/engine/EditSession.kt
+  20757  pdfedit/src/main/java/com/propdf/pdfedit/engine/PdfEditEngine.kt
+   2586  pdfedit/src/main/java/com/propdf/pdfedit/geometry/Matrix2D.kt
+   3755  pdfedit/src/main/java/com/propdf/pdfedit/geometry/PageGeometry.kt
+   1284  pdfedit/src/main/java/com/propdf/pdfedit/ops/EditLog.kt
+   2451  pdfedit/src/main/java/com/propdf/pdfedit/ops/EditOperation.kt
+   5976  pdfedit/src/test/java/com/propdf/pdfedit/ContentRewriterTest.kt
+   2036  pdfedit/src/test/java/com/propdf/pdfedit/EditLogTest.kt
+   2387  pdfedit/src/test/java/com/propdf/pdfedit/Matrix2DTest.kt
+   5256  pdfedit/src/test/java/com/propdf/pdfedit/PageGeometryTest.kt
+   1693  pdfedit/src/test/java/com/propdf/pdfedit/TextSanitizerTest.kt
+   8846  tools/feasibility/analyze_text_editability.py
+    874  tools/feasibility/corpus/README.md
