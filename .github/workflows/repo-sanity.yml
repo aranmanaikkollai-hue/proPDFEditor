@@ -1,0 +1,30 @@
+name: Repository sanity
+
+on:
+  push:
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  sanity:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: No empty Gradle, Kotlin or manifest files; every included module has a build file
+        run: |
+          bad=$(find . \( -name '*.gradle' -o -name '*.kt' -o -name 'AndroidManifest.xml' \) -size 0 -not -path './.git/*')
+          if [ -n "$bad" ]; then
+            echo "Empty files (a file that was copied or uploaded without its content):"
+            echo "$bad"
+            exit 1
+          fi
+          for m in $(grep -oE "include ':[A-Za-z0-9_-]+'" settings.gradle | sed "s/include ':\(.*\)'/\1/"); do
+            if [ ! -s "$m/build.gradle" ] && [ ! -s "$m/$m.gradle" ]; then
+              echo "Module $m has no non-empty build.gradle or $m.gradle"
+              exit 1
+            fi
+          done
+          echo "OK"
