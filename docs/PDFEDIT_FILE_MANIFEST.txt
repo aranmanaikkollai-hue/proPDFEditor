@@ -1,8 +1,8 @@
-Expected files for the :pdfedit module and its tests (bytes, path). A size of 0 means the file lost its content.
+Expected files for the :pdfedit module and its tests (bytes, path). A size of 0 means the file lost its content; a missing line means the file did not arrive.
    1004  .github/workflows/feasibility-analyzer.yml
   17700  app/src/androidTest/java/com/propdfeditor/pdfedit/PdfEditEngineInstrumentedTest.kt
-    680  pdfedit/build.gradle
      75  pdfedit/consumer-rules.pro
+    680  pdfedit/pdfedit.gradle
  414568  pdfedit/src/main/assets/fonts/LiberationSans-Bold.ttf
    5025  pdfedit/src/main/assets/fonts/LiberationSans-OFL-1.1.txt
  410820  pdfedit/src/main/assets/fonts/LiberationSans-Regular.ttf
