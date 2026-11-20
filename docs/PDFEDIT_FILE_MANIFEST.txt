@@ -1,5 +1,6 @@
-Expected files for the :pdfedit module and its tests (bytes, path). A size of 0 means the file lost its content; a missing line means the file did not arrive.
+Expected files for the :pdfedit module, its tests and the verification tools (bytes, path). A size of 0 means the file lost its content; a missing line means the file did not arrive.
    1004  .github/workflows/feasibility-analyzer.yml
+  20214  app/src/androidTest/java/com/propdfeditor/pdfedit/PdfConversionInstrumentedTest.kt
   17700  app/src/androidTest/java/com/propdfeditor/pdfedit/PdfEditEngineInstrumentedTest.kt
     629  pdfedit/build.gradle
  414568  pdfedit/src/main/assets/fonts/LiberationSans-Bold.ttf
@@ -7,6 +8,13 @@ Expected files for the :pdfedit module and its tests (bytes, path). A size of 0 
  410820  pdfedit/src/main/assets/fonts/LiberationSans-Regular.ttf
    4367  pdfedit/src/main/java/com/propdf/pdfedit/content/ContentModel.kt
    1330  pdfedit/src/main/java/com/propdf/pdfedit/content/TextSanitizer.kt
+   2576  pdfedit/src/main/java/com/propdf/pdfedit/convert/ConvertModels.kt
+   1787  pdfedit/src/main/java/com/propdf/pdfedit/convert/OutputNaming.kt
+   2324  pdfedit/src/main/java/com/propdf/pdfedit/convert/PageRanges.kt
+   7205  pdfedit/src/main/java/com/propdf/pdfedit/convert/PdfToImagesConverter.kt
+   5503  pdfedit/src/main/java/com/propdf/pdfedit/convert/PdfToTextConverter.kt
+   1237  pdfedit/src/main/java/com/propdf/pdfedit/convert/PdfUnlock.kt
+   1680  pdfedit/src/main/java/com/propdf/pdfedit/convert/RenderSize.kt
    1291  pdfedit/src/main/java/com/propdf/pdfedit/engine/AtomicFilePublisher.kt
     538  pdfedit/src/main/java/com/propdf/pdfedit/engine/BundledFonts.kt
    2409  pdfedit/src/main/java/com/propdf/pdfedit/engine/EditReport.kt
@@ -19,7 +27,12 @@ Expected files for the :pdfedit module and its tests (bytes, path). A size of 0 
    5976  pdfedit/src/test/java/com/propdf/pdfedit/ContentRewriterTest.kt
    2036  pdfedit/src/test/java/com/propdf/pdfedit/EditLogTest.kt
    2387  pdfedit/src/test/java/com/propdf/pdfedit/Matrix2DTest.kt
+   2463  pdfedit/src/test/java/com/propdf/pdfedit/OutputNamingTest.kt
    5256  pdfedit/src/test/java/com/propdf/pdfedit/PageGeometryTest.kt
+   1834  pdfedit/src/test/java/com/propdf/pdfedit/PageRangesTest.kt
+   2411  pdfedit/src/test/java/com/propdf/pdfedit/RenderSizingTest.kt
    1693  pdfedit/src/test/java/com/propdf/pdfedit/TextSanitizerTest.kt
+  11333  tools/conversion/test_verify_conversion.py
+  13420  tools/conversion/verify_conversion.py
    8846  tools/feasibility/analyze_text_editability.py
     874  tools/feasibility/corpus/README.md
