@@ -65,6 +65,9 @@ Not wired into the app UI yet. Phase 4b (images and text to PDF) and 4c (the Con
 * The release-audit job failed before building because Gradle could not resolve the KSP plugin (a download problem on the runner, not a code problem). Re-run it; lint numbers for this commit are not available.
 * Verifier self-test: 21 tests, run here, pass.
 
+## Final CI result for 4a (commit after the verifier fixes)
+Build, lint and all tests green; the Poppler comparison ran 18 entries with **0 failures** (the CropBox and Arabic checker fixes worked). One unrelated job failed: the separate signing workflow could not download from Maven Central (HTTP 429, a rate limit). Phase 4a is closed.
+
 ## Matrix
 | Known Working | Known Failing | Untested |
 |---|---|---|
