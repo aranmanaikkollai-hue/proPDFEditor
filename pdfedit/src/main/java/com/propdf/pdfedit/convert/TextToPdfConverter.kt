@@ -1,6 +1,7 @@
 package com.propdf.pdfedit.convert
 
 import android.content.Context
+import com.propdf.pdfedit.content.TextSanitizer
 import com.propdf.pdfedit.engine.BundledFonts
 import com.propdf.pdfedit.ops.FontChoice
 import com.propdf.pdfedit.ops.FontSource
