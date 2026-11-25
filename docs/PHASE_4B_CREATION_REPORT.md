@@ -1,6 +1,6 @@
 # PHASE 4b - IMAGES TO PDF and TEXT TO PDF (engine and independent verification)
 
-**BUILD NOT RUN - needs CI** for all Kotlin in this phase. The extended Python verifier and its self-test (32 tests) were run here.
+**CI status: green (see "Final CI result").** The extended Python verifier and its self-test (32 tests) were also run here.
 Not wired into the app UI yet (that is Phase 4c). Phase 4a (PDF to images/text) is closed: CI green, Poppler comparison 18 entries, 0 failures.
 
 ## What was built (`:pdfedit`, package `convert`)
@@ -31,6 +31,11 @@ Not wired into the app UI yet (that is Phase 4c). Phase 4a (PDF to images/text) 
 * EXIF orientation is read for JPEG only; HEIC/WebP/PNG orientation is not applied.
 * Text uses one font and one size per file; no bold/italic runs, no line numbers, no right-to-left.
 * PDFBox calls not yet seen compiling: `PDPageContentStream.drawImage(image, Matrix)`, `PDDocument(MemoryUsageSetting)`, `PDDocumentInformation`, `COSStream.createRawInputStream`.
+
+## Final CI result (commit fea254e, after adding the missing TextSanitizer import)
+* Compiled. Unit tests: pdfedit 97 (66 + 31 new), app 147, core 25, viewer 37 - 0 failures. Instrumented: app 291 (21 new creation tests, all passed; 3 skips as before), core 62, viewer 22 - 0 failures.
+* Poppler/qpdf comparison: conversion 18 entries and creation 7 entries (3 image sets, 4 text files) - **0 failures**. Release lint gate: pass, 0 errors, 826 warnings.
+* The first CI run failed only on the missing import (`TextSanitizer`). Phase 4b is closed; the CI verification step is now gating (a wrong conversion fails the build).
 
 ## Matrix
 | Known Working | Known Failing | Untested |

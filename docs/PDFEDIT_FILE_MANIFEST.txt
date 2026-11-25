@@ -1,18 +1,26 @@
-Expected files for the :pdfedit module, its tests and the verification tools (bytes, path). A size of 0 means the file lost its content; a missing line means the file did not arrive.
+Expected files for the :pdfedit module, its tests, the Convert screen and the verification tools (bytes, path). A size of 0 means the file lost its content; a missing line means the file did not arrive.
    1004  .github/workflows/feasibility-analyzer.yml
+   9359  app/src/androidTest/java/com/propdfeditor/pdfedit/ConvertRunnerInstrumentedTest.kt
   20214  app/src/androidTest/java/com/propdfeditor/pdfedit/PdfConversionInstrumentedTest.kt
   23314  app/src/androidTest/java/com/propdfeditor/pdfedit/PdfCreationInstrumentedTest.kt
   17700  app/src/androidTest/java/com/propdfeditor/pdfedit/PdfEditEngineInstrumentedTest.kt
-    705  pdfedit/build.gradle
+  19948  app/src/main/java/com/propdfeditor/ui/convert/ConvertScreen.kt
+   9877  app/src/main/java/com/propdfeditor/ui/convert/ConvertViewModel.kt
+   5200  app/src/main/res/values/strings_convert.xml
+    767  pdfedit/build.gradle
  414568  pdfedit/src/main/assets/fonts/LiberationSans-Bold.ttf
    5025  pdfedit/src/main/assets/fonts/LiberationSans-OFL-1.1.txt
  410820  pdfedit/src/main/assets/fonts/LiberationSans-Regular.ttf
    4367  pdfedit/src/main/java/com/propdf/pdfedit/content/ContentModel.kt
    1330  pdfedit/src/main/java/com/propdf/pdfedit/content/TextSanitizer.kt
+   1191  pdfedit/src/main/java/com/propdf/pdfedit/convert/ConvertJob.kt
    3016  pdfedit/src/main/java/com/propdf/pdfedit/convert/ConvertModels.kt
+   2506  pdfedit/src/main/java/com/propdf/pdfedit/convert/ConvertRunner.kt
+   2105  pdfedit/src/main/java/com/propdf/pdfedit/convert/DocumentTreeSink.kt
    2268  pdfedit/src/main/java/com/propdf/pdfedit/convert/ExifOrientation.kt
    2654  pdfedit/src/main/java/com/propdf/pdfedit/convert/ImagePagePlanner.kt
    7015  pdfedit/src/main/java/com/propdf/pdfedit/convert/ImagesToPdfConverter.kt
+   1576  pdfedit/src/main/java/com/propdf/pdfedit/convert/InputStager.kt
    1787  pdfedit/src/main/java/com/propdf/pdfedit/convert/OutputNaming.kt
    2324  pdfedit/src/main/java/com/propdf/pdfedit/convert/PageRanges.kt
    1008  pdfedit/src/main/java/com/propdf/pdfedit/convert/PdfPublisher.kt
@@ -22,7 +30,8 @@ Expected files for the :pdfedit module, its tests and the verification tools (by
    1680  pdfedit/src/main/java/com/propdf/pdfedit/convert/RenderSize.kt
    1568  pdfedit/src/main/java/com/propdf/pdfedit/convert/TextDecoder.kt
    3143  pdfedit/src/main/java/com/propdf/pdfedit/convert/TextLayout.kt
-   7713  pdfedit/src/main/java/com/propdf/pdfedit/convert/TextToPdfConverter.kt
+   7761  pdfedit/src/main/java/com/propdf/pdfedit/convert/TextToPdfConverter.kt
+    960  pdfedit/src/main/java/com/propdf/pdfedit/convert/UniqueName.kt
    1291  pdfedit/src/main/java/com/propdf/pdfedit/engine/AtomicFilePublisher.kt
     538  pdfedit/src/main/java/com/propdf/pdfedit/engine/BundledFonts.kt
    2409  pdfedit/src/main/java/com/propdf/pdfedit/engine/EditReport.kt
@@ -44,6 +53,7 @@ Expected files for the :pdfedit module, its tests and the verification tools (by
    1653  pdfedit/src/test/java/com/propdf/pdfedit/TextDecoderTest.kt
    2960  pdfedit/src/test/java/com/propdf/pdfedit/TextLayoutTest.kt
    1693  pdfedit/src/test/java/com/propdf/pdfedit/TextSanitizerTest.kt
+   1487  pdfedit/src/test/java/com/propdf/pdfedit/UniqueNameTest.kt
   21955  tools/conversion/test_verify_conversion.py
   22953  tools/conversion/verify_conversion.py
    8846  tools/feasibility/analyze_text_editability.py

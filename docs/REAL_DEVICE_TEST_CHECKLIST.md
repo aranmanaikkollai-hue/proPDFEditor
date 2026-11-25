@@ -78,3 +78,28 @@ device, one API 33-34 device and one tablet. The older FileProvider / SAF / scan
 | 59 | Large file | 300-page PDF in each layout, scroll to the middle quickly | No crash; pages render as they come into view | NOT RUN |
 | 60 | Password | Open a password-protected PDF, unlock, switch layouts | Works as for any PDF | NOT RUN |
 
+## Phase 4c additions (Convert tool) - all NOT RUN
+
+| # | Area | Steps | Expected | Status |
+|---|---|---|---|---|
+| 61 | Entry | Tools hub > Convert | Screen opens with four modes; Back returns to the hub | NOT RUN |
+| 62 | PDF to images | Choose a 3-page PDF, PNG, 150 dpi, choose a folder, Convert | Progress shows; 3 images appear in that folder, named name_page_001.png ...; result card lists them | NOT RUN |
+| 63 | PDF to images | Pages "2-3", JPEG | Only pages 2 and 3, as .jpg | NOT RUN |
+| 64 | PDF to images | Pages "1-99" on a 3-page PDF | Clear message about the page list; nothing written | NOT RUN |
+| 65 | PDF to images | Run the same conversion twice into one folder | Second set is named "... (1)"; first set untouched | NOT RUN |
+| 66 | PDF to images | 300-page PDF at 300 dpi, press Cancel after a few pages | Stops; no partial files remain in the folder | NOT RUN |
+| 67 | PDF to text | Text PDF | One .txt; opens in a text app with the right text | NOT RUN |
+| 68 | PDF to text | Scanned PDF | Empty file and a "no text layer" note | NOT RUN |
+| 69 | Password | Password-protected PDF: Convert, enter wrong then right password | Dialog appears; wrong password is rejected; right password converts; no decrypted copy remains in app storage | NOT RUN |
+| 70 | Permissions | PDF that forbids copying text, PDF to text | Clear "does not allow text to be extracted" message | NOT RUN |
+| 71 | Images to PDF | Add 3 photos (one rotated phone photo), reorder with the arrows, A4, Convert | One PDF, pages in the chosen order, photos upright | NOT RUN |
+| 72 | Images to PDF | Match-picture size | Page equals the picture; no white border | NOT RUN |
+| 73 | Text to PDF | A UTF-8 text file with long lines | Lines wrap inside the margins; several pages for long text | NOT RUN |
+| 74 | Text to PDF | A Windows-1252 text file with accents | PDF made, with the "encoding assumed" note | NOT RUN |
+| 75 | Folder | Close and reopen the app, open Convert | The last folder is remembered; if it was removed, you are asked again | NOT RUN |
+| 76 | Folder | Pick a folder you cannot write to | Clear save error, nothing written | NOT RUN |
+| 77 | Leaving | Start a long conversion and leave the screen | Conversion stops; nothing partial remains | NOT RUN |
+| 78 | TalkBack | Go through the screen | Every button, chip and the move/remove arrows is announced with a meaningful name | NOT RUN |
+| 79 | Rotation | Rotate while converting | Progress continues, result still shown | NOT RUN |
+| 80 | Low storage | Fill the target storage, convert a big PDF | Clear save error; no partial files | NOT RUN |
+
