@@ -50,7 +50,8 @@ class ConvertRunnerInstrumentedTest {
     fun setUp() {
         val instrumentation = InstrumentationRegistry.getInstrumentation()
         PDFBoxResourceLoader.init(instrumentation.targetContext)
-        runner = ConvertRunner(instrumentation.context) // fonts are assets of :pdfedit, in the test APK
+        // :app depends on :pdfedit, so the bundled fonts are assets of the app APK and the app's cache folder is writable
+        runner = ConvertRunner(instrumentation.targetContext)
         work = CorpusAssets.workDir("runner")
         out = File(work, "out").apply { deleteRecursively(); mkdirs() }
         root = DocumentFile.fromFile(out)
@@ -74,7 +75,7 @@ class ConvertRunnerInstrumentedTest {
         ConvertJob(mode, inputs, root, name, password, pdfToImages = pdfToImages)
 
     private fun leftoverWorkFolders(): List<String> =
-        InstrumentationRegistry.getInstrumentation().context.cacheDir.list().orEmpty().filter { it.startsWith("convert-") }
+        InstrumentationRegistry.getInstrumentation().targetContext.cacheDir.list().orEmpty().filter { it.startsWith("convert-") }
 
     private fun expectReason(reason: ConvertException.Reason, block: () -> Unit) {
         try {
@@ -183,7 +184,7 @@ class ConvertRunnerInstrumentedTest {
 
     @Test
     fun theSinkNeverTouchesAnExistingFileAndDeletesOnlyWhatItCreated() {
-        val context = InstrumentationRegistry.getInstrumentation().context
+        val context = InstrumentationRegistry.getInstrumentation().targetContext
         File(out, "keep.txt").writeText("precious")
         val sink = DocumentTreeSink(context, root)
         sink.open("keep.txt", "text/plain").use { it.write("new".toByteArray()) }
